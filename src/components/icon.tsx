@@ -1,9 +1,10 @@
 import type { CSSProperties } from "react";
-export type IconName = "arrow-up-right" | "arrow-right" | "arrow-left" | "plus" | "search" | "chevron-down" | "heart" | "star" | "grid" | "x" | "menu" | "github" | "external" | "logout" | "edit" | "trash" | "check" | "filter" | "code" | "users" | "eye" | "clock" | "link" | "mail" | "loader" | "upload" | "leaf" | "globe" | "sun" | "book";
+export type IconName = "arrow-up-right" | "arrow-right" | "arrow-left" | "arrow-down" | "plus" | "search" | "chevron-down" | "heart" | "star" | "grid" | "x" | "menu" | "github" | "external" | "logout" | "edit" | "trash" | "check" | "filter" | "code" | "users" | "eye" | "clock" | "link" | "mail" | "loader" | "upload" | "leaf" | "globe" | "sun" | "moon" | "book" | "spark" | "sliders";
 const paths: Record<IconName, React.ReactNode> = {
   "arrow-up-right": <><path d="M6 18 18 6M6 6h12v12" /></>,
   "arrow-right": <path d="M4 12h16m-6-6 6 6-6 6" />,
   "arrow-left": <path d="M20 12H4m6-6-6 6 6 6" />,
+  "arrow-down": <path d="M12 4v16m-6-6 6 6 6-6" />,
   plus: <path d="M12 5v14M5 12h14" />,
   search: <><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></>,
   "chevron-down": <path d="m6 9 6 6 6-6" />,
@@ -30,6 +31,9 @@ const paths: Record<IconName, React.ReactNode> = {
   leaf: <><path d="M20 3c-9-1-17 3-15 11s15 7 15-11ZM5 20 15 9"/></>,
   globe: <><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></>,
   sun: <><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></>,
+  moon: <path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11Z" />,
+  spark: <path d="M12 2v20M2 12h20M4.9 4.9l14.2 14.2M19.1 4.9 4.9 19.1" />,
+  sliders: <><path d="M4 8h10m4 0h2M4 16h4m4 0h8"/><circle cx="16" cy="8" r="2"/><circle cx="10" cy="16" r="2"/></>,
   book: <><path d="M12 6C8 3 4 4 2 5v15c3-2 7-2 10 0 3-2 7-2 10 0V5c-2-1-6-2-10 1Zm0 0v14"/></>,
 };
 export function Icon({ name, size = 20, className = "", style }: { name: IconName; size?: number; className?: string; style?: CSSProperties }) {

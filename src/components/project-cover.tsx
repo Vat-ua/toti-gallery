@@ -1,33 +1,50 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Icon } from "./icon";
 
-function MiniHeader({ title, dark = false }: { title: string; dark?: boolean }) { return <div className={`mini-header ${dark ? "mini-header-dark" : ""}`}><strong>{title}<span>·</span></strong><div>Explorar <span>Sobre</span><span className="mini-nav-dot"/></div></div>; }
-function EcoArt({ title }: { title: string }) {
-  return <><div className="eco-orbit"/><div className="eco-window"><MiniHeader title={title.toLowerCase()}/><div className="eco-main"><div className="eco-copy"><span className="mini-eyebrow">ESCOLHAS QUE TRANSFORMAM</span><h3>Pequenas escolhas.<br/>Um mundo<br/><em>mais verde.</em></h3><p>Bom para você.<br/>Melhor para o planeta.</p><span className="mini-button">Descubra o natural ↗</span></div><img src="/images/plant.jpg" alt="" loading="lazy"/></div><div className="eco-bottom"><span>↗ Feito para durar</span><span>♧ Por um novo amanhã</span><span>♡ Consumo consciente</span></div></div><div className="eco-sticker">natural<br/><strong>por natureza.</strong></div></>;
+const PALETTES: Record<string, string> = { abstract: "poster-tipo", eco: "poster-bloco", books: "poster-grade", finance: "poster-arco", connect: "poster-faisca", weather: "poster-duo", quiz: "poster-codigo" };
+const TAGS: Record<string, string> = { eco: "Produto digital", books: "Interface", finance: "Produto digital", connect: "Comunidade", weather: "API", quiz: "Desafio", abstract: "Front-end" };
+
+function tagFor(style: string) { return TAGS[style] || "Projeto"; }
+function titleSize(title: string) {
+  const longest = title.split(/\s+/).reduce((size, word) => Math.max(size, word.length), 0);
+  if (longest > 12) return 8;
+  if (longest > 9) return 9.6;
+  if (title.length > 22) return 10.5;
+  if (title.length > 14) return 12;
+  return 14;
 }
-function BooksArt({ title }: { title: string }) {
-  return <><div className="books-doodle">✳</div><div className="books-window"><MiniHeader title={title.toLowerCase()}/><div className="books-heading"><span className="mini-eyebrow">UM LIVRO. MIL POSSIBILIDADES.</span><h3>Sua próxima história<br/>começa aqui.</h3><p>Encontre um mundo para chamar de seu.</p></div><div className="book-shelf"><div className="little-book book-one"><span>CLARA ALVES</span><strong>o lado<br/>bonito<br/>da vida</strong><i/></div><div className="little-book book-two"><span>HISTÓRIAS PARA SENTIR</span><strong>todas as<br/>nossas<br/><em>histórias.</em></strong><i>✿</i></div><div className="little-book book-three"><span>MARIANA LIMA</span><i/><strong>depois<br/>da chuva</strong></div></div></div><span className="books-sticker"><Icon name="book" size={20}/></span></>;
+function Poster({ title, style }: { title: string; style: string }) {
+  const number = String(title.split("").reduce((total, char) => total + char.charCodeAt(0), 0) % 97 + 1).padStart(2, "0");
+  const tag = tagFor(style);
+  const heading = <span className="poster-title" style={{ fontSize: `${titleSize(title)}cqw` }}>{title}</span>;
+  return <div className={`poster ${PALETTES[style] || "poster-tipo"}`}>
+    <div className="poster-top"><span className="poster-brand">toti<span>/</span>gallery</span><span className="poster-number">nº {number}</span></div>
+    {style === "eco" && <><span className="poster-bloko-strip" aria-hidden="true"/>{heading}</>}
+    {style === "books" && <><div className="poster-grade-grid" aria-hidden="true"/>{heading}</>}
+    {style === "finance" && <><span className="poster-arco-arc a" aria-hidden="true"/><span className="poster-arco-arc b" aria-hidden="true"/><span className="poster-arco-arc c" aria-hidden="true"/><span className="poster-arco-plus" aria-hidden="true">+</span>{heading}</>}
+    {style === "connect" && <><span className="poster-faisca-rays" aria-hidden="true"/><span className="poster-faisca-star" aria-hidden="true">✳</span>{heading}</>}
+    {style === "weather" && <><span className="poster-duo-sun" aria-hidden="true"/><span className="poster-duo-line" aria-hidden="true"/>{heading}</>}
+    {style === "quiz" && <><div className="poster-codigo-grid" aria-hidden="true"/><span className="poster-codigo-code" aria-hidden="true">&lt;/&gt;</span>{heading}</>}
+    {style === "abstract" && <><span className="poster-tipo-star" aria-hidden="true">✳</span>{heading}<span className="poster-tipo-rule" aria-hidden="true"/></>}
+    <div className="poster-bottom"><span className="poster-bottom-label">{tag}</span><span className="poster-bottom-mark" aria-hidden="true">→</span></div>
+  </div>;
 }
-function FinanceArt({ title }: { title: string }) {
-  return <><div className="finance-orbit"/><div className="finance-window"><aside className="finance-sidebar"><strong>{title.toLowerCase()}<span>✳</span></strong><span className="mini-side-active">▦ Visão geral</span><span>↗ Transações</span><span>◉ Minhas metas</span><span>▤ Relatórios</span><div className="finance-sidebar-bottom">Seu dinheiro.<br/>Novas possibilidades.</div></aside><div className="finance-main"><div className="finance-top"><strong>Visão geral</strong><span>Novembro, 2025 ⌄</span></div><p>Que bom te ver por aqui, Camila ☀</p><div className="finance-metrics"><div><span>Saldo total</span><strong>R$ 4.850<span>,00</span></strong><small>↗ +12,8% este mês</small></div><div><span>Entradas do mês</span><strong>R$ 6.200<span>,00</span></strong><small>Um passo mais perto.</small></div></div><div className="finance-chart"><div><strong>Seu dinheiro em movimento</strong><span>Este mês ⌄</span></div><svg viewBox="0 0 260 95" fill="none"><path d="M0 22H260M0 47H260M0 72H260" stroke="#efedf1"/><path d="M0 74C15 72 20 80 37 61S60 58 77 67 97 30 122 43 151 60 166 34 195 52 213 23 245 33 260 9V95H0Z" fill="#e8e6fb"/><path d="M0 74C15 72 20 80 37 61S60 58 77 67 97 30 122 43 151 60 166 34 195 52 213 23 245 33 260 9" stroke="#7770ce" strokeWidth="2.6"/></svg><div className="chart-labels"><span>01 nov</span><span>10 nov</span><span>20 nov</span><span>30 nov</span></div></div></div></div><div className="finance-float"><span>✦</span><div>Sonhos virando planos.<strong>Meta de viagem <b>75%</b></strong><i/></div></div></>;
+
+type ProjectCoverProps = { title: string; style?: string; imageUrl?: string | null; category?: string; className?: string; hoverLabel?: string };
+
+export function ProjectCover(props: ProjectCoverProps) {
+  return <ProjectCoverContent key={props.imageUrl || "poster"} {...props}/>;
 }
-function ConnectArt({ title }: { title: string }) {
-  return <><div className="connect-orbit"/><div className="connect-window"><MiniHeader title={title.toLowerCase()} dark/><div className="connect-content"><span className="mini-eyebrow">GENTE QUE SOMA. IDEIAS QUE TRANSFORMAM.</span><h3>Seu talento<br/>não tem<br/><em>fronteiras.</em></h3><span className="mini-button">Encontre sua comunidade ↗</span><div className="connect-people"><img src="/images/jean.jpg" alt=""/><img src="/images/valentina.jpg" alt=""/><img src="/images/samuel.jpg" alt=""/><span>+</span></div><span className="connect-star">✳</span></div></div><div className="connect-float">↗ Juntos, vamos além.</div></>;
-}
-function WeatherArt({ title }: { title: string }) {
-  return <><div className="weather-orbit"/><div className="weather-window"><MiniHeader title={title.toLowerCase()}/><div className="weather-location"><span>⌖ São Paulo, Brasil</span><small>Terça-feira, 18 de novembro</small></div><div className="weather-now"><div><strong>26°</strong><span>Um dia cheio de possibilidades.</span></div><div className="weather-sun"/></div><div className="weather-detail"><span>Sensação de 28°</span><span>☀ Céu aberto</span></div><div className="weather-forecast">{["QUA", "QUI", "SEX", "SÁB", "DOM"].map((day, i) => <div key={day}><span>{day}</span><span className="weather-small-sun">{i === 2 ? "☁" : "☀"}</span><strong>{27 - i}°</strong></div>)}</div></div><div className="weather-float">Um respiro. Um novo dia. <span>☀</span></div></>;
-}
-function QuizArt({ title }: { title: string }) {
-  return <><div className="quiz-doodle">+</div><div className="quiz-window"><MiniHeader title={title.toLowerCase()} dark/><div className="quiz-content"><span className="quiz-tag">&lt;/&gt; UM DESAFIO POR DIA</span><h3>Seu próximo nível<br/>começa <em>aqui_</em></h3><div className="quiz-question"><span>01 / 10</span><code>Qual é o seu próximo passo?</code></div><div className="quiz-answers"><span><i>A</i> Aprender</span><span><i>B</i> Criar</span><span><i>C</i> Compartilhar</span><span className="quiz-correct"><i>D</i> Todas as opções <b>↗</b></span></div></div></div><span className="quiz-sticker">BORA<br/>CODAR ↗</span></>;
-}
-function AbstractArt({ title }: { title: string }) {
-  return <div className="abstract-content"><span className="abstract-top">UMA IDEIA EM CONSTRUÇÃO <Icon name="arrow-up-right" size={20}/></span><span className="abstract-braces">&#123; ✳ &#125;</span><h3>{title}</h3><div><span>Feito com curiosidade.<br/>Construído com código.</span><strong>toti<span>®</span></strong></div></div>;
-}
-export function ProjectCover({ title, style = "abstract", imageUrl, category, className = "" }: { title: string; style?: string; imageUrl?: string | null; category?: string; className?: string }) {
+function ProjectCoverContent({ title, style = "abstract", imageUrl, category, className = "", hoverLabel = "Abrir projeto" }: ProjectCoverProps) {
   const [imageFailed, setImageFailed] = useState(false);
-  useEffect(() => { setImageFailed(false); }, [imageUrl]);
-  const art = style === "eco" ? <EcoArt title={title}/> : style === "books" ? <BooksArt title={title}/> : style === "finance" ? <FinanceArt title={title}/> : style === "connect" ? <ConnectArt title={title}/> : style === "weather" ? <WeatherArt title={title}/> : style === "quiz" ? <QuizArt title={title}/> : <AbstractArt title={title}/>;
-  return <div className={`project-cover cover-${style} ${className}`} role="img" aria-label={`Capa do projeto ${title}`}><div className="cover-art" aria-hidden="true">{imageUrl && !imageFailed ? <img className="custom-cover-image" src={imageUrl} alt="" loading="lazy" onError={() => setImageFailed(true)}/> : art}</div>{category && <span className="cover-category">{category === "Full-stack" && <span/>}{category}</span>}<span className="cover-hover-arrow"><Icon name="arrow-up-right" size={23}/></span></div>;
+  const hasImage = Boolean(imageUrl) && !imageFailed;
+  return <div className={`project-cover cover-${style} ${hasImage ? "has-image" : "has-poster"} ${className}`} role="img" aria-label={`Capa do projeto ${title}`}>
+    <div className="cover-art" aria-hidden="true">
+      {hasImage ? <img className="custom-cover-image" src={imageUrl as string} alt="" loading="lazy" onError={() => setImageFailed(true)}/> : <Poster title={title} style={style}/>}
+    </div>
+    {hasImage && category && <span className="cover-category"><span className="cover-category-dot"/>{category}</span>}
+    <span className="cover-hover" aria-hidden="true"><Icon name="arrow-up-right" size={18}/><span>{hoverLabel}</span></span>
+  </div>;
 }
