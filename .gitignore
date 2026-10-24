@@ -1,0 +1,25 @@
+# Dependencies and generated output
+/node_modules/
+/.next/
+/out/
+/build/
+/dist/
+next-env.d.ts
+*.tsbuildinfo
+
+# Local configuration and secrets
+.env*
+!.env.example
+
+# Personal ideas and drafts
+/tmp/
+
+# Local verification artifacts
+/artifacts/
+/test-results/
+/playwright-report/
+/coverage/
+
+# Logs and operating system files
+*.log
+.DS_Store

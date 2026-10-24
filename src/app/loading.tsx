@@ -1,0 +1,3 @@
+export default function Loading() {
+  return <main id="conteudo" className="container inner-page" aria-busy="true" aria-label="Carregando novas ideias"><span className="sr-only" role="status">Carregando projetos. As ideias já estão chegando.</span><div className="skeleton skeleton-title"/><div className="skeleton skeleton-line"/><div className="skeleton skeleton-controls"/><div className="project-grid">{Array.from({ length: 6 }, (_, i) => <div key={i}><div className="skeleton skeleton-cover"/><div className="skeleton skeleton-line"/><div className="skeleton skeleton-small"/></div>)}</div></main>;
+}
