@@ -14,6 +14,9 @@
 - Keep changes focused on the requested task.
 - Preserve existing user changes.
 - Avoid unrelated refactoring and dependency changes.
+- For open-ended tasks, analyze the problem, discuss options, and agree on
+  an approach before implementation. A direct request to implement a specific
+  change authorizes that change without further confirmation.
 
 ## Design and styles
 
