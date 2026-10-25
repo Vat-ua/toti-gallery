@@ -129,7 +129,7 @@ export function Gallery({ projects }: { projects: Project[] }) {
       projects
         .filter((project) => {
           const text = normalize(
-            `${project.title} ${project.summary} ${project.authors.map((author) => author.name).join(" ")} ${project.technologies.join(" ")}`,
+            `${project.title} ${project.description} ${project.authors.map((author) => author.name).join(" ")} ${project.technologies.join(" ")}`,
           );
           return (
             (!search || text.includes(normalize(search))) &&

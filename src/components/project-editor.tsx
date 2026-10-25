@@ -22,7 +22,6 @@ export function ProjectEditor({ user, project, people }: { user: Person; project
   const router = useRouter();
   const notify = useToast();
   const [title, setTitle] = useState(project?.title || "");
-  const [summary, setSummary] = useState(project?.summary || "");
   const [description, setDescription] = useState(project?.description || "");
   const [technologies, setTechnologies] = useState<string[]>(project?.technologies || []);
   const [isFinal, setIsFinal] = useState(project?.isFinal ?? false);
@@ -59,7 +58,7 @@ export function ProjectEditor({ user, project, people }: { user: Person; project
     if (!technologies.length) { setError("Selecione pelo menos uma tecnologia usada no projeto."); setTimeout(() => errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 30); return; }
     setPending(true);
     try {
-      const response = await fetch(project ? `/api/projects/${project.id}` : "/api/projects", { method: project ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title, summary, description, technologies, isFinal, coauthorIds, coverStyle, imageUrl, githubUrl, liveUrl }) });
+      const response = await fetch(project ? `/api/projects/${project.id}` : "/api/projects", { method: project ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title, description, technologies, isFinal, coauthorIds, coverStyle, imageUrl, githubUrl, liveUrl }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Não foi possível salvar seu projeto.");
       notify(project ? "Projeto atualizado." : "Projeto publicado.");
@@ -67,7 +66,7 @@ export function ProjectEditor({ user, project, people }: { user: Person; project
     } catch (err) { setError(err instanceof Error ? err.message : "Confira sua conexão e tente novamente."); setPending(false); setTimeout(() => errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 30); }
   }
   return <main id="conteudo" className="container inner-page">
-    <Link href="/meus-projetos" className="back-link"><Icon name="arrow-left" size={16}/>Voltar para meus projetos</Link>
+    <Link href="/meus-projetos" className="back-link"><Icon name="arrow-left" size={16}/>Meus projetos</Link>
     <div className="editor-heading"><h1>{project ? "Editar projeto" : "Publicar projeto"}</h1></div>
     <div className="editor-layout">
       <form className="editor-form" onSubmit={submit}>
@@ -76,11 +75,6 @@ export function ProjectEditor({ user, project, people }: { user: Person; project
             <div className="form-field">
               <div className="field-label-row"><label htmlFor="project-title">Nome do projeto <span className="required-dot">*</span></label><span>{title.length}/80</span></div>
               <input id="project-title" value={title} onChange={event => setTitle(event.target.value)} required minLength={3} maxLength={80}/>
-            </div>
-            <div className="form-field">
-              <div className="field-label-row"><label htmlFor="project-summary">Resumo <span className="required-dot">*</span></label><span>{summary.length}/140</span></div>
-              <input id="project-summary" value={summary} onChange={event => setSummary(event.target.value)} aria-describedby="project-summary-help" required minLength={10} maxLength={140}/>
-              <small id="project-summary-help">Explique em uma frase o que o projeto faz.</small>
             </div>
             <div className="form-field">
               <label htmlFor="project-description">Descrição <span className="required-dot">*</span></label>
@@ -121,8 +115,8 @@ export function ProjectEditor({ user, project, people }: { user: Person; project
           <section className="editor-form-section">
             <h2>Links</h2>
             <div className="form-field">
-              <label htmlFor="project-github">Repositório no GitHub (opcional)</label>
-              <input id="project-github" type="url" value={githubUrl} onChange={event => setGithubUrl(event.target.value)} placeholder="https://github.com/seu-usuario/seu-projeto" maxLength={2000}/>
+              <label htmlFor="project-github">Repositório no GitHub <span className="required-dot">*</span></label>
+              <input id="project-github" type="url" required value={githubUrl} onChange={event => setGithubUrl(event.target.value)} placeholder="https://github.com/seu-usuario/seu-projeto" maxLength={2000}/>
             </div>
             <div className="form-field">
               <label htmlFor="project-live">Projeto online (opcional)</label>
@@ -138,9 +132,8 @@ export function ProjectEditor({ user, project, people }: { user: Person; project
       </form>
       <aside className="editor-preview">
         <span className="preview-eyebrow"><Icon name="eye" size={14}/>Prévia</span>
-        <ProjectCover title={title || "Nome do projeto"} style={coverStyle} imageUrl={imageUrl}/>
-        <h2 className="preview-title">{title || "Nome do projeto"}</h2>
-        <div className="preview-author"><Avatar person={user} size={24}/><span>{user.name} · {user.cohort}</span></div>
+        <ProjectCover title={title || "Nome do projeto"} style={coverStyle} imageUrl={imageUrl} isFinal={isFinal}/>
+        <div className="preview-author"><Avatar person={user} size={24}/><span className="author-name">{user.name}</span></div>
         {technologies.length > 0 && <div className="technology-tags">{technologies.slice(0, 4).map(tech => <span className="technology-tag" key={tech}>{tech}</span>)}{technologies.length > 4 && <span className="technology-tag">+{technologies.length - 4}</span>}</div>}
       </aside>
     </div>

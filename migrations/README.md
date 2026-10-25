@@ -16,3 +16,8 @@ publication-management policy is implemented. No account-deletion UI is added.
 
 `20261026_remove_project_category.sql` removes the unused project type column.
 It preserves project records, technologies, authorship links, and likes.
+
+`20261026_simplify_project_details.sql` removes the redundant summary and makes
+the GitHub link required. It fills missing links only for the three named demo
+projects with the GitHub homepage. Other existing projects need valid GitHub
+links before applying it; their links and all project descriptions are retained.

@@ -12,12 +12,11 @@ export type Project = {
   id: string;
   slug: string;
   title: string;
-  summary: string;
   description: string;
   technologies: string[];
   coverStyle: string;
   imageUrl: string | null;
-  githubUrl: string | null;
+  githubUrl: string;
   liveUrl: string | null;
   featured: boolean;
   isFinal: boolean;

@@ -42,10 +42,5 @@ export function LikeButton({ id, initialLikes, initialLiked, full = false }: { i
     } catch { setLiked(liked); setLikes(likes); notify("Não foi possível curtir. Tente novamente.", true); }
     finally { setPending(false); }
   }
-  return <button className={`like-button ${liked ? "is-liked" : ""} ${full ? "like-full" : ""}`} type="button" onClick={toggle} disabled={pending} aria-pressed={liked} aria-label={`${liked ? "Descurtir" : "Curtir"} projeto, ${likes} curtidas`}><Icon name="heart" size={full ? 19 : 16}/>{full && <span>{liked ? "Projeto curtido" : "Curtir projeto"}</span>}<span className="like-count">{likes}</span></button>;
-}
-
-export function CopyLinkButton() {
-  const notify = useToast();
-  return <button className="button button-outline" onClick={async () => { try { await navigator.clipboard.writeText(window.location.href); notify("Link copiado! Compartilhe essa ideia."); } catch { notify("Não foi possível copiar. Copie o endereço do navegador.", true); } }}><Icon name="link" size={17}/> Compartilhar</button>;
+  return <button className={`like-button ${liked ? "is-liked" : ""} ${full ? "like-full" : ""}`} type="button" onClick={toggle} disabled={pending} aria-pressed={liked} aria-label={`${liked ? "Descurtir" : "Curtir"} projeto, ${likes} curtidas`}><Icon name="heart" size={full ? 19 : 16}/>{full && <span>{liked ? "Curtido" : "Curtir"}</span>}<span className="like-count">{likes}</span></button>;
 }
