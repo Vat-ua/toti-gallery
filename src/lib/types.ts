@@ -28,6 +28,6 @@ export type Project = {
   liked: boolean;
 };
 
-export const TECHNOLOGIES = ["HTML", "CSS", "JavaScript", "React", "Next.js", "TypeScript", "Node.js", "PostgreSQL", "MongoDB", "Python", "Tailwind CSS"];
+export const TECHNOLOGIES = ["HTML", "CSS", "JavaScript", "React", "Next.js", "TypeScript", "Node.js", "Express", "PostgreSQL", "SQLite", "MongoDB", "Python", "Tailwind CSS"];
 export const COHORTS = ["Turma 25", "Turma 24", "Turma 23", "Turma 22", "Turma 21"];
 export const COVER_STYLES = ["abstract", "eco", "books", "finance", "connect", "weather", "quiz"];
