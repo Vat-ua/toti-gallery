@@ -11,6 +11,7 @@ export function validateProject(body: Record<string, unknown>) {
   if (description.length < 30 || description.length > 6000) throw new Error("Conte sua história em uma descrição entre 30 e 6.000 caracteres.");
   const technologies = Array.isArray(body.technologies) ? [...new Set(body.technologies.filter((item): item is string => typeof item === "string" && TECHNOLOGIES.includes(item)))] : [];
   if (!technologies.length || technologies.length > 8) throw new Error("Selecione de 1 a 8 tecnologias.");
+  if (body.isFinal !== undefined && typeof body.isFinal !== "boolean") throw new Error("A indicação de projeto final deve ser verdadeira ou falsa.");
   const url = (key: string) => {
     const value = text(key);
     if (!value) return null;
@@ -24,5 +25,5 @@ export function validateProject(body: Record<string, unknown>) {
     if (/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(image)) imageUrl = image;
     else { imageUrl = url("imageUrl"); }
   }
-  return { title, summary, description, technologies, category: body.category === "Full-stack" ? "Full-stack" : "Front-end", coverStyle: COVER_STYLES.includes(text("coverStyle")) ? text("coverStyle") : "abstract", imageUrl, githubUrl: url("githubUrl"), liveUrl: url("liveUrl") };
+  return { title, summary, description, technologies, isFinal: body.isFinal === true, category: body.category === "Full-stack" ? "Full-stack" : "Front-end", coverStyle: COVER_STYLES.includes(text("coverStyle")) ? text("coverStyle") : "abstract", imageUrl, githubUrl: url("githubUrl"), liveUrl: url("liveUrl") };
 }

@@ -26,6 +26,7 @@ export const projects = pgTable("gallery_projects", {
   githubUrl: text("github_url"),
   liveUrl: text("live_url"),
   featured: boolean("featured").notNull().default(false),
+  isFinal: boolean("is_final").notNull().default(false),
   baseLikes: integer("base_likes").notNull().default(0),
   authorId: text("author_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),

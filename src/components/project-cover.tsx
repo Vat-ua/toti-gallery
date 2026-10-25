@@ -32,12 +32,12 @@ function Poster({ title, style }: { title: string; style: string }) {
   </div>;
 }
 
-type ProjectCoverProps = { title: string; style?: string; imageUrl?: string | null; category?: string; className?: string; hoverLabel?: string };
+type ProjectCoverProps = { title: string; style?: string; imageUrl?: string | null; category?: string; className?: string };
 
 export function ProjectCover(props: ProjectCoverProps) {
   return <ProjectCoverContent key={props.imageUrl || "poster"} {...props}/>;
 }
-function ProjectCoverContent({ title, style = "abstract", imageUrl, category, className = "", hoverLabel = "Abrir projeto" }: ProjectCoverProps) {
+function ProjectCoverContent({ title, style = "abstract", imageUrl, category, className = "" }: ProjectCoverProps) {
   const [imageFailed, setImageFailed] = useState(false);
   const hasImage = Boolean(imageUrl) && !imageFailed;
   return <div className={`project-cover cover-${style} ${hasImage ? "has-image" : "has-poster"} ${className}`} role="img" aria-label={`Capa do projeto ${title}`}>
@@ -45,6 +45,6 @@ function ProjectCoverContent({ title, style = "abstract", imageUrl, category, cl
       {hasImage ? <img className="custom-cover-image" src={imageUrl as string} alt="" loading="lazy" onError={() => setImageFailed(true)}/> : <Poster title={title} style={style}/>}
     </div>
     {hasImage && category && <span className="cover-category"><span className="cover-category-dot"/>{category}</span>}
-    <span className="cover-hover" aria-hidden="true"><Icon name="arrow-up-right" size={18}/><span>{hoverLabel}</span></span>
+    <span className="cover-hover" aria-hidden="true"><Icon name="arrow-up-right" size={20}/></span>
   </div>;
 }

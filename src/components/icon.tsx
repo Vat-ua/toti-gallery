@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-export type IconName = "arrow-up-right" | "arrow-right" | "arrow-left" | "arrow-down" | "plus" | "search" | "chevron-down" | "heart" | "star" | "grid" | "x" | "menu" | "github" | "external" | "logout" | "edit" | "trash" | "check" | "filter" | "code" | "users" | "eye" | "clock" | "link" | "mail" | "loader" | "upload" | "leaf" | "globe" | "sun" | "moon" | "book" | "spark" | "sliders";
+export type IconName = "arrow-up-right" | "arrow-right" | "arrow-left" | "arrow-down" | "plus" | "search" | "chevron-down" | "heart" | "star" | "grid" | "x" | "menu" | "github" | "external" | "logout" | "edit" | "trash" | "check" | "filter" | "code" | "user" | "users" | "eye" | "clock" | "link" | "mail" | "loader" | "upload" | "leaf" | "globe" | "sun" | "moon" | "book" | "spark" | "sliders";
 const paths: Record<IconName, React.ReactNode> = {
   "arrow-up-right": <><path d="M6 18 18 6M6 6h12v12" /></>,
   "arrow-right": <path d="M4 12h16m-6-6 6 6-6 6" />,
@@ -21,6 +21,7 @@ const paths: Record<IconName, React.ReactNode> = {
   check: <path d="m5 12 4 4L19 6" />,
   filter: <><path d="M4 7h16M4 17h16"/><circle cx="8" cy="7" r="2" fill="currentColor"/><circle cx="16" cy="17" r="2" fill="currentColor"/></>,
   code: <><path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-14-2 18"/></>,
+  user: <><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></>,
   users: <><circle cx="9" cy="7" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3m1-17a3 3 0 0 1 0 6m2 5a5 5 0 0 1 3 4v2"/></>,
   eye: <><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></>,
   clock: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,

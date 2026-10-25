@@ -21,6 +21,7 @@ export type Project = {
   githubUrl: string | null;
   liveUrl: string | null;
   featured: boolean;
+  isFinal: boolean;
   createdAt: string;
   author: Person;
   likes: number;
