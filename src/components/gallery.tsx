@@ -32,7 +32,7 @@ const filterGroups = [
 
 export function Gallery({ projects }: { projects: Project[] }) {
   const cohorts = useMemo(() => {
-    return [...new Set(projects.map((project) => project.author.cohort))].sort(
+    return [...new Set(projects.flatMap((project) => project.authors.map((author) => author.cohort)))].sort(
       (a, b) => b.localeCompare(a, "pt-BR", { numeric: true }),
     );
   }, [projects]);
@@ -129,11 +129,11 @@ export function Gallery({ projects }: { projects: Project[] }) {
       projects
         .filter((project) => {
           const text = normalize(
-            `${project.title} ${project.summary} ${project.author.name} ${project.technologies.join(" ")}`,
+            `${project.title} ${project.summary} ${project.authors.map((author) => author.name).join(" ")} ${project.technologies.join(" ")}`,
           );
           return (
             (!search || text.includes(normalize(search))) &&
-            (!cohort || project.author.cohort === cohort) &&
+            (!cohort || project.authors.some((author) => author.cohort === cohort)) &&
             (!featured || project.featured) &&
             (!finalOnly || project.isFinal) &&
             techs.every((tech) => project.technologies.includes(tech))

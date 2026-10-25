@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, integer, boolean, jsonb, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, integer, boolean, jsonb, primaryKey, index } from "drizzle-orm/pg-core";
 
 export const users = pgTable("gallery_users", {
   id: text("id").primaryKey(),
@@ -20,7 +20,6 @@ export const projects = pgTable("gallery_projects", {
   summary: text("summary").notNull(),
   description: text("description").notNull(),
   technologies: jsonb("technologies").$type<string[]>().notNull(),
-  category: text("category").notNull().default("Front-end"),
   coverStyle: text("cover_style").notNull().default("abstract"),
   imageUrl: text("image_url"),
   githubUrl: text("github_url"),
@@ -28,10 +27,18 @@ export const projects = pgTable("gallery_projects", {
   featured: boolean("featured").notNull().default(false),
   isFinal: boolean("is_final").notNull().default(false),
   baseLikes: integer("base_likes").notNull().default(0),
-  authorId: text("author_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  authorId: text("author_id").notNull().references(() => users.id, { onDelete: "restrict" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+export const projectAuthors = pgTable("gallery_project_authors", {
+  projectId: text("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+}, (table) => [
+  primaryKey({ columns: [table.projectId, table.userId] }),
+  index("gallery_project_authors_user_id_idx").on(table.userId),
+]);
 
 export const sessions = pgTable("gallery_sessions", {
   token: text("token").primaryKey(),

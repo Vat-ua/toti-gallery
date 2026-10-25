@@ -15,7 +15,6 @@ export type Project = {
   summary: string;
   description: string;
   technologies: string[];
-  category: string;
   coverStyle: string;
   imageUrl: string | null;
   githubUrl: string | null;
@@ -24,6 +23,7 @@ export type Project = {
   isFinal: boolean;
   createdAt: string;
   author: Person;
+  authors: Person[];
   likes: number;
   liked: boolean;
 };

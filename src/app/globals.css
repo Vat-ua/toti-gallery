@@ -248,7 +248,7 @@ textarea {
 
 .container {
   width: 100%;
-  max-width: 82.5rem;
+  max-width: 80rem;
   margin-inline: auto;
   padding-inline: var(--space-8);
 }
@@ -1409,30 +1409,6 @@ html[data-theme="dark"] .theme-icon-moon {
   background: var(--surface-2);
 }
 
-.cover-category {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 4;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1-5);
-  background: #17130f;
-  color: #fdf8ed;
-  font-size: var(--text-label);
-  font-weight: var(--weight-semibold);
-  border-radius: 999px;
-  padding: var(--space-1) var(--space-3);
-  letter-spacing: .01em;
-}
-
-.cover-category-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--lime);
-}
-
 .cover-hover {
   position: absolute;
   right: 12px;
@@ -1768,12 +1744,6 @@ html[data-theme="dark"] .theme-icon-moon {
     min-width: 38px;
   }
 
-  .cover-category {
-    padding: var(--space-1) var(--space-2);
-    top: 9px;
-    left: 9px;
-  }
-
   .load-more-area {
     padding: var(--space-10) 0 var(--space-12);
   }
@@ -1858,9 +1828,6 @@ html[data-theme="dark"] .theme-icon-moon {
     padding: var(--space-0-5) var(--space-1-5);
   }
 
-  .cover-category {
-    display: none;
-  }
 }
 
 @media (max-width:360px) {
@@ -2014,8 +1981,8 @@ html[data-theme="dark"] .theme-icon-moon {
 }
 
 .poster-grade {
-  background: #fbf7ec;
-  color: #2c2138;
+  background: #7dd3fc;
+  color: #17130f;
 }
 
 .poster-grade .poster-title {
@@ -2041,20 +2008,20 @@ html[data-theme="dark"] .theme-icon-moon {
   right: 0;
   bottom: 0;
   height: 11cqw;
-  background: #e4d5f2;
+  background: #54bde9;
 }
 
 .poster-grade-grid {
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(#c8b8d8 1px, transparent 1.4px);
+  background-image: radial-gradient(#2c7194 1px, transparent 1.4px);
   background-size: 5cqw 5cqw;
-  opacity: .55;
+  opacity: .35;
 }
 
 .poster-grade .poster-top,
 .poster-grade .poster-bottom {
-  color: #4a3a5c;
+  color: #213d52;
 }
 
 .poster-grade .poster-bottom {
@@ -2214,11 +2181,6 @@ html[data-theme="dark"] .theme-icon-moon {
 
 .project-cover.has-image {
   border-color: var(--line);
-}
-
-.project-cover.has-image .cover-category {
-  background: #17130f;
-  color: #fdf8ed;
 }
 
 /* ---------- Footer ---------- */
@@ -2497,6 +2459,15 @@ html[data-theme="dark"] .theme-icon-moon {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+}
+
+.sidebar-authors {
+  display: grid;
+  gap: var(--space-4);
+}
+
+#autores {
+  scroll-margin-top: 104px;
 }
 
 .sidebar-author>span {
@@ -3612,6 +3583,10 @@ html[data-theme="dark"] .theme-icon-moon {
   border-color: color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
+.management-actions>.leave-project {
+  flex: 1;
+}
+
 .dialog {
   border: 1.5px solid var(--line);
   border-radius: 20px;
@@ -3665,28 +3640,13 @@ html[data-theme="dark"] .theme-icon-moon {
   padding: 0 var(--space-4);
 }
 
-.editor-page {
-  max-width: 1120px;
-}
-
 .editor-heading {
   margin-bottom: var(--space-8);
 }
 
-.editor-heading .eyebrow {
-  margin-bottom: var(--space-3);
-}
-
-.editor-heading>p {
-  font-size: var(--text-body);
-  color: var(--ink-2);
-  margin-top: var(--space-2);
-  max-width: 60ch;
-}
-
 .editor-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 350px;
+  grid-template-columns: minmax(0, 1fr) 25rem;
   gap: clamp(var(--space-6), 4vw, var(--space-12));
   align-items: start;
 }
@@ -3718,6 +3678,50 @@ html[data-theme="dark"] .theme-icon-moon {
 
 .editor-form-section>.checkbox-field {
   margin-block: var(--space-4) var(--space-6);
+}
+
+.coauthor-picker .form-field {
+  margin-bottom: var(--space-3);
+}
+
+.coauthor-selected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.coauthor-options {
+  max-height: 16rem;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.coauthor-option {
+  padding: var(--space-3);
+  gap: var(--space-3);
+}
+
+.coauthor-option:hover {
+  background: var(--surface-2);
+}
+
+.coauthor-option>span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.coauthor-option small {
+  display: block;
+  font-size: var(--text-label);
+  color: var(--ink-3);
+}
+
+.coauthor-empty {
+  padding: var(--space-4);
+  font-size: var(--text-ui);
+  color: var(--ink-3);
 }
 
 .field-label-row {
@@ -3814,15 +3818,6 @@ html[data-theme="dark"] .theme-icon-moon {
 
 .editor-preview>.technology-tags {
   margin-top: var(--space-3);
-}
-
-.preview-note {
-  font-size: var(--text-label);
-  line-height: 1.55;
-  color: var(--ink-3);
-  margin-top: var(--space-5);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--line);
 }
 
 .cover-style-options {
@@ -3924,17 +3919,8 @@ html[data-theme="dark"] .theme-icon-moon {
   display: flex;
   justify-content: flex-end;
   gap: var(--space-2);
-  border-top: 1.5px solid var(--line);
   margin-top: var(--space-6);
-  padding-top: var(--space-6);
   flex-wrap: wrap;
-}
-
-.editor-submit-note {
-  font-size: var(--text-label);
-  color: var(--ink-3);
-  text-align: right;
-  margin-top: var(--space-3);
 }
 
 @media (max-width:1180px) {
@@ -3949,7 +3935,7 @@ html[data-theme="dark"] .theme-icon-moon {
   }
 
   .editor-layout {
-    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-columns: minmax(0, 1fr) 20rem;
     gap: var(--space-6);
   }
 }
@@ -3984,11 +3970,6 @@ html[data-theme="dark"] .theme-icon-moon {
   .preview-title {
     margin-top: 0;
     font-size: 1.3125rem;
-  }
-
-  .preview-note {
-    grid-column: 1/-1;
-    margin-top: var(--space-4);
   }
 
   .editor-form {
@@ -4034,10 +4015,6 @@ html[data-theme="dark"] .theme-icon-moon {
     margin-bottom: var(--space-3);
   }
 
-  .preview-note {
-    grid-column: auto;
-  }
-
   .editor-form-section h2 {
     font-size: var(--text-lead);
   }
@@ -4047,14 +4024,12 @@ html[data-theme="dark"] .theme-icon-moon {
   }
 
   .editor-submit>.button {
-    flex: 1;
+    flex: 1 0 auto;
     min-height: 48px;
     font-size: var(--text-secondary);
+    white-space: nowrap;
   }
 
-  .editor-submit-note {
-    text-align: center;
-  }
 }
 
 /* Loading, errors */

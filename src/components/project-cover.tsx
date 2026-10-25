@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Icon } from "./icon";
 
 const PALETTES: Record<string, string> = { abstract: "poster-tipo", eco: "poster-bloco", books: "poster-grade", finance: "poster-arco", connect: "poster-faisca", weather: "poster-duo", quiz: "poster-codigo" };
-const TAGS: Record<string, string> = { eco: "Produto digital", books: "Interface", finance: "Produto digital", connect: "Comunidade", weather: "API", quiz: "Desafio", abstract: "Front-end" };
+const TAGS: Record<string, string> = { eco: "Produto digital", books: "Interface", finance: "Produto digital", connect: "Comunidade", weather: "API", quiz: "Desafio", abstract: "Projeto" };
 
 function tagFor(style: string) { return TAGS[style] || "Projeto"; }
 function titleSize(title: string) {
@@ -32,19 +32,18 @@ function Poster({ title, style }: { title: string; style: string }) {
   </div>;
 }
 
-type ProjectCoverProps = { title: string; style?: string; imageUrl?: string | null; category?: string; className?: string };
+type ProjectCoverProps = { title: string; style?: string; imageUrl?: string | null; className?: string };
 
 export function ProjectCover(props: ProjectCoverProps) {
   return <ProjectCoverContent key={props.imageUrl || "poster"} {...props}/>;
 }
-function ProjectCoverContent({ title, style = "abstract", imageUrl, category, className = "" }: ProjectCoverProps) {
+function ProjectCoverContent({ title, style = "abstract", imageUrl, className = "" }: ProjectCoverProps) {
   const [imageFailed, setImageFailed] = useState(false);
   const hasImage = Boolean(imageUrl) && !imageFailed;
   return <div className={`project-cover cover-${style} ${hasImage ? "has-image" : "has-poster"} ${className}`} role="img" aria-label={`Capa do projeto ${title}`}>
     <div className="cover-art" aria-hidden="true">
       {hasImage ? <img className="custom-cover-image" src={imageUrl as string} alt="" loading="lazy" onError={() => setImageFailed(true)}/> : <Poster title={title} style={style}/>}
     </div>
-    {hasImage && category && <span className="cover-category"><span className="cover-category-dot"/>{category}</span>}
     <span className="cover-hover" aria-hidden="true"><Icon name="arrow-up-right" size={20}/></span>
   </div>;
 }
