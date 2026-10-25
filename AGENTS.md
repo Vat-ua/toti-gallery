@@ -20,6 +20,12 @@
 
 ## Design and styles
 
+- Design from the whole to the parts. Start with the overall page composition
+  and visual hierarchy, then make individual design decisions in service of that
+  whole. Evaluate colors, typography, spacing, proportions, and visual weight
+  through their relationships with surrounding elements. A local improvement
+  must also work within the larger composition. Keep implementation within the
+  agreed scope.
 - Maintain visual consistency across the interface.
 - When explicitly requested, evolve the design concept, palette,
   typography, layout, and other design decisions.
