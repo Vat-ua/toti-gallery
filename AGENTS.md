@@ -27,6 +27,13 @@
   without a clear purpose.
 - Follow the existing style organization and reuse shared
   variables and components.
+- Keep all project styles in `src/app/globals.css`, grouped by component
+  with responsive rules nearby. Do not introduce CSS Modules.
+- Define font families and recurring typography and spacing values as shared
+  CSS variables. Use rem for UI font sizes, unitless multipliers for line-height,
+  and clamp() where fluid text sizes are useful.
+- Use a consistent spacing scale. Update existing component rules and remove
+  obsolete styles rather than accumulating overrides.
 - Agree on changes to the styling approach before introducing them.
 - Use 16–18 px for primary body text and 14–16 px for secondary text,
   with smaller sizes only when clearly justified.
@@ -35,11 +42,12 @@
 
 ## Validation
 
-- Match validation to the scope and risk of the change.
-- Run npm run typecheck for TypeScript or JavaScript changes.
-- Run relevant lint checks and available tests for the affected code.
-- For UI changes, check mobile and desktop layouts, text wrapping,
-  overflow, and affected interactions.
+- Match validation to scope and risk; batch related edits before checking.
+- Run npm run typecheck and relevant lint checks once after completing
+  TypeScript or JavaScript changes; run available tests for affected logic.
+- For small UI changes, inspect the page at one desktop and one mobile width,
+  including affected interactions. Broaden coverage when the change warrants it.
+- Repeat only checks affected by subsequent edits, failures, or unresolved issues.
 - A full build is not required for minor CSS-only changes.
   Run it when changes affect build behavior, routing, dependencies,
   configuration, or server/client boundaries.
