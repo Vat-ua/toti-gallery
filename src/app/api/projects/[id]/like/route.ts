@@ -8,7 +8,7 @@ import { isSameOrigin } from "@/lib/auth";
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!isSameOrigin(request)) return Response.json({ error: "Origem não permitida." }, { status: 403 });
   const { id } = await params;
-  const project = (await db.select({ base: projects.baseLikes }).from(projects).where(eq(projects.id, id)).limit(1))[0];
+  const project = (await db.select({ base: projects.baseLikes }).from(projects).where(and(eq(projects.id, id), eq(projects.visibility, "published"))).limit(1))[0];
   if (!project) return Response.json({ error: "Projeto não encontrado." }, { status: 404 });
   const jar = await cookies();
   const existingKey = jar.get("toti_visitor")?.value;

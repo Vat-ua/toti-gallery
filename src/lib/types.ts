@@ -27,6 +27,8 @@ export type Project = {
   authors: Person[];
   likes: number;
   liked: boolean;
+  visibility: "published" | "hidden";
+  moderationReason?: string | null;
 };
 
 export const TECHNOLOGIES = ["HTML", "CSS", "JavaScript", "React", "Next.js", "TypeScript", "Node.js", "Express", "PostgreSQL", "SQLite", "MongoDB", "Python", "Tailwind CSS"];

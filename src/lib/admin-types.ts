@@ -1,4 +1,6 @@
 import type { StudentListParams } from "./student-list-params";
+import type { AdminProjectFilters } from "./admin-project-params";
+import type { Project } from "./types";
 
 export type AdminTurma = {
   id: string; name: string; number: number; courseName: string | null; startYear: number | null; archived: boolean;
@@ -23,12 +25,10 @@ export type StudentAccessLink = {
 };
 export type ManagedStudent = AdminStudent & { emailVerified: boolean; accessLink: StudentAccessLink | null };
 export type StudentListPage = { students: ManagedStudent[]; total: number; filters: StudentListParams };
+export type AdminProject = Project & { turmaName: string; moderatedAt: string | null; moderatedByName: string | null };
+export type AdminProjectPage = { projects: AdminProject[]; total: number; filters: AdminProjectFilters };
 export type StudentInvitation = {
   id: string; name: string; email: string; url: string; expiresAt: string;
-};
-export type TurmaProject = {
-  id: string; slug: string; title: string; author: string; isFinal: boolean;
-  visibility: "published" | "hidden";
 };
 export type ImportRow = { line: number; name: string; email: string; error?: string };
 export type ImportPreview = ImportRow & {

@@ -43,11 +43,13 @@ export function MyProjects({ projects, user }: { projects: Project[]; user: Pers
     </div>
     {items.length ? <div className="management-grid">{items.map(project => {
       const isOwner = project.author.id === user.id;
+      const href = project.visibility === "hidden" ? `/meus-projetos/${project.id}` : `/projetos/${project.slug}`;
       return <div key={project.id} className="management-card">
-        <ProjectCard project={project} isCoauthor={!isOwner}/>
+        <ProjectCard project={project} isCoauthor={!isOwner} href={href} readOnly={project.visibility === "hidden"}/>
+        {project.visibility === "hidden" && <div className="project-moderation-note"><strong>Oculto pela administração</strong>{isOwner && project.moderationReason && <p>{project.moderationReason}</p>}</div>}
         <div className="management-actions">
           {isOwner && <Link href={`/meus-projetos/${project.id}/editar`}><Icon name="edit" size={15}/>Editar</Link>}
-          <Link href={`/projetos/${project.slug}`}><Icon name="eye" size={15}/>Visualizar</Link>
+          <Link href={href}><Icon name="eye" size={15}/>Visualizar</Link>
           {isOwner ? <button type="button" aria-label={`Excluir ${project.title}`} onClick={() => setTarget(project)}><Icon name="trash" size={16}/></button> : <button type="button" className="leave-project" onClick={() => setTarget(project)} aria-label={`Sair do projeto ${project.title}`}>Sair do projeto</button>}
         </div>
       </div>;

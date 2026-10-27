@@ -62,12 +62,13 @@ export function ProjectEditor({ user, project, people }: { user: Person; project
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Não foi possível salvar seu projeto.");
       notify(project ? "Projeto atualizado." : "Projeto publicado.");
-      router.push(`/projetos/${data.slug}`); router.refresh();
+      router.push(project?.visibility === "hidden" ? `/meus-projetos/${project.id}` : `/projetos/${data.slug}`); router.refresh();
     } catch (err) { setError(err instanceof Error ? err.message : "Confira sua conexão e tente novamente."); setPending(false); setTimeout(() => errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 30); }
   }
   return <main id="conteudo" className="container inner-page">
     <Link href="/meus-projetos" className="back-link"><Icon name="arrow-left" size={16}/>Meus projetos</Link>
     <div className="editor-heading"><h1>{project ? "Editar projeto" : "Publicar projeto"}</h1></div>
+    {project?.visibility === "hidden" && <div className="admin-notice project-moderation-note"><strong>Oculto pela administração</strong><p>{project.moderationReason}</p><p>Você pode editar o projeto. A publicação só poderá ser restaurada pela administração.</p></div>}
     <div className="editor-layout">
       <form className="editor-form" onSubmit={submit}>
         <fieldset disabled={pending} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>

@@ -58,6 +58,8 @@ export async function getProjects(options: { participantId?: string } = {}): Pro
       isFinal: project.isFinal, turmaId: project.turmaId, author,
       authors: [author, ...(authorsByProject.get(project.id) || []).filter(person => person.id !== author.id).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))],
       createdAt: project.createdAt.toISOString(), likes: project.baseLikes + (totalMap.get(project.id) || 0), liked: mineSet.has(project.id),
+      visibility: project.visibility,
+      moderationReason: project.visibility === "hidden" && options.participantId === project.authorId ? project.moderationReason : null,
     };
   });
 }

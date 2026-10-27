@@ -6,7 +6,7 @@ import { isStaff, canManageAccount } from "./permissions";
 import { parseStudents } from "./student-import";
 import { provisionIdentity } from "./admin-provision";
 import { studentSearch } from "./student-search";
-import type { StudentAdded, StudentLookup, AdminStudent, AdminTurma, ImportPreview, TurmaProject } from "./admin-types";
+import type { StudentAdded, StudentLookup, AdminStudent, AdminTurma, ImportPreview } from "./admin-types";
 
 export class AdminError extends Error {
   constructor(message: string, public status = 400) { super(message); }
@@ -81,14 +81,13 @@ export async function turmaDetails(actorId: string, id: string) {
     const turma = await group(tx, id);
     const memberships = await tx.select({ userId: turmaMembers.userId, turmaId: turmas.id, name: turmas.name }).from(turmaMembers).innerJoin(turmas, eq(turmas.id, turmaMembers.turmaId));
     const people = await tx.select({ id: users.id, name: users.name, email: users.email, avatar: users.image, status: users.status, role: users.role, isDemo: users.isDemo }).from(users).orderBy(users.name);
-    const publications = await tx.select({ id: projects.id, slug: projects.slug, title: projects.title, author: users.name, isFinal: projects.isFinal, visibility: projects.visibility })
-      .from(projects).innerJoin(users, eq(projects.authorId, users.id)).where(eq(projects.turmaId, id)).orderBy(projects.createdAt);
+    const [{ projectCount }] = await tx.select({ projectCount: count() }).from(projects).where(eq(projects.turmaId, id));
     const allPeople: AdminStudent[] = people.map(person => ({ ...person, turmaNames: memberships.filter(m => m.userId === person.id).map(m => m.name), turmaIds: memberships.filter(m => m.userId === person.id).map(m => m.turmaId) }));
     const memberIds = new Set(memberships.filter(m => m.turmaId === id).map(m => m.userId));
     return { turma: { id, name: turma.name, number: turma.number, courseName: turma.courseName, startYear: turma.startYear, archived: !!turma.archivedAt },
       members: allPeople.filter(p => memberIds.has(p.id)),
       candidates: allPeople.filter(p => !memberIds.has(p.id) && canManageAccount(actor, p) && p.status !== "suspended"),
-      projects: publications as TurmaProject[] };
+      projectCount };
   });
 }
 

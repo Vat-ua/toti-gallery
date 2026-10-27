@@ -310,12 +310,15 @@ textarea {
   color: var(--band-btn-fg);
 }
 
-.button-danger {
+.button-danger,
+.button-accent {
   background: var(--accent);
   color: var(--accent-fg);
 }
 
-.button-danger:hover {
+.button-danger:hover,
+.button-accent:hover,
+.button-accent:focus-visible {
   background: var(--accent-strong);
 }
 
@@ -1068,12 +1071,14 @@ html[data-theme="dark"] .theme-icon-moon {
   color: var(--ink);
 }
 
-.controls-row .search-field {
+.controls-row .search-field,
+.admin-search {
   background: var(--surface);
   border-color: var(--line);
 }
 
-.controls-row .search-field:focus-within {
+.controls-row .search-field:focus-within,
+.admin-search:focus-within {
   border-color: var(--ink);
 }
 
@@ -1111,7 +1116,21 @@ html[data-theme="dark"] .theme-icon-moon {
 
 .sort-menu .dropdown-item {
   justify-content: space-between;
-  white-space: nowrap;
+  white-space: normal;
+}
+
+.select-menu {
+  max-height: min(24rem, 60dvh);
+  overflow-y: auto;
+}
+
+.select-menu .dropdown-item > svg {
+  flex-shrink: 0;
+}
+
+.sort-trigger:disabled {
+  opacity: .45;
+  cursor: not-allowed;
 }
 
 .sort-menu [aria-checked="true"] {
@@ -1663,7 +1682,8 @@ html[data-theme="dark"] .theme-icon-moon {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .controls-row .search-field {
+  .controls-row .search-field,
+.admin-search {
     grid-column: 1/-1;
   }
 
@@ -3512,24 +3532,28 @@ html[data-theme="dark"] .theme-icon-moon {
 }
 
 .management-actions>a:hover,
+.management-actions>.project-moderation-action:not(.is-accent):hover,
 .account-photo-buttons>.photo-change:hover {
   background: var(--surface-2);
   border-color: var(--line-strong);
   color: var(--ink);
 }
 
-.management-actions>button {
+.management-actions>button:not(.project-moderation-action) {
   flex: 0 0 42px;
 }
 
-.management-actions>button,
+.management-actions>button:not(.project-moderation-action),
+.project-moderation-action.is-accent,
 .account-photo-buttons>.photo-remove {
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
-.management-actions>button:hover,
-.management-actions>button:focus-visible,
+.management-actions>button:not(.project-moderation-action):hover,
+.management-actions>button:not(.project-moderation-action):focus-visible,
+.project-moderation-action.is-accent:hover,
+.project-moderation-action.is-accent:focus-visible,
 .account-photo-buttons>.photo-remove:hover,
 .account-photo-buttons>.photo-remove:focus-visible {
   border-color: color-mix(in srgb, var(--accent) 60%, transparent);
@@ -4261,19 +4285,6 @@ html[data-theme="dark"] .theme-icon-moon {
   overflow-wrap: anywhere;
 }
 
-.admin-row-link {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-
-.admin-row-link>svg {
-  flex-shrink: 0;
-  color: var(--ink-3);
-}
-
-.admin-row-link:hover,
 .admin-row-title:hover {
   color: var(--accent);
 }
@@ -4419,15 +4430,62 @@ html[data-theme="dark"] .theme-icon-moon {
   color: var(--ink-2);
 }
 
-.admin-project-final {
-  display: inline-block;
-  margin-top: var(--space-2);
-  font-size: var(--text-label);
-  color: var(--ink-3);
+/* Project moderation reuses gallery cards; controls sit outside the cover. */
+.project-like-count {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--ink-2);
+  font-size: var(--text-secondary);
+  white-space: nowrap;
 }
 
-.admin-project-list {
-  margin-top: var(--space-6);
+.project-moderation-note {
+  padding: var(--space-4);
+  background: var(--surface-2);
+  border-radius: 10px;
+  font-size: var(--text-secondary);
+  line-height: var(--leading-copy);
+  overflow-wrap: anywhere;
+}
+
+.project-moderation-note p + p,
+.project-moderation-note strong + p {
+  margin-top: var(--space-2);
+}
+
+.admin-project-toolbar {
+  margin-bottom: var(--space-8);
+}
+
+.admin-project-actions {
+  margin-top: auto;
+}
+
+.admin-moderation-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin-bottom: var(--space-8);
+  background: var(--surface);
+}
+
+.admin-moderation-summary > div {
+  min-width: 0;
+  flex: 1 1 20rem;
+}
+
+.admin-moderation-reason {
+  margin-block: var(--space-3) var(--space-2);
+  font-size: var(--text-body);
+  line-height: var(--leading-copy);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .admin-page .button,
@@ -4807,8 +4865,22 @@ html[data-theme="dark"] .theme-icon-moon {
   padding: var(--space-2) var(--space-3);
 }
 
-.students-toolbar .admin-select {
+.admin-filter-field {
+  grid-column: auto;
   max-width: 100%;
+}
+
+.admin-filter-field .sort-trigger {
+  gap: var(--space-4);
+}
+
+.admin-filter-field .sort-trigger > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-filter-field .sort-trigger > svg {
+  flex-shrink: 0;
 }
 
 .admin-student-section {

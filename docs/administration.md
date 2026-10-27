@@ -3,8 +3,9 @@
 Stage 3 is delivered in separately reviewed parts. `/admin/turmas` provides group
 creation/editing, archive/restore, student membership and import preview.
 `/admin/estudantes` provides the global student list, multi-turma management,
-student access controls and activation/recovery links. Project moderation and
-administrator management remain unavailable pending their own implementation.
+student access controls and activation/recovery links. `/admin/projetos` provides
+project review and visibility moderation, also available within each turma.
+Administrator management remains unavailable pending its own implementation.
 
 ## Permissions
 
@@ -180,6 +181,43 @@ Raw URLs exist only in the immediate result.
 
 No additional database migration is needed for Estudantes. It uses the reviewed
 owner/turma schema already present in development and the isolated test branch.
+
+## Project moderation
+
+The global list and a turma's `Projetos` tab share gallery cards, project/author
+search and publication filters. The global view also filters by turma, including
+archived groups. Filtering and stable creation-date/ID ordering run in SQL before
+incremental loading (9 cards initially, then `Carregar mais projetos`). Previously
+loaded cards remain visible, and filtering always searches the full database.
+Filters and the number of loaded batches remain in the URL, including when returning
+from project review. Author matching includes coauthors and
+never duplicates a group publication. Cards omit repeated titles, turma labels and
+publication badges; actions are `Visualizar` and neutral `Ocultar` or accent-colored
+`Restaurar`, styled like `Meus projetos`. Hide/restore panels retain the project name
+without the turma or repeated visibility explanations. Restoration shows the
+original hiding reason read-only before confirmation.
+
+Admin toolbar filters reuse the same dropdown component and search styling as the
+public gallery. Students retain their separate table pagination.
+
+Active administrators and the owner can hide a project with a required reason
+(up to 1,000 characters), or restore it after confirmation. Both operations check
+staff access inside the transaction and lock the project row. Stale actions return
+409 rather than overwrite another moderator's decision. Moderation changes only
+visibility, reason and the latest moderator/time; it retains publication ownership,
+content, authors and likes. Restoration clears the reason but retains the latest
+moderator/time. This is latest-action metadata, not an audit history.
+
+Hidden projects disappear from the public gallery, profiles, related projects and
+public detail URLs. Authors retain them in `Meus projetos`, with a private preview;
+only the publication owner sees the reason and can edit or delete the publication.
+Coauthors retain their existing leave action. Owner edits do not restore visibility.
+The administration has a private review page with reason and latest-action metadata.
+Private previews show a read-only like count. Public liking resumes after restoration.
+Staff receive no general content-edit or permanent-deletion rights.
+
+No additional migration is needed: moderation uses the existing visibility fields.
+The implementation is local/development only; production and Vercel are unchanged.
 
 ## Checks
 

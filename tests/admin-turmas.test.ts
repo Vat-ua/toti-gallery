@@ -68,7 +68,7 @@ test("turma editing and archive preserve membership, publications, credits and l
   await service.saveTurma(adminId, { number: turmaNumber, courseName: "Updated Course", startYear: 2027 }, groupId);
   await service.archiveTurma(adminId, groupId, true);
   let detail = await service.turmaDetails(ownerId, groupId);
-  assert.equal(detail.turma.archived, true); assert.equal(detail.projects.length, 1); assert.equal(detail.members.length, 1);
+  assert.equal(detail.turma.archived, true); assert.equal(detail.projectCount, 1); assert.equal(detail.members.length, 1);
   await service.setMembership(adminId, groupId, studentId, false);
   assert.equal((await pool.query("SELECT count(*)::int AS n FROM gallery_project_authors WHERE project_id=$1", [projectId])).rows[0].n, 1);
   assert.equal((await pool.query("SELECT count(*)::int AS n FROM gallery_likes WHERE project_id=$1", [projectId])).rows[0].n, 1);
