@@ -1,12 +1,20 @@
 # Database migrations
 
 For a new, empty database, follow the root README and create the current schema
-with Drizzle. The development seed includes the owner in each project's authors.
+with Drizzle. No request-triggered sample seed or demo login is installed.
 
 For an existing database, apply pending `.sql` files in filename order using a
 PostgreSQL client or SQL editor connected to the intended database. They are not
 applied automatically when the application starts. Schema synchronization alone
 does not replace the authorship data backfill.
+
+**Auth cutover:** `toti_gallery` already has both auth migrations. The historical
+`toti_gallery_legacy` database is retained; do not apply current migrations to it
+without approval. A migration from the historical schema requires both
+`20261026_stage1_platform_foundation.sql` and `20261026_stage2_auth_cutover.sql`,
+applied in that order with the new code and writes paused. Do not run the new code
+against the old schema or schema-push over existing data. Isolated review uses a
+temporary test branch; see [Environments](../docs/environments.md).
 
 `20261026_add_project_authors.sql` adds authorship links and backfills existing
 owners without changing project records. Deleting a project removes its links
@@ -21,3 +29,14 @@ It preserves project records, technologies, authorship links, and likes.
 the GitHub link required. It fills missing links only for the three named demo
 projects with the GitHub homepage. Other existing projects need valid GitHub
 links before applying it; their links and all project descriptions are retained.
+
+`20261026_stage1_platform_foundation.sql` creates turmas, membership, Better Auth
+tables and invitation/moderation fields, then backfills groups and project turma.
+`20261026_stage2_auth_cutover.sql` uses the owner's explicit confirmation that all
+existing users are demos: it flags those profiles, discards obsolete credentials /
+sessions, and adds durable auth rate-limit storage. It never deletes profiles,
+projects, credits or likes. Do not use this demo-only cutover for an unrelated
+database containing real accounts. See [Platform foundation](platform-foundation.md).
+
+`fixtures/` contains historical schema definitions for isolated migration tests,
+not additional production migrations.

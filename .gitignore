@@ -1,6 +1,7 @@
 # Dependencies and generated output
 /node_modules/
 /.next/
+/.vercel/
 /out/
 /build/
 /dist/
@@ -23,3 +24,4 @@ next-env.d.ts
 # Logs and operating system files
 *.log
 .DS_Store
+.vercel

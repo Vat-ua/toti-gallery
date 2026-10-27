@@ -15,23 +15,19 @@ The interface is in Brazilian Portuguese (pt-BR).
 
 Requirements: Node.js 20.9 or later, npm, and PostgreSQL.
 
-Use a separate PostgreSQL test database: the application currently adds sample
-data automatically.
+Use the dedicated Neon `development` branch. Sample data is not created
+automatically, and public registration is disabled.
 
 ```sh
 npm ci
 cp .env.example .env.local
 ```
 
-Create an empty test database and set `DATABASE_URL` in `.env.local` to its
-connection string. Then create the tables using the current schema:
-
-```sh
-npx drizzle-kit push --config=drizzle.config.ts
-```
-
-Review the proposed schema changes before applying them to the test database.
-Start the development server:
+Set `DATABASE_URL` to `development / toti_gallery`, fill in its Neon resource IDs,
+and generate a separate `BETTER_AUTH_SECRET`. Use `http://localhost:3000` for
+`BETTER_AUTH_URL`. The development copy already contains the current schema;
+do not rerun historical cutover migrations. See [Environments](docs/environments.md)
+for connection guards and temporary test setup. Start the development server:
 
 ```sh
 npm run dev
@@ -49,6 +45,8 @@ Open the Local URL printed by Next.js, normally `http://localhost:3000`.
 | `npm run lint` | Run ESLint |
 | `npm run build` | Create a production build |
 | `npm start` | Serve a completed production build |
+| `npm run test:database-target` | Check environment guards without a database |
+| `npm run test:auth` | Check authentication on an explicitly prepared temporary test branch |
 
 ## Project structure
 
@@ -65,3 +63,13 @@ public/          Static assets
 See [AGENTS.md](AGENTS.md) for contribution and agent instructions.
 Keep credentials in `.env.local`, which is ignored by Git. Use `.env.example` to
 document required variables with placeholder values, and never commit secrets.
+
+## Accounts
+
+Better Auth supports administrator-provisioned email/password and optional Google
+Sign-In on the same profile. Activation and recovery use single-use links delivered
+manually; no email service is required. Existing demonstration profiles cannot sign in.
+
+See [Authentication](docs/authentication.md) for the first-administrator command,
+isolated review environment, account provisioning and migrations. See
+[Google on Vercel](docs/google-vercel-check.md) for the public OAuth check.

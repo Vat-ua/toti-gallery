@@ -61,6 +61,12 @@
 
 ## Data and Git
 
+- Follow [docs/environments.md](docs/environments.md) for Neon, migrations,
+  and Vercel operations.
+- Use development for local work and isolated test branches for migration checks
+  and write tests. Verify the actual target before database writes.
+- Obtain explicit approval for production changes. Before production migrations,
+  prepare a recovery path and verify data preservation on an isolated copy.
 - Never commit secrets or local environment files.
 - Accompany database schema changes with appropriate migrations.
 - Use test data when validating write operations.
