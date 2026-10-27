@@ -143,8 +143,8 @@ database. Access status is separately tracked as `pending`, `active` or `suspend
 ## Development guidelines
 
 See [AGENTS.md](AGENTS.md) for contribution and agent instructions.
-See [User stories](docs/user-stories.md) for functional scenarios, acceptance
-criteria, and planned follow-ups.
+See [User stories](docs/user-stories.md) for a simple overview of user goals,
+implemented features, and planned improvements.
 Keep credentials in `.env.local`, which is ignored by Git. Use `.env.example` to
 document required variables with placeholder values, and never commit secrets.
 
