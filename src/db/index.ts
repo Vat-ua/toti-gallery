@@ -1,11 +1,14 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
+import { assertRuntimeTarget } from "@/lib/database-target.cjs";
 
 const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
   throw new Error("DATABASE_URL is required");
 }
+
+assertRuntimeTarget(databaseUrl);
 
 const globalForDb = globalThis as typeof globalThis & {
   __arenaNextJsPostgresqlPool?: Pool;

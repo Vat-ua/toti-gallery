@@ -2666,9 +2666,13 @@ html[data-theme="dark"] .theme-icon-moon {
   letter-spacing: -.03em;
 }
 
-.profile-summary>.button {
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
   margin-top: var(--space-18);
-  flex-shrink: 0;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .profile-projects {
@@ -2697,7 +2701,7 @@ html[data-theme="dark"] .theme-icon-moon {
     padding-top: var(--space-14);
   }
 
-  .profile-summary>.button {
+  .profile-actions {
     margin-top: 0;
   }
 }
@@ -2753,8 +2757,12 @@ html[data-theme="dark"] .theme-icon-moon {
     font-size: var(--text-lead);
   }
 
-  .profile-summary>.button {
+  .profile-actions {
     margin-left: var(--space-24);
+    width: calc(100% - var(--space-24));
+  }
+
+  .profile-actions>.button {
     min-height: 42px;
     font-size: var(--text-secondary);
     padding: 0 var(--space-3);
@@ -2766,7 +2774,7 @@ html[data-theme="dark"] .theme-icon-moon {
 }
 
 @media (max-width:430px) {
-  .profile-summary>.button {
+  .profile-actions {
     margin-left: 0;
     width: 100%;
     margin-top: var(--space-1-5);
@@ -3028,29 +3036,6 @@ html[data-theme="dark"] .theme-icon-moon {
   color: var(--band-btn-bg);
 }
 
-.auth-story-bottom {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  position: relative;
-  z-index: 1;
-}
-
-.auth-story-bottom .avatar {
-  border-color: var(--band-bg);
-}
-
-.auth-story-bottom p {
-  font-size: var(--text-label);
-  line-height: var(--leading-copy);
-  color: var(--band-muted);
-}
-
-.auth-story-bottom strong {
-  color: var(--band-fg);
-  font-weight: var(--weight-semibold);
-}
-
 .auth-form-section {
   width: 100%;
   max-width: 450px;
@@ -3186,24 +3171,6 @@ html[data-theme="dark"] .theme-icon-moon {
   margin-top: var(--space-1);
 }
 
-.auth-switch {
-  font-size: var(--text-ui);
-  color: var(--ink-2);
-  text-align: center;
-  margin: var(--space-5) 0 0;
-}
-
-.auth-switch button {
-  font-weight: var(--weight-heading);
-  color: var(--accent);
-  padding: var(--space-0-5);
-}
-
-.auth-switch button:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
 .auth-divider {
   display: flex;
   align-items: center;
@@ -3221,26 +3188,33 @@ html[data-theme="dark"] .theme-icon-moon {
   background: var(--line);
 }
 
-.demo-login {
+.google-login {
   width: 100%;
-  min-height: 50px;
-  background: var(--surface-2);
-  border-color: transparent;
-  color: var(--ink);
+  min-height: 52px;
+  font-size: var(--text-ui);
+}
+
+.auth-form-section .auth-help {
   font-size: var(--text-secondary);
-  gap: var(--space-2);
+  color: var(--ink-2);
+  line-height: var(--leading-body);
+  margin-block: var(--space-5);
 }
 
-.demo-login:hover {
-  background: var(--surface-3);
+.auth-help summary {
+  cursor: pointer;
+  color: var(--ink);
 }
 
-.demo-hint {
-  font-size: var(--text-label);
-  color: var(--ink-3);
-  text-align: center;
-  margin-top: var(--space-3);
-  line-height: 1.55;
+.auth-help p {
+  margin-top: var(--space-2);
+}
+
+.access-page {
+  display: grid;
+  place-items: center;
+  min-height: calc(100vh - 300px);
+  padding-block: var(--space-12);
 }
 
 .form-error {
@@ -3314,10 +3288,6 @@ html[data-theme="dark"] .theme-icon-moon {
     max-width: 52ch;
   }
 
-  .auth-story-bottom {
-    display: none;
-  }
-
   .auth-form-section {
     max-width: 100%;
     margin-top: var(--space-1-5);
@@ -3359,6 +3329,104 @@ html[data-theme="dark"] .theme-icon-moon {
   .form-field select,
   .form-field textarea {
     font-size: var(--text-ui);
+  }
+}
+
+/* Account */
+
+.account-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(var(--space-6), 4vw, var(--space-16));
+  align-items: start;
+}
+
+.account-section-title {
+  font-size: var(--text-subtitle);
+  line-height: var(--leading-compact);
+  margin-bottom: var(--space-5);
+}
+
+.account-fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.account-photo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
+  flex-wrap: wrap;
+}
+
+.account-photo-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.account-photo-buttons>button {
+  white-space: nowrap;
+}
+
+.account-photo-actions small,
+.account-help {
+  font-size: var(--text-secondary);
+  line-height: var(--leading-body);
+  color: var(--ink-3);
+}
+
+.account-security {
+  min-width: 0;
+}
+
+.account-security .account-help {
+  margin-bottom: var(--space-5);
+}
+
+.account-details {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+}
+
+.account-details dt {
+  font-size: var(--text-secondary);
+  color: var(--ink-3);
+  margin-bottom: var(--space-1);
+}
+
+.account-details dd {
+  font-size: var(--text-ui);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.account-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-6);
+}
+
+@media (max-width:900px) {
+  .account-layout {
+    grid-template-columns: 1fr;
+    gap: var(--space-10);
+  }
+}
+
+@media (max-width:720px) {
+  .account-photo {
+    gap: var(--space-4);
+  }
+
+  .account-form-actions .button {
+    width: 100%;
   }
 }
 
@@ -3409,13 +3477,15 @@ html[data-theme="dark"] .theme-icon-moon {
   flex: 1;
 }
 
-.management-actions {
+.management-actions,
+.account-photo-buttons {
   display: flex;
   gap: var(--space-2);
 }
 
 .management-actions>a,
-.management-actions>button {
+.management-actions>button,
+.account-photo-buttons>button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3431,7 +3501,8 @@ html[data-theme="dark"] .theme-icon-moon {
   transition: background-color .18s, border-color .18s, color .18s;
 }
 
-.management-actions>a:hover {
+.management-actions>a:hover,
+.account-photo-buttons>.photo-change:hover {
   background: var(--surface-2);
   border-color: var(--line-strong);
   color: var(--ink);
@@ -3439,12 +3510,18 @@ html[data-theme="dark"] .theme-icon-moon {
 
 .management-actions>button {
   flex: 0 0 42px;
+}
+
+.management-actions>button,
+.account-photo-buttons>.photo-remove {
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
 .management-actions>button:hover,
-.management-actions>button:focus-visible {
+.management-actions>button:focus-visible,
+.account-photo-buttons>.photo-remove:hover,
+.account-photo-buttons>.photo-remove:focus-visible {
   border-color: color-mix(in srgb, var(--accent) 60%, transparent);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }

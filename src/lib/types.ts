@@ -6,6 +6,7 @@ export type Person = {
   bio: string;
   avatar: string | null;
   github: string | null;
+  turmaId: string | null;
 };
 
 export type Project = {
@@ -20,6 +21,7 @@ export type Project = {
   liveUrl: string | null;
   featured: boolean;
   isFinal: boolean;
+  turmaId: string;
   createdAt: string;
   author: Person;
   authors: Person[];
@@ -28,5 +30,4 @@ export type Project = {
 };
 
 export const TECHNOLOGIES = ["HTML", "CSS", "JavaScript", "React", "Next.js", "TypeScript", "Node.js", "Express", "PostgreSQL", "SQLite", "MongoDB", "Python", "Tailwind CSS"];
-export const COHORTS = ["Turma 25", "Turma 24", "Turma 23", "Turma 22", "Turma 21"];
 export const COVER_STYLES = ["abstract", "eco", "books", "finance", "connect", "weather", "quiz"];

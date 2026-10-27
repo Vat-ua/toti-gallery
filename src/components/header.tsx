@@ -33,7 +33,7 @@ function HeaderContent({ user, pathname }: { user: Person | null; pathname: stri
   }, []);
   async function logout() {
     setLoggingOut(true);
-    try { const response = await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "logout" }) }); if (!response.ok) throw new Error(); setOpen(false); router.push("/"); router.refresh(); notify("Você saiu da conta."); }
+    try { const response = await fetch("/api/auth/sign-out", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }); if (!response.ok) throw new Error(); setOpen(false); router.push("/"); router.refresh(); notify("Você saiu da conta."); }
     catch { notify("Não foi possível sair. Tente novamente.", true); }
     finally { setLoggingOut(false); }
   }

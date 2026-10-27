@@ -8,6 +8,6 @@ export const metadata: Metadata = { title: "Meus projetos" };
 export default async function MyProjectsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/entrar?next=%2Fmeus-projetos");
-  const projects = (await getProjects()).filter(project => project.authors.some(author => author.id === user.id));
+  const projects = (await getProjects({ participantId: user.id })).filter(project => project.authors.some(author => author.id === user.id));
   return <MyProjects user={user} projects={projects}/>;
 }
