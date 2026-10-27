@@ -9,7 +9,7 @@ links work without OAuth configuration or availability.
 ## Current stage and data
 
 Stage 2 implements authentication and server-side provisioning. Stage 3 adds
-Turmas administration and group imports; global student management, project
+Turmas administration, group imports and global student/access management; project
 moderation and administrator management follow in separate parts. Until then the
 existing UI displays the earliest membership as the primary turma; project turma
 is stored independently. Do not deploy the old database with this new runtime.

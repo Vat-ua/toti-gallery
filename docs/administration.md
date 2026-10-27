@@ -1,9 +1,10 @@
 # Administration
 
-Stage 3 is delivered in separately reviewed parts. The current part implements
-`/admin/turmas`: group creation/editing, archive/restore, student membership,
-spreadsheet/CSV import with preview, and individual access links. Other admin
-navigation items are visibly unavailable until their own implementation is agreed.
+Stage 3 is delivered in separately reviewed parts. `/admin/turmas` provides group
+creation/editing, archive/restore, student membership and import preview.
+`/admin/estudantes` provides the global student list, multi-turma management,
+student access controls and activation/recovery links. Project moderation and
+administrator management remain unavailable pending their own implementation.
 
 ## Permissions
 
@@ -15,8 +16,9 @@ navigation items are visibly unavailable until their own implementation is agree
   creates the owner; existing installations require explicit promotion by ID.
 - Role/status checks run on the server for page reads and inside every mutation
   service. Mutating HTTP endpoints also require the configured trusted origin.
-- Staff management, role reassignment, suspension controls and ownership transfer
-  are not exposed by this first part.
+- Student suspension applies only to real accounts with the `user` role. Staff
+  accounts and demo profiles cannot be suspended from Estudantes.
+- Staff management, role reassignment and ownership transfer are not exposed yet.
 
 ## Existing-account migration
 
@@ -69,7 +71,8 @@ development; production is unchanged.
 Archiving is organizational: students keep access and can publish in archived
 turmas. Removing membership affects only that turma/user relationship; project
 turma, authorship, likes and other memberships remain intact. There is no group
-or account deletion action.
+deletion action. Unactivated student registrations can be removed from Estudantes
+under the safeguards described below.
 
 Imports accept pasted spreadsheet TSV and UTF-8 CSV (comma or semicolon), with
 `Nome` and `Email` columns, an optional header, and quoted fields. Limits are
@@ -109,6 +112,74 @@ that an email was sent. Reissuing invalidates the preceding grant of that purpos
 Copied messages include the actual expiration date/time in `America/Sao_Paulo`,
 labeled as Brasília time. Copying again does not extend the grant.
 No raw token is persisted in project documentation or delivery history.
+
+## Global students
+
+The list includes ordinary user profiles, even without a turma, and staff who
+participate in at least one turma. Staff without memberships belong to the future
+Administradores section. Search matches names/emails without accent sensitivity;
+turma filters include archived groups and `Sem turma`. Demo profiles have their
+own access filter and do not count as pending activation candidates.
+
+The server returns one page of 25 students (50 optional), the filtered total and
+only that page's memberships/latest link metadata. Search and turma/access filters
+run in SQL before pagination; matching remains case/accent-insensitive and treats
+search punctuation literally. Stable name/ID ordering prevents duplicate rows
+across pages, including people enrolled in multiple turmas. The URL retains query,
+filters, page and page size; changing filters/size returns to page one. Out-of-range
+pages redirect to the last available page, including after a deletion.
+
+Registration and import reuse the Turmas panels with an explicit target-turma
+selector. Global registration searches existing profiles separately on the server
+(up to 25 per search), independent of the visible table page. Existing identities
+are retained, and new accounts remain pending.
+Account role, email verification and activation state are never client-assigned.
+The global management panel allows name corrections for eligible student profiles.
+Email changes are limited to real pending, unverified accounts, normalize the new
+address and reject duplicates. Changing email revokes outstanding access links;
+the administrator must create a new activation link. Name-only corrections retain
+valid links. Activated accounts keep their email read-only. Students retain the
+existing profile editor for their personal information.
+
+Membership changes are applied together, including adding archived turmas or
+removing the last membership. They never change publication turma, author links,
+likes, profile or credentials. An unassigned active user keeps sign-in access but
+cannot publish a new project until assigned a turma.
+Current memberships appear first in the selection panel; toggling a checkbox does
+not reorder the draft list. Registration/import selectors prioritize recent active
+turmas while keeping archived groups available.
+
+Suspension/restoration has an explicit confirmation. Suspension blocks sign-in,
+removes sessions and revokes outstanding activation/recovery grants, retaining
+all profile, credential and project data. Restore derives `active` versus
+`pending` from the account's preserved email-verification state; it never activates
+an unverified student. Earlier cookies and grants are not revived. Account access
+does not automatically moderate published projects.
+
+`Excluir cadastro` removes only real pending, unverified student registrations,
+with an explicit confirmation naming the person and email. Memberships and their
+activation invitations are removed atomically. Internal checks refuse deletion
+when credentials, sessions, project authorship or other protected history exists.
+Active, suspended, demo and staff accounts cannot be deleted through this action.
+The same user-row lock serializes deletion/email corrections with activation, so
+an account activated in another window cannot be deleted or have its email changed
+using stale panel state.
+
+Unactivated real profiles stay out of public person/community pages, including
+when suspended before activation. Activated profiles remain visible after
+suspension, and demonstration profiles remain available as gallery content.
+New coauthors must be active, verified non-demo participants of the project turma.
+
+The panel shows only metadata for the latest applicable access link: valid,
+expired, used or revoked. Administrators can generate/reissue or revoke it.
+The manual-delivery UI offers individual links through `Gerenciar`; it has no
+`Preparar convites` button or bulk-selection panel. The existing atomic batch-grant
+service remains available as a foundation for future automated delivery. The
+application currently neither sends email nor records a fictional delivery status.
+Raw URLs exist only in the immediate result.
+
+No additional database migration is needed for Estudantes. It uses the reviewed
+owner/turma schema already present in development and the isolated test branch.
 
 ## Checks
 

@@ -13,7 +13,7 @@ export async function setProjectAuthors(tx: Transaction, projectId: string, owne
   const added = ids.filter(id => !existingIds.has(id));
   if (added.length) {
     const eligible = await tx.select({ id: users.id }).from(turmaMembers).innerJoin(users, eq(users.id, turmaMembers.userId))
-      .where(and(eq(turmaMembers.turmaId, project.turmaId), inArray(users.id, added), eq(users.status, "active"), eq(users.isDemo, false)));
+      .where(and(eq(turmaMembers.turmaId, project.turmaId), inArray(users.id, added), eq(users.status, "active"), eq(users.emailVerified, true), eq(users.isDemo, false)));
     if (eligible.length !== added.length) throw new Error("Selecione apenas participantes ativos da turma do projeto.");
   }
   await tx.delete(projectAuthors).where(and(eq(projectAuthors.projectId, projectId), ne(projectAuthors.userId, ownerId)));

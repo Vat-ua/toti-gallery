@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { users, projects, likes, projectAuthors, turmaMembers, turmas } from "@/db/schema";
-import { and, eq, desc, count, ne, or, inArray } from "drizzle-orm";
+import { and, eq, desc, count, or, inArray } from "drizzle-orm";
 import { cookies } from "next/headers";
 import type { Project, Person } from "./types";
 
@@ -8,7 +8,7 @@ async function peopleRows(includePending = false): Promise<Person[]> {
   const rows = await db.select({ id: users.id, name: users.name, bio: users.bio, avatar: users.image, github: users.github,
     turmaId: turmas.id, cohort: turmas.name, year: turmas.graduationYear })
     .from(users).leftJoin(turmaMembers, eq(turmaMembers.userId, users.id)).leftJoin(turmas, eq(turmas.id, turmaMembers.turmaId))
-    .where(includePending ? undefined : or(ne(users.status, "pending"), eq(users.isDemo, true)))
+    .where(includePending ? undefined : or(eq(users.emailVerified, true), eq(users.isDemo, true)))
     .orderBy(users.name, turmaMembers.joinedAt, turmas.id);
   const result = new Map<string, Person>();
   // A primary display turma keeps existing UI coherent until the stage 3 multi-turma UI.
@@ -26,7 +26,7 @@ export async function getCoauthorCandidates(turmaId: string) {
   return db.select({ id: users.id, name: users.name, bio: users.bio, avatar: users.image, github: users.github,
     turmaId: turmas.id, cohort: turmas.name, year: turmas.graduationYear })
     .from(turmaMembers).innerJoin(users, eq(users.id, turmaMembers.userId)).innerJoin(turmas, eq(turmas.id, turmaMembers.turmaId))
-    .where(and(eq(turmaMembers.turmaId, turmaId), eq(users.status, "active"), eq(users.isDemo, false))).orderBy(users.name)
+    .where(and(eq(turmaMembers.turmaId, turmaId), eq(users.status, "active"), eq(users.emailVerified, true), eq(users.isDemo, false))).orderBy(users.name)
     .then(rows => rows.map(row => ({ ...row, year: row.year || 0 })));
 }
 

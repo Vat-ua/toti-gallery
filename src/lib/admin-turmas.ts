@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, count, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, count, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { projects, turmaMembers, turmas, users } from "@/db/schema";
 import { isStaff, canManageAccount } from "./permissions";
 import { parseStudents } from "./student-import";
 import { provisionIdentity } from "./admin-provision";
+import { studentSearch } from "./student-search";
 import type { StudentAdded, StudentLookup, AdminStudent, AdminTurma, ImportPreview, TurmaProject } from "./admin-types";
 
 export class AdminError extends Error {
@@ -12,7 +13,7 @@ export class AdminError extends Error {
 }
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-async function staff(tx: Transaction, actorId: string) {
+export async function staff(tx: Transaction, actorId: string) {
   const [actor] = await tx.select().from(users).where(eq(users.id, actorId)).for("share").limit(1);
   if (!actor || !isStaff(actor.role) || actor.isDemo || actor.status !== "active") throw new AdminError("Acesso restrito à administração.", 403);
   return actor;
@@ -21,6 +22,18 @@ async function group(tx: Transaction, id: string) {
   const [turma] = await tx.select().from(turmas).where(eq(turmas.id, id)).limit(1);
   if (!turma) throw new AdminError("Turma não encontrada.", 404);
   return turma;
+}
+
+export async function findStudentCandidates(actorId: string, turmaId: string, query: string) {
+  return db.transaction(async tx => {
+    const actor = await staff(tx, actorId); await group(tx, turmaId);
+    return tx.select({ id: users.id, name: users.name, email: users.email, status: users.status, isDemo: users.isDemo }).from(users).where(and(
+      actor.role === "owner" ? undefined : eq(users.role, "user"),
+      sql`${users.status} <> 'suspended'`,
+      notInArray(users.id, tx.select({ id: turmaMembers.userId }).from(turmaMembers).where(eq(turmaMembers.turmaId, turmaId))),
+      studentSearch(query),
+    )).orderBy(users.name, users.id).limit(25);
+  });
 }
 
 export function validateTurma(value: unknown) {
@@ -70,7 +83,7 @@ export async function turmaDetails(actorId: string, id: string) {
     const people = await tx.select({ id: users.id, name: users.name, email: users.email, avatar: users.image, status: users.status, role: users.role, isDemo: users.isDemo }).from(users).orderBy(users.name);
     const publications = await tx.select({ id: projects.id, slug: projects.slug, title: projects.title, author: users.name, isFinal: projects.isFinal, visibility: projects.visibility })
       .from(projects).innerJoin(users, eq(projects.authorId, users.id)).where(eq(projects.turmaId, id)).orderBy(projects.createdAt);
-    const allPeople: AdminStudent[] = people.map(person => ({ ...person, turmaNames: memberships.filter(m => m.userId === person.id).map(m => m.name) }));
+    const allPeople: AdminStudent[] = people.map(person => ({ ...person, turmaNames: memberships.filter(m => m.userId === person.id).map(m => m.name), turmaIds: memberships.filter(m => m.userId === person.id).map(m => m.turmaId) }));
     const memberIds = new Set(memberships.filter(m => m.turmaId === id).map(m => m.userId));
     return { turma: { id, name: turma.name, number: turma.number, courseName: turma.courseName, startYear: turma.startYear, archived: !!turma.archivedAt },
       members: allPeople.filter(p => memberIds.has(p.id)),
