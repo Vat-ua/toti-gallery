@@ -129,4 +129,3 @@ function StudentPanel({ student, turmas, refreshing, close, saved }: { student: 
     <ErrorText text={error}/>
   </Dialog>;
 }
-

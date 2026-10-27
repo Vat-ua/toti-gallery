@@ -32,9 +32,13 @@ const filterGroups = [
 
 export function Gallery({ projects }: { projects: Project[] }) {
   const cohorts = useMemo(() => {
-    return [...new Set(projects.flatMap((project) => project.authors.map((author) => author.cohort)))].sort(
-      (a, b) => b.localeCompare(a, "pt-BR", { numeric: true }),
-    );
+    return [
+      ...new Set(
+        projects.flatMap((project) =>
+          project.authors.map((author) => author.cohort),
+        ),
+      ),
+    ].sort((a, b) => b.localeCompare(a, "pt-BR", { numeric: true }));
   }, [projects]);
   const techOptions = useMemo(() => {
     const map = new Map<string, number>();
@@ -48,11 +52,15 @@ export function Gallery({ projects }: { projects: Project[] }) {
     );
   }, [projects]);
 
-  const filterOptions = useMemo(() => ({
-    cohorts,
-    technologies: techOptions.map(([tech]) => tech),
-  }), [cohorts, techOptions]);
-  const { filters, updateFilters, changeQuery, flushQuery } = useGalleryFilters(filterOptions);
+  const filterOptions = useMemo(
+    () => ({
+      cohorts,
+      technologies: techOptions.map(([tech]) => tech),
+    }),
+    [cohorts, techOptions],
+  );
+  const { filters, updateFilters, changeQuery, flushQuery } =
+    useGalleryFilters(filterOptions);
   const { query, cohort, techs, sort, featured, finalOnly } = filters;
   const search = useDeferredValue(query);
   const filterKey = galleryFilterParams(filters).toString();
@@ -68,8 +76,15 @@ export function Gallery({ projects }: { projects: Project[] }) {
   const filterTabsRef = useRef<HTMLDivElement>(null);
   const filterPanelRef = useRef<HTMLDivElement>(null);
   useDropdownPosition(filtersOpen, filtersButtonRef, filterPanelRef);
-  const hasFilters = !!(query || cohort || techs.length || featured || finalOnly);
-  const activeFilterCount = (cohort ? 1 : 0) + techs.length + (finalOnly ? 1 : 0);
+  const hasFilters = !!(
+    query ||
+    cohort ||
+    techs.length ||
+    featured ||
+    finalOnly
+  );
+  const activeFilterCount =
+    (cohort ? 1 : 0) + techs.length + (finalOnly ? 1 : 0);
 
   useEffect(() => {
     function shortcut(event: KeyboardEvent) {
@@ -123,7 +138,6 @@ export function Gallery({ projects }: { projects: Project[] }) {
     };
   }, [filtersOpen]);
 
-
   const filtered = useMemo(
     () =>
       projects
@@ -133,7 +147,8 @@ export function Gallery({ projects }: { projects: Project[] }) {
           );
           return (
             (!search || text.includes(normalize(search))) &&
-            (!cohort || project.authors.some((author) => author.cohort === cohort)) &&
+            (!cohort ||
+              project.authors.some((author) => author.cohort === cohort)) &&
             (!featured || project.featured) &&
             (!finalOnly || project.isFinal) &&
             techs.every((tech) => project.technologies.includes(tech))
@@ -153,7 +168,13 @@ export function Gallery({ projects }: { projects: Project[] }) {
   const featuredCount = projects.filter((project) => project.featured).length;
 
   function clear() {
-    updateFilters({ query: "", cohort: "", techs: [], featured: false, finalOnly: false });
+    updateFilters({
+      query: "",
+      cohort: "",
+      techs: [],
+      featured: false,
+      finalOnly: false,
+    });
   }
   function toggleTech(tech: string) {
     updateFilters((current) => ({
@@ -215,7 +236,6 @@ export function Gallery({ projects }: { projects: Project[] }) {
               aria-pressed={!featured}
               onClick={() => {
                 updateFilters({ featured: false });
-
               }}
             >
               Todos<span>{projects.length}</span>
@@ -225,7 +245,6 @@ export function Gallery({ projects }: { projects: Project[] }) {
               aria-pressed={featured}
               onClick={() => {
                 updateFilters({ featured: true });
-
               }}
             >
               Destaques<span>{featuredCount}</span>
@@ -249,7 +268,6 @@ export function Gallery({ projects }: { projects: Project[] }) {
                   }}
                   onChange={(event) => {
                     changeQuery(event.target.value);
-
                   }}
                 />
                 {query ? (
@@ -351,7 +369,6 @@ export function Gallery({ projects }: { projects: Project[] }) {
                             aria-pressed={!cohort}
                             onClick={() => {
                               updateFilters({ cohort: "" });
-
                             }}
                           >
                             Todas
@@ -367,8 +384,9 @@ export function Gallery({ projects }: { projects: Project[] }) {
                               }
                               aria-pressed={cohort === value}
                               onClick={() => {
-                                updateFilters({ cohort: cohort === value ? "" : value });
-
+                                updateFilters({
+                                  cohort: cohort === value ? "" : value,
+                                });
                               }}
                             >
                               Turma {cohortNumber(value)}
@@ -380,8 +398,9 @@ export function Gallery({ projects }: { projects: Project[] }) {
                             type="checkbox"
                             checked={finalOnly}
                             onChange={(event) => {
-                              updateFilters({ finalOnly: event.target.checked });
-
+                              updateFilters({
+                                finalOnly: event.target.checked,
+                              });
                             }}
                           />
                           <span>Somente projetos finais</span>
@@ -421,7 +440,10 @@ export function Gallery({ projects }: { projects: Project[] }) {
                   </div>
                 )}
               </div>
-              <SortMenu value={sort} onChange={(sort) => updateFilters({ sort })}/>
+              <SortMenu
+                value={sort}
+                onChange={(sort) => updateFilters({ sort })}
+              />
             </div>
           </div>
           <p className="results-count" aria-live="polite" aria-atomic="true">
@@ -443,7 +465,6 @@ export function Gallery({ projects }: { projects: Project[] }) {
                 aria-label={`Remover filtro da turma ${cohortNumber(cohort)}`}
                 onClick={() => {
                   updateFilters({ cohort: "" });
-
                 }}
               >
                 Turma {cohortNumber(cohort)}
@@ -457,7 +478,6 @@ export function Gallery({ projects }: { projects: Project[] }) {
                 aria-label="Remover filtro de projetos finais"
                 onClick={() => {
                   updateFilters({ finalOnly: false });
-
                 }}
               >
                 Projetos finais
@@ -495,7 +515,9 @@ export function Gallery({ projects }: { projects: Project[] }) {
               {visible < filtered.length ? (
                 <button
                   className="button button-outline load-more"
-                  onClick={() => setPage({ key: filterKey, visible: visible + PAGE_SIZE })}
+                  onClick={() =>
+                    setPage({ key: filterKey, visible: visible + PAGE_SIZE })
+                  }
                 >
                   Carregar mais projetos
                   <Icon name="arrow-down" size={18} />
@@ -537,7 +559,10 @@ export function Gallery({ projects }: { projects: Project[] }) {
           <div>
             <span className="eyebrow">Sua vez</span>
             <h2 id="publish-title">Publique o que você está aprendendo.</h2>
-            <p>Pode ser um exercício simples, um experimento ou até uma aplicação completa.</p>
+            <p>
+              Pode ser um exercício simples, um experimento ou até uma aplicação
+              completa.
+            </p>
           </div>
           <Link href="/meus-projetos/novo" className="button button-invert">
             Publicar projeto
