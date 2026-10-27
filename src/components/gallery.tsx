@@ -187,11 +187,11 @@ export function Gallery({ projects }: { projects: Project[] }) {
       <section className="hero container" aria-labelledby="hero-title">
         <div className="hero-copy">
           <h1 id="hero-title">
-            O que a comunidade <em>está construindo</em>.
+            Projetos de quem <em>aprende fazendo</em>.
           </h1>
           <p className="hero-lead">
-            Explore exercícios, experimentos e aplicações completas. Descubra
-            novas ideias, conheça outros projetos e aprenda com outras pessoas.
+            Explore exercícios, experimentos e aplicações completas. Inspire-se
+            no trabalho de outras pessoas e compartilhe o seu.
           </p>
         </div>
       </section>
