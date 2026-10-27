@@ -64,6 +64,9 @@ The application uses PostgreSQL on Neon. The current code model is defined in
 [src/db/schema.ts](src/db/schema.ts); [migrations](migrations/README.md) record
 its evolution and are applied separately to each environment.
 
+See the [Database guide](docs/database.md) for a field-by-field reference,
+relationship diagram, and explanations of access, authorship, and deletion rules.
+
 ### Environments
 
 Neon **branches** are isolated environments; PostgreSQL **databases** live inside
