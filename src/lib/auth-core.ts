@@ -1,10 +1,10 @@
 import { betterAuth } from "better-auth/minimal";
-import { APIError, createAuthMiddleware } from "better-auth/api";
+import { APIError, createAuthMiddleware, addOAuthServerContext, getOAuthState } from "better-auth/api";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { accounts, authSessions, rateLimits, users, verifications } from "@/db/schema";
-import { admitGoogleIdentity } from "./access-links";
+import { admitGoogleIdentity, inspectAccessLink } from "./access-links";
 import { allowAttempt } from "./auth-rate-limit";
 import { authSettings } from "./auth-settings";
 
@@ -25,7 +25,9 @@ function createAuth() {
         isDemo: { type: "boolean", required: true, defaultValue: false, input: false, returned: false },
       },
       async validateUserInfo({ user, source }) {
-        if (source.action === "create-user" || source.method !== "oauth" || source.oauth?.providerId !== "google" || !await admitGoogleIdentity(user)) return { error: "access_not_allowed", errorDescription: "Use a conta Google cadastrada pela administração." };
+        const context = (await getOAuthState())?.serverContext;
+        const activation = typeof context?.activationUserId === "string" && typeof context?.activationGrantId === "string" ? { userId: context.activationUserId, grantId: context.activationGrantId } : undefined;
+        if (source.action === "create-user" || source.method !== "oauth" || source.oauth?.providerId !== "google" || !await admitGoogleIdentity(user, activation)) return { error: activation ? "activation_account_mismatch" : "access_not_allowed", errorDescription: "Use a conta Google cadastrada pela administração." };
       },
       changeEmail: { enabled: false },
       deleteUser: { enabled: false },
@@ -51,6 +53,17 @@ function createAuth() {
       } } },
     },
     hooks: { before: createAuthMiddleware(async ctx => {
+      if (ctx.path === "/sign-in/social" && ctx.body?.additionalData?.activationToken !== undefined) {
+        try {
+          if (ctx.body.provider !== "google" || ctx.body.idToken) throw new Error();
+          const grant = await inspectAccessLink(ctx.body.additionalData.activationToken);
+          if (grant.purpose !== "activation") throw new Error();
+          await addOAuthServerContext({ activationUserId: grant.userId, activationGrantId: grant.grantId });
+          // Persist only server-validated IDs in OAuth state, never the bearer token.
+          ctx.body.additionalData = {};
+          ctx.body.loginHint = grant.email;
+        } catch { throw new APIError("BAD_REQUEST", { message: "Abra um link de ativação válido ou entre pela página de acesso." }); }
+      }
       if (ctx.path === "/sign-in/email") {
         if (typeof ctx.body?.email === "string") ctx.body.email = ctx.body.email.trim().toLowerCase();
         if (!await allowAttempt("login-account", String(ctx.body?.email || ""), 15, 60)) throw new APIError("TOO_MANY_REQUESTS", { message: "Muitas tentativas. Aguarde um minuto." });

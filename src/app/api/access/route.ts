@@ -1,4 +1,4 @@
-import { AccessError, consumeAccessLink } from "@/lib/access-links";
+import { AccessError, consumeAccessLink, inspectAccessLink } from "@/lib/access-links";
 import { isSameOrigin } from "@/lib/auth";
 import { allowAttempt, requestIP } from "@/lib/auth-rate-limit";
 
@@ -10,6 +10,11 @@ export async function POST(request: Request) {
     if (text.length > 2048) return Response.json({ error: "Dados inválidos." }, { status: 400 });
     const body = JSON.parse(text);
     if (!body || typeof body !== "object" || Array.isArray(body)) throw new AccessError();
+    if (body.action === "inspect") {
+      const grant = await inspectAccessLink(body.token);
+      return Response.json({ email: grant.email, purpose: grant.purpose, expiresAt: grant.expiresAt }, { headers: { "Cache-Control": "no-store" } });
+    }
+    if (body.action !== undefined && body.action !== "consume") throw new AccessError();
     await consumeAccessLink(body.token, body.password, body.confirmPassword);
     return Response.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {

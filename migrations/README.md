@@ -40,3 +40,15 @@ database containing real accounts. See [Platform foundation](platform-foundation
 
 `fixtures/` contains historical schema definitions for isolated migration tests,
 not additional production migrations.
+
+`20261027_stage3_owner.sql` adds the `owner` role and enforces a single owner.
+Existing-account promotion uses an explicitly selected active administrator ID;
+see [Administration](../docs/administration.md). It is currently applied only to
+development and its isolated test copy, not production.
+
+`20261027_turma_details.sql` adds unique turma numbers, course names and start
+years. Only numbers are backfilled from existing labels; unknown course/start-year
+values remain null, and historical graduation years are retained. New group saves
+require all three fields. The guarded development/test runner snapshots all
+original rows and verifies that they are preserved. Applied to development and
+its isolated test copy only; see [Administration](../docs/administration.md).

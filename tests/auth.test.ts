@@ -35,10 +35,11 @@ async function student(name: string) {
   return { ...user, email };
 }
 
-async function googleLogin(profile: typeof googleProfile, withCookie = true, callbackURL = "/meus-projetos") {
+async function googleLogin(profile: typeof googleProfile, withCookie = true, callbackURL = "/meus-projetos", activationToken?: string) {
   googleProfile = profile;
-  const started = await post("/sign-in/social", { provider: "google", callbackURL, errorCallbackURL: "/entrar", disableRedirect: true });
+  const started = await post("/sign-in/social", { provider: "google", callbackURL, errorCallbackURL: "/entrar", disableRedirect: true, ...(activationToken ? { additionalData: { activationToken } } : {}) });
   assert.equal(started.status, 200, "Google redirect initiation failed");
+  if (activationToken) assert.equal((await sql("SELECT count(*)::int AS n FROM gallery_auth_verifications WHERE value LIKE $1", ["%" + activationToken + "%"]))[0].n, 0, "Bearer token leaked into OAuth state");
   const location = new URL((await started.json()).url);
   assert.equal(location.origin, "https://accounts.google.com");
   assert.equal(location.searchParams.get("redirect_uri"), origin + "/api/auth/callback/google");
@@ -50,7 +51,7 @@ async function googleLogin(profile: typeof googleProfile, withCookie = true, cal
 }
 
 before(async () => {
-  const loaded = config({ path: ".env.auth-test", override: true, quiet: true });
+  const loaded = config({ path: process.env.AUTH_TEST_ENV_FILE || ".env.auth-test", override: true, quiet: true });
   assert.ok(!loaded.error, "Prepare the isolated database first");
   assert.match(process.env.AUTH_TEST_DATABASE_NAME || "", /^gallery_auth_test_\d+_[a-f0-9]{8}$/);
   assert.equal(new URL(process.env.DATABASE_URL!).pathname, "/" + process.env.AUTH_TEST_DATABASE_NAME);
@@ -75,7 +76,7 @@ before(async () => {
   ({ pool } = await import("../src/db"));
   await assertDatabaseTarget(pool, process.env, "test");
   assert.equal((await sql("SELECT current_database() AS name"))[0].name, process.env.AUTH_TEST_DATABASE_NAME);
-  assert.equal((await sql("SELECT count(*)::int AS n FROM gallery_users WHERE role='admin'"))[0].n, 0, "Tests require a fresh isolated DB with no real administrator");
+  assert.equal((await sql("SELECT count(*)::int AS n FROM gallery_users WHERE role IN ('admin','owner')"))[0].n, 0, "Tests require a fresh isolated DB with no real administrator");
   access = await import("../src/lib/access-links");
   provisioning = await import("../src/lib/admin-provision");
   auth = (await import("../src/lib/auth-core")).getAuth();
@@ -118,7 +119,7 @@ test("first administrator bootstrap is closed and uses one-time activation", asy
   assert.equal(signed.status, 200);
   assert.match(cookie(signed), /toti_gallery\.session_token=/);
   const [user] = await sql("SELECT status,email_verified,role FROM gallery_users WHERE id=$1", [adminId]);
-  assert.equal(user.status, "active"); assert.equal(user.email_verified, true); assert.equal(user.role, "admin");
+  assert.equal(user.status, "active"); assert.equal(user.email_verified, true); assert.equal(user.role, "owner");
   await assert.rejects(() => provisioning.bootstrapAdmin("Other Administrator", "other-admin@example.invalid"));
   await assert.rejects(() => access.consumeAccessLink(token(reissued.url), nextPassword, nextPassword));
   checks.push("First-admin bootstrap, safe reissue, activation and bootstrap closure");
@@ -240,6 +241,27 @@ test("suspended accounts cannot open new sessions or issue grants", async () => 
   await assert.rejects(() => access.createAccessLink(adminId, user.id, "password_reset"));
   await assert.rejects(() => access.createAccessLink(user.id, adminId, "password_reset"));
   checks.push("Suspended users cannot log in/recover or create privileged access grants");
+});
+
+test("activation preview is read-only and Google must match the invited identity", async () => {
+  const invited = await student("invited-google");
+  const other = await student("other-google");
+  const grant = await access.createAccessLink(adminId, invited.id, "activation");
+  const raw = token(grant.url);
+  const metadata = await access.inspectAccessLink(raw);
+  assert.equal(metadata.email, invited.email); assert.equal(metadata.purpose, "activation");
+  assert.equal((await sql("SELECT status FROM gallery_users WHERE id=$1", [invited.id]))[0].status, "pending");
+  const wrong = await googleLogin({ sub: "wrong-invite-subject", email: other.email, email_verified: true, name: "Other" }, true, "/meus-projetos", raw);
+  assert.equal(wrong.status, 302); assert.ok(wrong.headers.get("location")?.includes("activation_account_mismatch"));
+  assert.equal((await sql("SELECT status FROM gallery_users WHERE id=$1", [other.id]))[0].status, "pending");
+  const correct = await googleLogin({ sub: "correct-invite-subject", email: invited.email, email_verified: true, name: "Invited" }, true, "/meus-projetos", raw);
+  assert.equal(correct.status, 302); assert.ok(cookie(correct).includes("session_token="));
+  assert.equal((await sql("SELECT status FROM gallery_users WHERE id=$1", [invited.id]))[0].status, "active");
+  assert.equal((await sql("SELECT count(*)::int AS n FROM gallery_auth_accounts WHERE user_id=$1 AND provider_id='credential'", [invited.id]))[0].n, 0);
+  await assert.rejects(() => access.inspectAccessLink(raw));
+  const reset = await access.createAccessLink(adminId, invited.id, "password_reset");
+  assert.equal((await access.inspectAccessLink(token(reset.url))).purpose, "password_reset");
+  checks.push("Activation metadata, wrong Google identity rejection, matching activation and password-reset distinction");
 });
 
 after(async () => {

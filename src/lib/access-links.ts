@@ -4,6 +4,7 @@ import { hashPassword } from "better-auth/crypto";
 import { db } from "@/db";
 import { accounts, authSessions, invitations, users } from "@/db/schema";
 import { authSettings } from "./auth-settings";
+import { canManageAccount, isStaff } from "./permissions";
 
 export class AccessError extends Error {
   constructor(message = "Este link é inválido, expirou ou já foi usado.") { super(message); }
@@ -12,6 +13,14 @@ export type AccessPurpose = "activation" | "password_reset";
 const tokenHash = (token: string) => createHash("sha256").update(token).digest("hex");
 const eligible = (user: { isDemo: boolean; status: string }) => !user.isDemo && user.status !== "suspended";
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export async function inspectAccessLink(token: unknown) {
+  if (typeof token !== "string" || !/^[a-f0-9]{64}$/.test(token)) throw new AccessError();
+  const [result] = await db.select({ grant: invitations, user: users }).from(invitations).innerJoin(users, eq(users.id, invitations.userId))
+    .where(and(eq(invitations.tokenHash, tokenHash(token)), gt(invitations.expiresAt, new Date()), isNull(invitations.consumedAt), isNull(invitations.revokedAt))).limit(1);
+  if (!result || !eligible(result.user) || (result.grant.purpose === "activation" ? result.user.status !== "pending" : result.user.status !== "active")) throw new AccessError();
+  return { userId: result.user.id, grantId: result.grant.id, email: result.user.email, purpose: result.grant.purpose, expiresAt: result.grant.expiresAt.toISOString() };
+}
 
 /** Trusted server primitive, shared with first-admin bootstrap. Caller holds user lock. */
 export async function issueGrant(tx: Transaction, actorId: string, userId: string, purpose: AccessPurpose) {
@@ -28,10 +37,10 @@ export async function issueGrant(tx: Transaction, actorId: string, userId: strin
 export async function createAccessLink(actorId: string, userId: string, purpose: AccessPurpose) {
   if (!["activation", "password_reset"].includes(purpose)) throw new AccessError("Finalidade inválida.");
   return db.transaction(async tx => {
-    const [actor] = await tx.select().from(users).where(eq(users.id, actorId)).limit(1);
-    if (!actor || actor.role !== "admin" || actor.isDemo || actor.status !== "active") throw new AccessError("Acesso restrito à administração.");
+    const [actor] = await tx.select().from(users).where(eq(users.id, actorId)).for("share").limit(1);
+    if (!actor || !isStaff(actor.role) || actor.isDemo || actor.status !== "active") throw new AccessError("Acesso restrito à administração.");
     const [user] = await tx.select().from(users).where(eq(users.id, userId)).for("update").limit(1);
-    if (!user || !eligible(user) || (purpose === "activation" ? user.status !== "pending" : user.status !== "active")) throw new AccessError("Não é possível criar este link para a conta selecionada.");
+    if (!user || !canManageAccount(actor, user) || !eligible(user) || (purpose === "activation" ? user.status !== "pending" : user.status !== "active")) throw new AccessError("Não é possível criar este link para a conta selecionada.");
     return issueGrant(tx, actorId, userId, purpose);
   });
 }
@@ -60,12 +69,17 @@ export async function consumeAccessLink(token: unknown, password: unknown, confi
 }
 
 /** Called only after Better Auth validates the Google response/token. No HTTP route. */
-export async function admitGoogleIdentity(identity: { id?: unknown; email?: unknown; emailVerified?: unknown }) {
+export async function admitGoogleIdentity(identity: { id?: unknown; email?: unknown; emailVerified?: unknown }, activation?: { userId: string; grantId: string }) {
   if (typeof identity.email !== "string" || identity.emailVerified !== true) return false;
   const email = identity.email.trim().toLowerCase();
   return db.transaction(async tx => {
     const [user] = await tx.select().from(users).where(eq(users.email, email)).for("update").limit(1);
     if (!user || !eligible(user) || (identity.id !== undefined && identity.id !== user.id)) return false;
+    if (activation) {
+      if (user.id !== activation.userId) return false;
+      const [grant] = await tx.select({ id: invitations.id }).from(invitations).where(and(eq(invitations.id, activation.grantId), eq(invitations.userId, user.id), eq(invitations.purpose, "activation"), gt(invitations.expiresAt, new Date()), isNull(invitations.consumedAt), isNull(invitations.revokedAt))).limit(1);
+      if (!grant || user.status !== "pending") return false;
+    }
     if (user.status === "pending") {
       const now = new Date();
       await tx.update(users).set({ status: "active", emailVerified: true, updatedAt: now }).where(eq(users.id, user.id));

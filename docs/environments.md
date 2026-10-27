@@ -64,7 +64,7 @@ suite creates fixtures and cleans its test data, including rate-limit records.
    and `GALLERY_DATABASE_ENV=test`. Never supply production identifiers.
 3. Run `node scripts/prepare-auth-test.cjs`. It verifies the real branch, copies
    the historical demo rows into a fresh `gallery_auth_test_*` PostgreSQL DB on
-   the **test branch**, applies the two reviewed migrations there, and writes
+   the **test branch**, applies the reviewed auth, owner and turma-details migrations there, and writes
    `.env.auth-test`. It never replays the demo cutover on current real accounts.
 4. Run `npm run test:auth`. Optional `dev:auth-test`, `build:auth-test` and
    `start:auth-test` serve only that explicitly prepared test target on port 3101;

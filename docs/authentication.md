@@ -8,8 +8,9 @@ links work without OAuth configuration or availability.
 
 ## Current stage and data
 
-Stage 2 implements authentication and server-side provisioning. The group/import /
-moderation admin UI and complete multi-turma editor remain stage 3. Until then the
+Stage 2 implements authentication and server-side provisioning. Stage 3 adds
+Turmas administration and group imports; global student management, project
+moderation and administrator management follow in separate parts. Until then the
 existing UI displays the earliest membership as the primary turma; project turma
 is stored independently. Do not deploy the old database with this new runtime.
 
@@ -41,7 +42,8 @@ npm run dev:auth-test
 
 Preparation reads the source URL from `.env.test-source` and copies its historical
 demo data into a new `gallery_auth_test_*` database on the verified test branch. It needs permission
-to create databases. It applies both migrations only to that copy, checks content
+to create databases. It applies the auth foundation/cutover, owner and turma-details
+migrations only to that copy, checks content
 preservation, and leaves the source and `.env.local` unchanged. Its generated
 `.env.auth-test` is ignored and mode 0600. Keep it private. Preparation refuses to
 overwrite an already configured target; the test copy is retained until its
@@ -65,7 +67,7 @@ The command verifies the real Neon branch/endpoint and database before writing.
 For production bootstrap, explicitly use `.env.operations` and `--production`.
 An existing active administrator closes bootstrap; never reset it to repeat a test.
 
-Bootstrap creates one **pending** administrator and outputs a one-time activation
+Bootstrap creates one **pending owner** (the first administrator) and outputs a one-time activation
 link, not a password. Open the complete link and choose a 15–128 character password,
 then sign in. A later bootstrap cannot promote another account or replace an
 active administrator. Repeating it with the same pending administrator's email
@@ -97,8 +99,9 @@ its profile but cannot publish until an administrator assigns one.
 
 `createAccessLink` returns `{ id, url, expiresAt }`. It does not send mail or depend
 on a delivery provider. The CLI currently prints that result for private manual
-delivery to the intended email. A future admin UI/email provider will call the
-same service; sending failures must not create duplicate users or alter activation.
+delivery to the intended email. The Turmas admin UI uses the same service; a
+future email provider can use it without changing activation. Sending failures
+must not create duplicate users or alter activation.
 Do not store bearer URLs in notes, commits, analytics, screenshots or shared logs.
 
 Activation grants last 48 hours; recovery grants last one hour. Reissue revokes
@@ -108,6 +111,11 @@ Simply opening a link does not consume it. The URL token is in the fragment so i
 is not sent in page requests; the form removes it from browser history and sends
 it only in the POST body. If the page is refreshed, reopen the original full link.
 After success the user signs in explicitly; recovery does not automatically log in.
+
+The activation page validates the grant without consuming it and shows the intended
+email. With Google configured, the student can use that Google account or create
+a password; without it, password activation remains available. A recovery grant
+instead shows a password-definition form, without the Google activation choice.
 
 An active Google-only account may receive a recovery link to add a local password
 without an old password. Existing credential users change passwords in Editar
@@ -128,6 +136,13 @@ only a provider identity, not a user or a mandatory credential. Local-first user
 may also sign in with their matching verified Google account. A different email
 for an already-linked Google subject is rejected. Unknown identities never sign up,
 even when a client supplies `requestSignUp` or role/status fields.
+
+Google activation started from an invitation is additionally bound to that
+invitation's user and live grant. The server validates the token before OAuth,
+stores only the validated IDs in Better Auth's trusted `serverContext`, and checks
+them again at callback. The raw bearer token is not persisted in OAuth state.
+A different Google email cannot activate another invited profile through that
+link. Ordinary Google sign-in for approved students remains available independently.
 
 Only a small allowlist of Better Auth HTTP endpoints is exposed. Other library
 routes (including public sign-up, arbitrary user/email updates, account deletion,
@@ -155,8 +170,8 @@ actual Google login, Google Cloud setup or public Vercel deployment**.
 The owner has verified real Google and email/password sign-in for the administrator
 and student on the public site, including after the production database switch.
 See [Google on Vercel](google-vercel-check.md) for the retained acceptance checklist.
-Local tests alone do not establish that public OAuth works. Stage 3 still requires
-the owner's explicit approval.
+Local tests alone do not establish that public OAuth works. Further stage 3 parts
+and production rollout require the owner's explicit approval.
 
 ## Portability and later domain transfer
 

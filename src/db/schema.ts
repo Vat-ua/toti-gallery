@@ -1,8 +1,9 @@
 /**
- * Platform schema. Apply the reviewed stage 1 + stage 2 migrations to an
- * isolated database before running this version. See docs/authentication.md.
+ * Platform schema. Apply the reviewed auth and owner migrations to an
+ * isolated database first. See docs/authentication.md and docs/administration.md.
  */
 import { sql } from "drizzle-orm";
+import type { Role } from "@/lib/permissions";
 import { bigint, boolean, check, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const users = pgTable("gallery_users", {
@@ -13,7 +14,7 @@ export const users = pgTable("gallery_users", {
   image: text("avatar"), // Better Auth's image field reuses the existing photo.
   bio: text("bio").notNull().default(""),
   github: text("github"),
-  role: text("role").$type<"user" | "admin">().notNull().default("user"),
+  role: text("role").$type<Role>().notNull().default("user"),
   status: text("status").$type<"pending" | "active" | "suspended">().notNull().default("pending"),
   isDemo: boolean("is_demo").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -24,18 +25,27 @@ export const users = pgTable("gallery_users", {
   year: integer("year"),
 }, table => [
   uniqueIndex("gallery_users_email_normalized_idx").on(sql`lower(btrim(${table.email}))`),
-  check("gallery_users_role_check", sql`${table.role} in ('user', 'admin')`),
+  check("gallery_users_role_check", sql`${table.role} in ('user', 'admin', 'owner')`),
+  uniqueIndex("gallery_users_single_owner_idx").on(table.role).where(sql`${table.role} = 'owner'`),
   check("gallery_users_status_check", sql`${table.status} in ('pending', 'active', 'suspended')`),
 ]);
 
 export const turmas = pgTable("gallery_turmas", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
+  number: integer("number").notNull(),
+  courseName: text("course_name"),
+  startYear: integer("start_year"),
+  // Historical completion year; never infer a start year from this value.
   graduationYear: integer("graduation_year"),
   archivedAt: timestamp("archived_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, table => [
   uniqueIndex("gallery_turmas_name_normalized_idx").on(sql`lower(btrim(${table.name}))`),
+  uniqueIndex("gallery_turmas_number_idx").on(table.number),
+  check("gallery_turmas_number_check", sql`${table.number} > 0`),
+  check("gallery_turmas_start_year_check", sql`${table.startYear} is null or ${table.startYear} between 2000 and 2100`),
+  check("gallery_turmas_course_name_check", sql`${table.courseName} is null or length(btrim(${table.courseName})) between 2 and 100`),
   check("gallery_turmas_name_check", sql`length(btrim(${table.name})) > 0`),
 ]);
 

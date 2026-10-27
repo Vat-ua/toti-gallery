@@ -73,3 +73,6 @@ manually; no email service is required. Existing demonstration profiles cannot s
 See [Authentication](docs/authentication.md) for the first-administrator command,
 isolated review environment, account provisioning and migrations. See
 [Google on Vercel](docs/google-vercel-check.md) for the public OAuth check.
+
+Staff access group management at `/admin/turmas`. See
+[Administration](docs/administration.md) for permissions, imports and migrations.
