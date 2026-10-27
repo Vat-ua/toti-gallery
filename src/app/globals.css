@@ -3236,6 +3236,16 @@ html[data-theme="dark"] .theme-icon-moon {
   flex-shrink: 0;
 }
 
+.field-error {
+  color: var(--accent);
+  font-size: var(--text-secondary);
+  line-height: var(--leading-copy);
+}
+
+.form-field input[aria-invalid="true"] {
+  border-color: var(--accent);
+}
+
 .form-help {
   font-size: var(--text-label);
   color: var(--ink-3);
