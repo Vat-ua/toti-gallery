@@ -1,3 +1,5 @@
+import type { CoverFraming } from "./cover-framing";
+
 export type Person = {
   id: string;
   name: string;
@@ -9,6 +11,8 @@ export type Person = {
   turmaId: string | null;
 };
 
+export type PublicationTurma = { id: string; name: string; number: number; courseName: string | null };
+
 export type Project = {
   id: string;
   slug: string;
@@ -17,6 +21,7 @@ export type Project = {
   technologies: string[];
   coverStyle: string;
   imageUrl: string | null;
+  coverFraming?: CoverFraming | null;
   githubUrl: string;
   liveUrl: string | null;
   featured: boolean;

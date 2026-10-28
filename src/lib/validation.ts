@@ -1,4 +1,6 @@
 import { TECHNOLOGIES, COVER_STYLES } from "./types";
+import { imageKey } from "./image-policy";
+import { validateCoverFraming } from "./cover-framing";
 
 export function validateCoauthorIds(body: Record<string, unknown>): string[] | undefined {
   if (body.coauthorIds === undefined) return undefined;
@@ -8,7 +10,7 @@ export function validateCoauthorIds(body: Record<string, unknown>): string[] | u
   return [...new Set(body.coauthorIds as string[])];
 }
 
-export function validateProject(body: Record<string, unknown>) {
+export function validateProject(body: Record<string, unknown>, currentImage: string | null = null) {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("Os dados do projeto são inválidos.");
   const text = (key: string) => typeof body[key] === "string" ? (body[key] as string).trim() : "";
   const title = text("title");
@@ -28,11 +30,14 @@ export function validateProject(body: Record<string, unknown>) {
   if (!githubUrl) throw new Error("Informe o link do projeto no GitHub.");
   if (!["github.com", "www.github.com"].includes(new URL(githubUrl).hostname)) throw new Error("Informe um endereço válido do GitHub.");
   const image = text("imageUrl");
-  if (image.length > 2_900_000) throw new Error("A imagem deve ter até 2 MB.");
   let imageUrl: string | null = null;
   if (image) {
-    if (/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(image)) imageUrl = image;
-    else { imageUrl = url("imageUrl"); }
+    if (image === currentImage) imageUrl = image;
+    else {
+      if (image.startsWith("data:") || imageKey(image)) throw new Error("Envie a imagem pelo botão Enviar imagem.");
+      imageUrl = url("imageUrl");
+      if (imageUrl && imageKey(new URL(imageUrl).pathname)) throw new Error("Envie sua própria imagem pelo botão Enviar imagem.");
+    }
   }
-  return { title, description, technologies, isFinal: body.isFinal === true, coverStyle: COVER_STYLES.includes(text("coverStyle")) ? text("coverStyle") : "abstract", imageUrl, githubUrl, liveUrl: url("liveUrl") };
+  return { title, description, technologies, isFinal: body.isFinal === true, coverStyle: COVER_STYLES.includes(text("coverStyle")) ? text("coverStyle") : "abstract", imageUrl, coverFraming: validateCoverFraming(body.coverFraming), githubUrl, liveUrl: url("liveUrl") };
 }

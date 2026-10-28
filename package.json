@@ -13,9 +13,11 @@
     "account:admin": "tsx scripts/account-admin.ts",
     "test:auth": "node --import tsx --test tests/auth.test.ts",
     "test:database-target": "node --import tsx --test tests/database-target.test.ts",
+    "test:images": "node --import tsx --test tests/images.test.ts",
     "test:admin": "node --import tsx --test --test-concurrency=1 tests/student-import.test.ts tests/admin-turmas.test.ts tests/admin-students.test.ts tests/admin-projects.test.ts tests/admin-administrators.test.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1158.0",
     "@axe-core/playwright": "^4.14.0",
     "@better-auth/drizzle-adapter": "1.7.13",
     "@playwright/test": "^1.64.1",
@@ -25,7 +27,8 @@
     "next": "^16.4.3",
     "pg": "8.20.0",
     "react": "19.2.6",
-    "react-dom": "19.2.6"
+    "react-dom": "19.2.6",
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.3",

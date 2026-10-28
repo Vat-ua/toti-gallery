@@ -66,6 +66,7 @@ memberships, or sign-in methods change.
 | `email` | Required unique email. Uniqueness also ignores case and surrounding spaces. |
 | `email_verified` | Boolean; defaults to `false`. Records email verification. |
 | `avatar` | Nullable photo URL. |
+| `avatar_metadata` | Nullable metadata for a managed photo: object key, dimensions, bytes and format. Legacy photos keep null. |
 | `bio` | Profile description; defaults to empty text. |
 | `github` | Nullable GitHub profile link. |
 | `role` | `user`, `admin`, or `owner`; defaults to `user`. |
@@ -118,6 +119,8 @@ find a person's groups.
 | `technologies` | Required JSONB array of technology names, represented as `string[]` in the application. |
 | `cover_style` | Cover style identifier; defaults to `abstract`. |
 | `image_url` | Nullable image URL. |
+| `image_metadata` | Nullable managed-cover metadata, including the smaller card version. Files live in Object Storage. |
+| `cover_framing` | Nullable display settings: horizontal/vertical position (0–100) and zoom (1–3). Null keeps the original placement. |
 | `github_url` | Required code/repository URL. |
 | `live_url` | Nullable link to the running application. |
 | `featured` | Boolean; defaults to `false`. Used for `Destaques`. |

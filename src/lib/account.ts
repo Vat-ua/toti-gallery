@@ -3,7 +3,7 @@ function record(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-export function validateProfile(value: unknown) {
+export function validateProfile(value: unknown, currentAvatar: string | null = null) {
   const body = record(value);
   if (Object.keys(body).some(key => !["name", "bio", "avatar", "github"].includes(key))) {
     throw new Error("Altere apenas o nome, a foto, a apresentação e o GitHub.");
@@ -22,19 +22,8 @@ export function validateProfile(value: unknown) {
     } catch { throw new Error("Informe um endereço do GitHub começando com https://."); }
   }
   const avatar = body.avatar;
-  if (avatar !== null) {
-    if (typeof avatar !== "string") throw new Error("A foto é inválida.");
-    if (!/^\/images\/[a-zA-Z0-9_-]+\.(?:jpg|jpeg|png|webp)$/.test(avatar)) {
-      if (avatar.length > 350_000) throw new Error("A foto processada deve ter até 256 KB.");
-      const match = /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(avatar);
-      if (!match) throw new Error("Use uma foto JPG, PNG ou WebP.");
-      const bytes = Buffer.from(match[2], "base64");
-      const valid = match[1] === "png" ? bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
-        : match[1] === "jpeg" ? bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255
-        : bytes.toString("ascii", 0, 4) === "RIFF" && bytes.toString("ascii", 8, 12) === "WEBP";
-      if (!valid || bytes.length > 256 * 1024) throw new Error("A foto é inválida ou excede 256 KB após o processamento.");
-    }
-  }
+  // Keep the existing static/provider/data-URL photo; new files are multipart.
+  if (avatar !== null && (typeof avatar !== "string" || avatar !== currentAvatar)) throw new Error("Envie uma nova foto pelo botão Alterar foto.");
   return { name: body.name.trim(), bio: body.bio.trim(), avatar, github };
 }
 

@@ -34,7 +34,7 @@ export function ProjectDetails({ project, related = [], canEdit = false, readOnl
     </div>
     <div className="detail-layout">
       <div className="detail-main">
-        <ProjectCover title={project.title} style={project.coverStyle} imageUrl={project.imageUrl}/>
+        <ProjectCover title={project.title} style={project.coverStyle} imageUrl={project.imageUrl} framing={project.coverFraming} fullSize/>
         <section className="detail-description">
           <h2>Sobre o projeto</h2>
           {project.description.split(/\n\s*\n/).map((paragraph, index) => <p key={index}>{paragraph}</p>)}

@@ -25,7 +25,7 @@ async function hydrate(tx: Transaction, rows: Row[]): Promise<AdminProject[]> {
     const author = person(project.authorId);
     return {
       id: project.id, slug: project.slug, title: project.title, description: project.description,
-      technologies: project.technologies, coverStyle: project.coverStyle, imageUrl: project.imageUrl,
+      technologies: project.technologies, coverStyle: project.coverStyle, imageUrl: project.imageUrl, coverFraming: project.coverFraming,
       githubUrl: project.githubUrl, liveUrl: project.liveUrl, featured: project.featured, isFinal: project.isFinal,
       turmaId: project.turmaId, turmaName, createdAt: project.createdAt.toISOString(), author,
       authors: [author, ...credits.filter(credit => credit.projectId === project.id && credit.userId !== author.id).map(credit => person(credit.userId)).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))],

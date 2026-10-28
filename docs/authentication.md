@@ -11,8 +11,12 @@ links work without OAuth configuration or availability.
 Stage 2 implements authentication and server-side provisioning. Stage 3 adds
 Turmas administration, group imports, global student/access management, project
 moderation and owner-only administrator management. The current UI displays
-the earliest membership as the primary turma; project turma
-is stored independently. Do not deploy the old database with this new runtime.
+the earliest membership as the primary turma; project turma is stored independently.
+New publications default to the highest-numbered membership and allow choosing
+another of the author's turmas, including archived ones. Published projects keep
+their saved turma. Only active, verified, non-demo members are offered as new
+coauthors; existing credits survive membership changes.
+Do not deploy the old database with this new runtime.
 
 The owner confirmed that **every existing account, including their test account,
 is a demo**. Apply the stage 1 foundation and stage 2 cutover migrations only to the

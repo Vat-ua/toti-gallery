@@ -52,3 +52,15 @@ values remain null, and historical graduation years are retained. New group save
 require all three fields. The guarded development/test runner snapshots all
 original rows and verifies that they are preserved. Applied to development and
 its isolated test copy only; see [Administration](../docs/administration.md).
+
+`20261028_image_storage.sql` adds nullable JSON metadata to profile photos and
+project covers. Existing URLs, profiles and projects remain unchanged. Test it
+on a temporary branch before applying it with
+`node scripts/migrate-image-storage.cjs --env-file=.env.local`. The guarded runner
+refuses production, saves an ignored snapshot, and verifies all original rows
+inside the migration transaction. See [Image storage](../docs/image-storage.md).
+
+`20261028_cover_framing.sql` adds nullable project display settings without
+changing existing images or rows. Verify it on a test copy, then use the same
+guarded runner with `--framing` for development. Null preserves the original
+top-center placement at 100% zoom; production remains a separately approved step.

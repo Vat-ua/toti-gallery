@@ -4,6 +4,8 @@
  */
 import { sql } from "drizzle-orm";
 import type { Role } from "@/lib/permissions";
+import type { ImageMetadata } from "@/lib/image-policy";
+import type { CoverFraming } from "@/lib/cover-framing";
 import { bigint, boolean, check, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const users = pgTable("gallery_users", {
@@ -12,6 +14,7 @@ export const users = pgTable("gallery_users", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("avatar"), // Better Auth's image field reuses the existing photo.
+  imageMetadata: jsonb("avatar_metadata").$type<ImageMetadata>(),
   bio: text("bio").notNull().default(""),
   github: text("github"),
   role: text("role").$type<Role>().notNull().default("user"),
@@ -134,6 +137,9 @@ export const projects = pgTable("gallery_projects", {
   technologies: jsonb("technologies").$type<string[]>().notNull(),
   coverStyle: text("cover_style").notNull().default("abstract"),
   imageUrl: text("image_url"),
+  // Display position and zoom; the stored cover image remains unchanged.
+  coverFraming: jsonb("cover_framing").$type<CoverFraming>(),
+  imageMetadata: jsonb("image_metadata").$type<ImageMetadata>(),
   githubUrl: text("github_url").notNull(),
   liveUrl: text("live_url"),
   featured: boolean("featured").notNull().default(false),

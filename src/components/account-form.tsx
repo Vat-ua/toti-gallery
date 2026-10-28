@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { Person } from "@/lib/types";
 import { Avatar, useToast } from "./ui";
 import { Icon } from "./icon";
+import { validateImageFile } from "@/lib/image-policy";
 
 function PasswordField({ id, label, autoComplete, help }: { id: string; label: string; autoComplete: "current-password" | "new-password"; help?: string }) {
   const [visible, setVisible] = useState(false);
@@ -28,39 +29,27 @@ export function AccountForm({ user, email, canChangePassword }: { user: Person; 
   const [avatar, setAvatar] = useState(user.avatar);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [profileError, setProfileError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  useEffect(() => () => { if (avatar?.startsWith("blob:")) URL.revokeObjectURL(avatar); }, [avatar]);
 
   function signInAgain() {
     router.push("/entrar?next=%2Fminha-conta");
     router.refresh();
   }
 
-  async function uploadPhoto(event: ChangeEvent<HTMLInputElement>) {
+  function uploadPhoto(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
     setProfileError("");
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 2 * 1024 * 1024) {
-      setProfileError("Escolha uma foto JPG, PNG ou WebP de até 2 MB.");
-      return;
-    }
-    setUploading(true);
     try {
-      const image = await createImageBitmap(file);
-      try {
-        const canvas = document.createElement("canvas");
-        canvas.width = canvas.height = 256;
-        const context = canvas.getContext("2d");
-        if (!context) throw new Error();
-        const side = Math.min(image.width, image.height);
-        context.drawImage(image, (image.width - side) / 2, (image.height - side) / 2, side, side, 0, 0, 256, 256);
-        setAvatar(canvas.toDataURL("image/webp", .85));
-      } finally { image.close(); }
-    } catch { setProfileError("Não foi possível preparar a foto. Tente outra imagem."); }
-    finally { setUploading(false); }
+      validateImageFile(file);
+      setPhotoFile(file);
+      setAvatar(URL.createObjectURL(file));
+    } catch (error) { setProfileError(error instanceof Error ? error.message : "Não foi possível preparar a foto."); }
   }
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
@@ -68,11 +57,15 @@ export function AccountForm({ user, email, canChangePassword }: { user: Person; 
     setProfileError("");
     setSavingProfile(true);
     try {
-      const response = await fetch("/api/account", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, bio, avatar, github }) });
+      const form = new FormData();
+      form.set("data", JSON.stringify({ name, bio, avatar: photoFile ? null : avatar, github }));
+      if (photoFile) form.set("image", photoFile);
+      const response = await fetch("/api/account", { method: "PATCH", body: form });
       if (response.status === 401) { signInAgain(); return; }
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Não foi possível salvar seu perfil.");
       setName(data.user.name); setBio(data.user.bio); setGithub(data.user.github || ""); setAvatar(data.user.avatar);
+      setPhotoFile(null);
       notify("Perfil atualizado.");
       router.refresh();
     } catch (error) { setProfileError(error instanceof Error ? error.message : "Não foi possível salvar seu perfil. Tente novamente."); }
@@ -104,16 +97,16 @@ export function AccountForm({ user, email, canChangePassword }: { user: Person; 
     <div className="account-layout">
       <form onSubmit={saveProfile} aria-labelledby="account-profile-title">
         <h2 id="account-profile-title" className="account-section-title">Perfil</h2>
-        <fieldset className="account-fieldset" disabled={savingProfile || uploading}>
+        <fieldset className="account-fieldset" disabled={savingProfile}>
           <div className="account-photo">
             <Avatar key={avatar || "initials"} person={{ name: name || user.name, avatar }} size={88}/>
             <div className="account-photo-actions">
               <input ref={fileRef} id="account-photo" type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={uploadPhoto}/>
               <div className="account-photo-buttons">
-                <button type="button" className="photo-change" onClick={() => fileRef.current?.click()}><Icon name={avatar ? "edit" : "plus"} size={15}/>{uploading ? "Preparando..." : avatar ? "Alterar foto" : "Adicionar foto"}</button>
-                {avatar && <button type="button" className="photo-remove" aria-label="Remover foto" onClick={() => setAvatar(null)}><Icon name="trash" size={16}/>Remover</button>}
+                <button type="button" className="photo-change" onClick={() => fileRef.current?.click()}><Icon name={avatar ? "edit" : "plus"} size={15}/>{avatar ? "Alterar foto" : "Adicionar foto"}</button>
+                {avatar && <button type="button" className="photo-remove" aria-label="Remover foto" onClick={() => { setAvatar(null); setPhotoFile(null); }}><Icon name="trash" size={16}/>Remover</button>}
               </div>
-              <small>JPG, PNG ou WebP, até 2 MB.</small>
+              <small>JPG, PNG ou WebP, até 3 MB. Recorte quadrado, centralizado.</small>
             </div>
           </div>
           <div className="form-field"><label htmlFor="account-name">Nome</label><input id="account-name" name="name" value={name} onChange={event => setName(event.target.value)} autoComplete="name" required minLength={2} maxLength={70}/></div>

@@ -22,11 +22,19 @@ export async function getCommunityPeople() {
 }
 export async function getPerson(id: string) { return (await peopleRows()).find(person => person.id === id) || null; }
 
-export async function getCoauthorCandidates(turmaId: string) {
+export async function getPublicationTurmas(userId: string) {
+  return db.select({ id: turmas.id, name: turmas.name, number: turmas.number, courseName: turmas.courseName })
+    .from(turmaMembers).innerJoin(turmas, eq(turmas.id, turmaMembers.turmaId))
+    .where(eq(turmaMembers.userId, userId)).orderBy(desc(turmas.number));
+}
+
+export async function getCoauthorCandidates(turmaId: string | string[]) {
+  const ids = typeof turmaId === "string" ? [turmaId] : turmaId;
+  if (!ids.length) return [];
   return db.select({ id: users.id, name: users.name, bio: users.bio, avatar: users.image, github: users.github,
     turmaId: turmas.id, cohort: turmas.name, year: turmas.graduationYear })
     .from(turmaMembers).innerJoin(users, eq(users.id, turmaMembers.userId)).innerJoin(turmas, eq(turmas.id, turmaMembers.turmaId))
-    .where(and(eq(turmaMembers.turmaId, turmaId), eq(users.status, "active"), eq(users.emailVerified, true), eq(users.isDemo, false))).orderBy(users.name)
+    .where(and(inArray(turmaMembers.turmaId, ids), eq(users.status, "active"), eq(users.emailVerified, true), eq(users.isDemo, false))).orderBy(users.name)
     .then(rows => rows.map(row => ({ ...row, year: row.year || 0 })));
 }
 
@@ -53,7 +61,7 @@ export async function getProjects(options: { participantId?: string } = {}): Pro
     // Deliberate public projection: moderation actor/reason and email stay private.
     return {
       id: project.id, slug: project.slug, title: project.title, description: project.description,
-      technologies: project.technologies, coverStyle: project.coverStyle, imageUrl: project.imageUrl,
+      technologies: project.technologies, coverStyle: project.coverStyle, imageUrl: project.imageUrl, coverFraming: project.coverFraming,
       githubUrl: project.githubUrl, liveUrl: project.liveUrl, featured: project.featured,
       isFinal: project.isFinal, turmaId: project.turmaId, author,
       authors: [author, ...(authorsByProject.get(project.id) || []).filter(person => person.id !== author.id).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))],

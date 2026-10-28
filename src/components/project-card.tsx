@@ -12,7 +12,7 @@ export function ProjectCard({ project, isCoauthor = false, href = `/projetos/${p
   const visibleTechs = 3;
   return <article className="project-card">
     <Link href={href} className="project-cover-link" aria-label={`Ver projeto: ${project.title}${project.isFinal ? ", projeto final" : ""}`}>
-      <ProjectCover title={project.title} style={project.coverStyle} imageUrl={project.imageUrl} isFinal={project.isFinal}/>
+      <ProjectCover title={project.title} style={project.coverStyle} imageUrl={project.imageUrl} isFinal={project.isFinal} framing={project.coverFraming}/>
     </Link>
     <div className="project-card-body">
       <div className="card-meta">

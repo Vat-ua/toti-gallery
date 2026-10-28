@@ -36,6 +36,8 @@ const { tables, quote, snapshot, fingerprint, fingerprints, copyRows } = require
     await target.query(fs.readFileSync("migrations/20261026_stage2_auth_cutover.sql", "utf8"));
     await target.query(fs.readFileSync("migrations/20261027_stage3_owner.sql", "utf8"));
     await target.query(fs.readFileSync("migrations/20261027_turma_details.sql", "utf8"));
+    await target.query(fs.readFileSync("migrations/20261028_image_storage.sql", "utf8"));
+    await target.query(fs.readFileSync("migrations/20261028_cover_framing.sql", "utf8"));
     for (const table of tables.filter(table => table !== "gallery_sessions")) {
       const columns = before[table].columns.filter(column => column.column_name !== "password_hash");
       const actual = (await target.query(`SELECT ${columns.map(c => quote(c.column_name)).join(",")} FROM ${quote(table)}`)).rows;

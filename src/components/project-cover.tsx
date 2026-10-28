@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent, type KeyboardEvent } from "react";
 import { Icon } from "./icon";
+import { coverThumbnail } from "@/lib/image-policy";
+import { DEFAULT_COVER_FRAMING, moveCoverFraming, type CoverFraming } from "@/lib/cover-framing";
 
 const PALETTES: Record<string, string> = { abstract: "poster-tipo", eco: "poster-bloco", books: "poster-grade", finance: "poster-arco", connect: "poster-faisca", weather: "poster-duo", quiz: "poster-codigo" };
 function titleSize(title: string) {
@@ -25,18 +27,55 @@ function Poster({ title, style }: { title: string; style: string }) {
   </div>;
 }
 
-type ProjectCoverProps = { title: string; style?: string; imageUrl?: string | null; isFinal?: boolean; className?: string };
+type ProjectCoverProps = { title: string; style?: string; imageUrl?: string | null; isFinal?: boolean; className?: string; fullSize?: boolean;
+  framing?: CoverFraming | null; onFramingChange?: (value: CoverFraming) => void; cropHelpId?: string;
+  onImageStatusChange?: (status: "ready" | "error") => void };
 
 export function ProjectCover(props: ProjectCoverProps) {
   return <ProjectCoverContent key={props.imageUrl || "poster"} {...props}/>;
 }
-function ProjectCoverContent({ title, style = "abstract", imageUrl, isFinal = false, className = "" }: ProjectCoverProps) {
+function ProjectCoverContent({ title, style = "abstract", imageUrl, isFinal = false, className = "", fullSize = false, framing, onFramingChange, cropHelpId, onImageStatusChange }: ProjectCoverProps) {
   const [imageFailed, setImageFailed] = useState(false);
+  const imageRef = useRef<HTMLImageElement>(null);
+  useEffect(() => {
+    // A cached image can finish loading before hydration attaches onLoad.
+    if (imageRef.current?.complete && imageRef.current.naturalWidth) onImageStatusChange?.("ready");
+  }, [onImageStatusChange]);
+  const drag = useRef<{ pointerId: number; x: number; y: number; frame: CoverFraming } | null>(null);
   const hasImage = Boolean(imageUrl) && !imageFailed;
-  return <div className={`project-cover cover-${style} ${hasImage ? "has-image" : "has-poster"} ${className}`} role="img" aria-label={`Capa do projeto ${title}${isFinal ? ", projeto final" : ""}`}>
+  const frame = framing || DEFAULT_COVER_FRAMING;
+  function move(dx: number, dy: number, surface: HTMLElement, start = frame) {
+    const image = imageRef.current;
+    if (image && onFramingChange) onFramingChange(moveCoverFraming(start, dx, dy, image.naturalWidth, image.naturalHeight, surface.clientWidth, surface.clientHeight));
+  }
+  function beginDrag(event: PointerEvent<HTMLButtonElement>) {
+    if (event.button !== 0 || !imageRef.current?.naturalWidth) return;
+    event.preventDefault();
+    event.currentTarget.focus({ preventScroll: true });
+    event.currentTarget.setPointerCapture(event.pointerId);
+    drag.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, frame };
+  }
+  function dragImage(event: PointerEvent<HTMLButtonElement>) {
+    const start = drag.current;
+    if (start?.pointerId === event.pointerId) move(event.clientX - start.x, event.clientY - start.y, event.currentTarget, start.frame);
+  }
+  function moveWithKeyboard(event: KeyboardEvent<HTMLButtonElement>) {
+    const directions: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+    const direction = directions[event.key];
+    if (!direction) return;
+    event.preventDefault();
+    const step = event.shiftKey ? 40 : 10;
+    move(direction[0] * step, direction[1] * step, event.currentTarget);
+  }
+  return <div className={`project-cover cover-${style} ${hasImage ? "has-image" : "has-poster"} ${onFramingChange && hasImage ? "is-cropping" : ""} ${className}`} role={onFramingChange && hasImage ? "group" : "img"} aria-label={`Capa do projeto ${title}${isFinal ? ", projeto final" : ""}`}>
     <div className="cover-art" aria-hidden="true">
-      {hasImage ? <img className="custom-cover-image" src={imageUrl as string} alt="" loading="lazy" onError={() => setImageFailed(true)}/> : <Poster title={title} style={style}/>}
+      {hasImage ? <img ref={imageRef} className="custom-cover-image" src={fullSize || frame.zoom > 1 ? imageUrl! : coverThumbnail(imageUrl!)} alt="" loading="lazy"
+        onLoad={() => onImageStatusChange?.("ready")} onError={() => { setImageFailed(true); onImageStatusChange?.("error"); }}
+        style={framing ? { objectPosition: `${frame.x}% ${frame.y}%`, transform: `scale(${frame.zoom})`, transformOrigin: `${frame.x}% ${frame.y}%` } : undefined}/> : <Poster title={title} style={style}/>}
     </div>
+    {onFramingChange && hasImage && <button type="button" className="cover-crop-surface" aria-label="Mover imagem da capa" aria-describedby={cropHelpId}
+      onPointerDown={beginDrag} onPointerMove={dragImage} onPointerUp={() => { drag.current = null; }}
+      onPointerCancel={() => { drag.current = null; }} onLostPointerCapture={() => { drag.current = null; }} onKeyDown={moveWithKeyboard}/>}
     {isFinal && <span className="project-final-badge cover-final-badge" aria-hidden="true">Projeto final</span>}
     <span className="cover-hover" aria-hidden="true"><Icon name="arrow-up-right" size={20}/></span>
   </div>;
