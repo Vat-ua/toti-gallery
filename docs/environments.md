@@ -1,10 +1,13 @@
 # Database environments
 
-One Neon project uses a persistent `production` branch, a separate persistent
+The `toti-gallery-us` Neon project in AWS US East (N. Virginia),
+`aws-us-east-1`, uses a persistent `production` branch, a separate persistent
 `development` branch, and temporary `test/*` branches. A Neon branch contains
 PostgreSQL databases; these are different resources. Both persistent branches
 contain `toti_gallery` (current application) and `toti_gallery_legacy` (retained
 historical data). The standard `postgres` database is for maintenance only.
+The original empty `neondb` remains unused; the application connects to
+`toti_gallery`.
 
 ## Local development
 
@@ -35,9 +38,9 @@ with the production URL, original auth secret, public origin, and:
 ```dotenv
 GALLERY_DATABASE_ENV=operations
 DATABASE_NAME=toti_gallery
-NEON_PROJECT_ID=morning-bread-11732042
-NEON_BRANCH_ID=br-hidden-surf-b61a7h3q
-NEON_ENDPOINT_ID=ep-fragrant-mode-b67j07hn
+NEON_PROJECT_ID=solitary-voice-43626583
+NEON_BRANCH_ID=br-empty-resonance-b805h6hx
+NEON_ENDPOINT_ID=ep-wandering-wind-b8wg9taw
 ```
 
 Select it explicitly and pass `--production`, for example:
@@ -80,3 +83,17 @@ The historical `check-platform-migration.cjs` verifier requires a test branch an
 legacy-schema source. Load `.env.test-source` explicitly when using it; a fresh
 shell running it against `.env.local` is rejected. Its temporary SQL database is
 created and removed only inside that selected test branch.
+
+## Retained São Paulo project
+
+The previous Neon project in `aws-sa-east-1` is retained unchanged as a migration
+fallback. Normal development, tests and Vercel use `toti-gallery-us`. Do not point
+new write tests at the retained project or resume writes there during normal use.
+
+Production and development were migrated separately, preserving their different
+schemas and records. Restoring a previous Vercel deployment also restores its old
+database environment; the matching Production environment variable must be
+restored before any subsequent rebuild. Once new writes exist in the US database,
+returning to São Paulo requires reconciling those writes first. Old connections,
+source snapshots and restoration evidence are kept in ignored local migration
+notes; they must never be committed.

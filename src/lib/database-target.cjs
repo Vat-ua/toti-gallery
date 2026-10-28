@@ -1,8 +1,8 @@
 // Public Neon resource identifiers, never connection credentials.
 const PRODUCTION = Object.freeze({
-  projectId: "morning-bread-11732042",
-  branchId: "br-hidden-surf-b61a7h3q",
-  endpointId: "ep-fragrant-mode-b67j07hn",
+  projectId: "solitary-voice-43626583",
+  branchId: "br-empty-resonance-b805h6hx",
+  endpointId: "ep-wandering-wind-b8wg9taw",
   database: "toti_gallery",
 });
 const endpointId = value => new URL(value).hostname.split(".")[0].replace(/-pooler$/, "");
