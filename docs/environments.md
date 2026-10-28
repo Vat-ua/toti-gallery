@@ -32,6 +32,19 @@ Vercel Production uses `production / toti_gallery`. Changing DATABASE_URL requir
 a new deployment. Renaming the database preserves identities, credentials,
 sessions, project authorship and data; it does not require a new auth secret.
 
+The existing Vercel project connects to `Vat-ua/toti-gallery` on GitHub, with
+`main` as its Production branch. A push/merge to `main` publishes the committed
+code automatically: obtain deployment approval before that push/merge. Use feature
+branches for ongoing work. `vercel.json` disables deployments from other branches
+until Preview has its own database, storage credentials and trusted auth origin.
+Never copy Production secrets or its database connection into Preview.
+
+Database migrations are separate from the build. Verify them on an isolated
+production copy, prepare a recovery path, then apply approved migrations before
+publishing code that requires them. The image migrations only add nullable fields;
+the preceding application version remains compatible for rollback. Rolling back
+an application deployment does not roll back database or object-storage writes.
+
 For trusted manual provisioning/recovery, use an ignored `.env.operations` file
 with the production URL, original auth secret, public origin, and:
 
