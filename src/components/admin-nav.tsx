@@ -8,6 +8,6 @@ export function AdminNav({ owner }: { owner: boolean }) {
     <Link href="/admin/turmas" aria-current={pathname.startsWith("/admin/turmas") ? "page" : undefined}>Turmas</Link>
     <Link href="/admin/estudantes" aria-current={pathname.startsWith("/admin/estudantes") ? "page" : undefined}>Estudantes</Link>
     <Link href="/admin/projetos" aria-current={pathname.startsWith("/admin/projetos") ? "page" : undefined}>Projetos</Link>
-    {owner && <span aria-disabled="true" title="Disponível na próxima etapa">Administradores <small>Em breve</small></span>}
+    {owner && <Link href="/admin/administradores" aria-current={pathname.startsWith("/admin/administradores") ? "page" : undefined}>Administradores</Link>}
   </nav>;
 }

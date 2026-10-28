@@ -25,6 +25,14 @@ export type StudentAccessLink = {
 };
 export type ManagedStudent = AdminStudent & { emailVerified: boolean; accessLink: StudentAccessLink | null };
 export type StudentListPage = { students: ManagedStudent[]; total: number; filters: StudentListParams };
+export type ManagedAdministrator = {
+  id: string; name: string; email: string; avatar: string | null;
+  role: "admin" | "owner"; status: "pending" | "active" | "suspended";
+  accessLink: StudentAccessLink | null;
+};
+export type AdministratorCandidate = {
+  id: string; name: string; email: string; status: "pending" | "active" | "suspended";
+};
 export type AdminProject = Project & { turmaName: string; moderatedAt: string | null; moderatedByName: string | null };
 export type AdminProjectPage = { projects: AdminProject[]; total: number; filters: AdminProjectFilters };
 export type StudentInvitation = {

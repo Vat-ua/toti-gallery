@@ -5,7 +5,7 @@ creation/editing, archive/restore, student membership and import preview.
 `/admin/estudantes` provides the global student list, multi-turma management,
 student access controls and activation/recovery links. `/admin/projetos` provides
 project review and visibility moderation, also available within each turma.
-Administrator management remains unavailable pending its own implementation.
+`/admin/administradores` provides owner-only staff management and access links.
 
 ## Permissions
 
@@ -19,7 +19,9 @@ Administrator management remains unavailable pending its own implementation.
   service. Mutating HTTP endpoints also require the configured trusted origin.
 - Student suspension applies only to real accounts with the `user` role. Staff
   accounts and demo profiles cannot be suspended from Estudantes.
-- Staff management, role reassignment and ownership transfer are not exposed yet.
+- Only the owner may create an administrator, promote an eligible existing user,
+  or remove administrator rights. The owner account is protected from these actions.
+- Ownership transfer and general account deletion are not exposed.
 
 ## Existing-account migration
 
@@ -219,6 +221,52 @@ Staff receive no general content-edit or permanent-deletion rights.
 No additional migration is needed: moderation uses the existing visibility fields.
 The implementation is local/development only; production and Vercel are unchanged.
 
+## Administrators
+
+Only the active, non-demo owner can open the Administradores section, search
+candidate profiles, or use its mutation services. Regular administrators do not
+see this navigation entry and cannot use its API. Authorization is checked again
+inside each database transaction; hiding controls is not an access boundary.
+
+The list shows the owner first, followed by administrators, with their name,
+email, permission and access status. Name/email search filters this small staff
+list. The owner's row is read-only and labeled `Conta protegida`; profile and
+password editing remain available through the existing personal editor.
+
+`Adicionar administrador` uses the shared right-side panel with `Perfil existente`
+and `Novo cadastro`. Existing-profile search queries the full database and returns
+up to 25 eligible matches: real ordinary users who are active/verified or still
+pending/unverified. Demo, suspended, and already administrative profiles are
+excluded. Selecting a person and confirming `Conceder acesso` changes that same
+user's role without changing their name, email, credentials, memberships, projects,
+or author credits. A turma is not required for administrative access.
+
+New registration requires name and email and creates a pending administrator
+without credentials or memberships. Duplicate emails are rejected with guidance
+to use the existing-profile tab; registration never silently promotes a match.
+Provisioning and grant issuance are atomic. New accounts and promoted pending
+profiles immediately display a copyable activation link in the same panel.
+The existing Google or password activation flow retains the same person ID.
+
+`Gerenciar` supports activation links for pending administrators and password
+definition/recovery links for active ones. Latest grant metadata, reissue, and
+revocation use the existing single-use grant model. Raw links appear only in the
+immediate response; delivery is manual. The owner cannot be targeted through
+these staff-management actions.
+
+Removing administrator rights requires explicit confirmation and changes the
+role back to `user`; it does not delete, suspend, or reactivate the account.
+Profile, credentials, turmas, publications, credits, likes, and prior moderation
+references remain. Both promotion and removal end the target's sessions and
+revoke outstanding access links, so earlier student recovery links cannot gain
+administrative access after promotion. A pending promotion issues a fresh
+owner-created activation grant. The affected person must sign in again; a pending
+account still needs activation. Concurrent role changes and link operations
+serialize on the target user row and reject stale actions.
+
+No schema migration is required. This section is implemented for development
+review; production and Vercel are unchanged.
+
 ## Checks
 
 ```sh
@@ -230,6 +278,9 @@ The integration suite requires an ignored `.env.admin-test` on an isolated
 `test/*` branch containing the current schema and an owner. It verifies the actual
 Neon target before writing and deletes only its own fixtures. It also compares
 all original rows after cleanup. It cannot run against production or development.
+Administrator tests additionally cover owner-only access, protected ownership,
+new-account activation, identity/content preservation on role changes, grant
+revocation, and concurrent promotion/demotion.
 
 Browser validation uses disposable development fixtures and covers access control,
 creation/editing/archive, individual addition, import preview/confirmation and

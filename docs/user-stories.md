@@ -78,14 +78,24 @@ these permissions too.
 | Administrator | Read the hiding reason and confirm restoration | Make an informed decision before showing it again | Implemented |
 | Administrator | Moderate visibility without taking over the project | Preserve the authors' content and ownership | Implemented |
 
+## Managing administrators
+
+These actions are available only to the owner. The owner's account is protected
+from role removal and ownership transfer is not part of this workflow.
+
+| Who | Wants to | So they can | Status |
+| --- | --- | --- | --- |
+| Owner | See and search the list of administrators | Know who has staff access | Implemented |
+| Owner | Grant or remove administrator access on an existing profile | Delegate management while preserving the person's work | Implemented |
+| Owner | Register an administrator without assigning a turma | Add staff who do not participate in a course | Implemented |
+| Owner | Create, reissue, or revoke staff access links | Help administrators activate or recover access | Implemented |
+
 ## Planned improvements
 
 These are agreed directions, not a fixed implementation schedule.
 
 | Who | Wants to | So they can | Status |
 | --- | --- | --- | --- |
-| Owner | See a dedicated list of administrators | Know who has staff access | Planned |
-| Owner | Grant or remove administrator access | Delegate management as responsibilities change | Planned |
 | Administrator | Automatically email invitations to selected students | Avoid copying and sending each link manually | Planned |
 | User who forgot their password | Request a recovery email directly | Recover access without asking an administrator for a link | Planned |
 

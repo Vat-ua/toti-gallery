@@ -4131,29 +4131,27 @@ html[data-theme="dark"] .theme-icon-moon {
   overflow-x: auto;
 }
 
-.admin-nav>a,
-.admin-nav>span {
+.admin-nav>a {
   padding-block: var(--space-3) var(--space-4);
   white-space: nowrap;
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-regular);
+  color: var(--ink-2);
   display: flex;
   align-items: center;
   gap: var(--space-2);
   border-bottom: 2px solid transparent;
+  transition: color .15s ease;
 }
 
-.admin-nav>a[aria-current] {
+.admin-nav>a:hover,
+.admin-nav>a:focus-visible {
+  color: var(--ink);
+}
+
+.admin-nav>a[aria-current="page"] {
   border-color: var(--ink);
-}
-
-.admin-nav>span {
-  color: var(--ink-3);
-  font-weight: var(--weight-regular);
-}
-
-.admin-nav small {
-  font-size: var(--text-label);
-  font-weight: var(--weight-regular);
+  color: var(--ink);
+  font-weight: var(--weight-semibold);
 }
 
 .admin-heading {

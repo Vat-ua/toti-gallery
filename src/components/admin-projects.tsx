@@ -8,6 +8,7 @@ import { adminProjectHref, type AdminProjectFilters } from "@/lib/admin-project-
 import { Dialog, ErrorText, Search, message, request } from "./admin-turmas";
 import { ProjectCard } from "./project-card";
 import { SelectMenu } from "./select-menu";
+import { AdminTurmaFilter } from "./admin-turma-filter";
 import { Icon } from "./icon";
 import { useToast } from "./ui";
 
@@ -28,7 +29,7 @@ export function ProjectModeration({ project, compact = false }: { project: Admin
     finally { setBusy(false); }
   }
   return <>
-    <button type="button" className={`project-moderation-action ${compact ? "" : "button button-outline admin-small-button"} ${hidden ? "is-accent" : ""}`} disabled={refreshing} onClick={() => { setError(""); setOpen(true); }} aria-label={`${hidden ? "Restaurar" : "Ocultar"}: ${project.title}`}>{hidden ? "Restaurar" : "Ocultar"}</button>
+    <button type="button" className={`project-moderation-action ${compact ? "" : "button button-outline admin-small-button"} ${hidden ? "is-accent" : ""}`} disabled={refreshing} onClick={() => { setError(""); setOpen(true); }} aria-label={`${hidden ? "Restaurar" : "Ocultar"}: ${project.title}`}><Icon name={hidden ? "restore" : "eye-off"} size={15}/>{hidden ? "Restaurar" : "Ocultar"}</button>
     {open && <Dialog title={hidden ? "Restaurar projeto?" : "Ocultar projeto"} description={project.title} close={() => setOpen(false)} busy={busy} drawer>
       <form onSubmit={submit}><fieldset disabled={busy} className="account-fieldset">
         {hidden ? <div className="project-moderation-note"><strong>Motivo do ocultamento</strong><p>{project.moderationReason}</p></div> : <div className="form-field"><label htmlFor="moderation-reason">Motivo <span className="required-dot">*</span></label><textarea id="moderation-reason" value={reason} onChange={event => setReason(event.target.value)} required maxLength={1000} rows={5} autoFocus aria-describedby="moderation-help"/><p className="admin-help" id="moderation-help">Visível para a administração e para o responsável pela publicação.</p></div>}
@@ -64,7 +65,7 @@ export function AdminProjects({ result, turmas = [], scopedTurmaId }: { result: 
   return <>
     {!scopedTurmaId && <div className="admin-heading"><div><h1>Projetos</h1><p>Gerencie a visibilidade das publicações da galeria.</p></div></div>}
     <div className="admin-toolbar admin-project-toolbar"><Search value={search.value} change={value => setSearch(current => ({ ...current, value: value.slice(0, 254) }))} placeholder="Buscar por projeto ou autor"/>
-      {!scopedTurmaId && <SelectMenu className="admin-filter-field" label="Filtrar por turma" value={filters.turmaId} disabled={refreshing} onChange={turmaId => navigate({ turmaId })} options={[{ value: "all", label: "Todas as turmas" }, ...turmas.map(turma => ({ value: turma.id, label: `${turma.name}${turma.archived ? " · Arquivada" : ""}` }))]}/>}
+      {!scopedTurmaId && <AdminTurmaFilter value={filters.turmaId} disabled={refreshing} onChange={turmaId => navigate({ turmaId })} turmas={turmas}/>}
       <SelectMenu className="admin-filter-field" label="Filtrar por publicação" value={filters.visibility} disabled={refreshing} onChange={visibility => navigate({ visibility })} options={[{ value: "all", label: "Todas as publicações" }, { value: "published", label: "Publicados" }, { value: "hidden", label: "Ocultos" }]}/>
       <p className="results-count" role="status"><strong>{total}</strong> {total === 1 ? "projeto" : "projetos"}{refreshing && <span className="sr-only"> · Atualizando</span>}</p>
     </div>
