@@ -61,7 +61,7 @@ export function Gallery({ projects }: { projects: Project[] }) {
   );
   const { filters, updateFilters, changeQuery, flushQuery } =
     useGalleryFilters(filterOptions);
-  const { query, cohort, techs, sort, featured, finalOnly } = filters;
+  const { query, cohort, techs, sort, finalOnly } = filters;
   const search = useDeferredValue(query);
   const filterKey = galleryFilterParams(filters).toString();
   const [page, setPage] = useState({ key: filterKey, visible: PAGE_SIZE });
@@ -77,7 +77,6 @@ export function Gallery({ projects }: { projects: Project[] }) {
     query ||
     cohort ||
     techs.length ||
-    featured ||
     finalOnly
   );
   const activeFilterCount =
@@ -110,7 +109,6 @@ export function Gallery({ projects }: { projects: Project[] }) {
             (!search || text.includes(normalize(search))) &&
             (!cohort ||
               project.authors.some((author) => author.cohort === cohort)) &&
-            (!featured || project.featured) &&
             (!finalOnly || project.isFinal) &&
             techs.every((tech) => project.technologies.includes(tech))
           );
@@ -123,17 +121,14 @@ export function Gallery({ projects }: { projects: Project[] }) {
               : new Date(b.createdAt).getTime() -
                 new Date(a.createdAt).getTime(),
         ),
-    [projects, search, cohort, featured, finalOnly, techs, sort],
+    [projects, search, cohort, finalOnly, techs, sort],
   );
-
-  const featuredCount = projects.filter(project => project.featured).length;
 
   function clear() {
     updateFilters({
       query: "",
       cohort: "",
       techs: [],
-      featured: false,
       finalOnly: false,
     });
   }
@@ -187,12 +182,30 @@ export function Gallery({ projects }: { projects: Project[] }) {
           <h2 id="gallery-title">
             Projetos<span className="gallery-title-dot">.</span>
           </h2>
-          <div className="view-tabs" role="group" aria-label="Filtrar por destaque">
-            <button type="button" className={!featured ? "view-tab is-active" : "view-tab"} aria-pressed={!featured} onClick={() => updateFilters({ featured: false })}>
-              Todos<span>{projects.length}</span>
+          <div
+            className="view-tabs"
+            role="group"
+            aria-label="Filtrar projetos"
+          >
+            <button
+              type="button"
+              className={!finalOnly ? "view-tab is-active" : "view-tab"}
+              aria-pressed={!finalOnly}
+              onClick={() => {
+                updateFilters({ finalOnly: false });
+              }}
+            >
+              Todos
             </button>
-            <button type="button" className={featured ? "view-tab is-active" : "view-tab"} aria-pressed={featured} onClick={() => updateFilters({ featured: true })}>
-              Destaques<span>{featuredCount}</span>
+            <button
+              type="button"
+              className={finalOnly ? "view-tab is-active" : "view-tab"}
+              aria-pressed={finalOnly}
+              onClick={() => {
+                updateFilters({ finalOnly: true });
+              }}
+            >
+              Projetos finais
             </button>
           </div>
         </div>

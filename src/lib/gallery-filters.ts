@@ -3,7 +3,6 @@ export type GalleryFilters = {
   cohort: string;
   techs: string[];
   sort: "recent" | "likes" | "az";
-  featured: boolean;
   finalOnly: boolean;
 };
 
@@ -22,7 +21,6 @@ export function readGalleryFilters(params: SearchParams, options: GalleryFilterO
     cohort: options.cohorts.find((value) => value.replace(/^Turma\s*/i, "") === cohort) || "",
     techs: [...new Set(params.getAll("tech"))].filter((tech) => options.technologies.includes(tech)),
     sort: sort === "likes" || sort === "az" ? sort : "recent",
-    featured: params.get("featured") === "1",
     finalOnly: params.get("final") === "1",
   };
 }
@@ -33,7 +31,6 @@ export function galleryFilterParams(filters: GalleryFilters): URLSearchParams {
   if (filters.cohort) params.set("cohort", filters.cohort.replace(/^Turma\s*/i, ""));
   filters.techs.forEach((tech) => params.append("tech", tech));
   if (filters.finalOnly) params.set("final", "1");
-  if (filters.featured) params.set("featured", "1");
   if (filters.sort !== "recent") params.set("sort", filters.sort);
   return params;
 }

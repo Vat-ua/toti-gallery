@@ -35,7 +35,7 @@ export function ProjectEditor({ user, project, people, turmas = [] }: { user: Pe
   const [coauthorIds, setCoauthorIds] = useState<string[]>(project?.authors.filter(author => author.id !== user.id).map(author => author.id) || []);
   const [turmaId, setTurmaId] = useState(project?.turmaId || turmas[0]?.id || "");
   const selectedTurma = turmas.find(turma => turma.id === turmaId);
-  const turmaLabel = selectedTurma ? [selectedTurma.name, selectedTurma.courseName].filter(Boolean).join(" · ") : project?.author.cohort || "Sem turma";
+  const coauthorTurmaName = project?.author.cohort || selectedTurma?.name;
   const [coverStyle, setCoverStyle] = useState(project?.coverStyle || "abstract");
   const [imageUrl, setImageUrl] = useState(project?.imageUrl || "");
   const [coverFraming, setCoverFraming] = useState<CoverFraming | null>(project?.coverFraming || null);
@@ -117,15 +117,18 @@ export function ProjectEditor({ user, project, people, turmas = [] }: { user: Pe
           <section className="editor-form-section">
             <h2>Autores</h2>
             <p>Responsável pela publicação: <strong>{user.name}</strong>. Adicione colegas da mesma turma que participaram do projeto.</p>
-            <div className="form-field">
+            {!project && turmas.length > 1 && <div className="form-field">
               <label htmlFor="project-turma">Turma</label>
-              {!project && turmas.length > 1 ? <select name="turmaId" id="project-turma" value={turmaId} aria-invalid={!!fields.turmaId} aria-describedby={fields.turmaId ? "project-turma-error" : undefined} onChange={event => changeTurma(event.target.value)}>
+              <select name="turmaId" id="project-turma" value={turmaId} aria-invalid={!!fields.turmaId} aria-describedby={fields.turmaId ? "project-turma-error" : undefined} onChange={event => changeTurma(event.target.value)}>
                 {turmas.map(turma => <option key={turma.id} value={turma.id}>{[turma.name, turma.courseName].filter(Boolean).join(" · ")}</option>)}
-              </select> : <output id="project-turma" data-field="turmaId" tabIndex={-1} aria-describedby={fields.turmaId ? "project-turma-error" : undefined} className="project-turma-value">{turmaLabel}</output>}
+              </select>
               <FieldError id="project-turma-error" text={fields.turmaId}/>
-              {!project && !turmas.length && <small>Peça à administração para associar sua conta a uma turma antes de publicar.</small>}
-            </div>
-            <CoauthorPicker key={turmaId} people={people.filter(person => person.turmaId === turmaId)} ownerId={user.id} selected={coauthorIds} onChange={ids => { setCoauthorIds(ids); feedback.clear("coauthorIds"); }} selectedPeople={project?.authors} error={fields.coauthorIds}/>
+            </div>}
+            {(project || turmas.length <= 1) && (fields.turmaId || (!project && !turmas.length)) && <div className="form-field" data-field="turmaId" tabIndex={-1} aria-describedby={fields.turmaId ? "project-turma-error" : undefined}>
+              <FieldError id="project-turma-error" text={fields.turmaId}/>
+              {!project && !turmas.length && !fields.turmaId && <small>Peça à administração para associar sua conta a uma turma antes de publicar.</small>}
+            </div>}
+            <CoauthorPicker key={turmaId} people={people.filter(person => person.turmaId === turmaId)} ownerId={user.id} selected={coauthorIds} onChange={ids => { setCoauthorIds(ids); feedback.clear("coauthorIds"); }} selectedPeople={project?.authors} error={fields.coauthorIds} turmaName={coauthorTurmaName}/>
           </section>
           <section className="editor-form-section">
             <h2>Capa</h2>

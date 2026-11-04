@@ -6,9 +6,9 @@ import { Avatar } from "./ui";
 import { Icon } from "./icon";
 import { FieldError } from "./form-feedback";
 
-type Props = { people: Person[]; ownerId: string; selected: string[]; onChange: (ids: string[]) => void; selectedPeople?: Person[]; error?: string };
+type Props = { people: Person[]; ownerId: string; selected: string[]; onChange: (ids: string[]) => void; selectedPeople?: Person[]; error?: string; turmaName?: string };
 
-export function CoauthorPicker({ people, ownerId, selected, onChange, selectedPeople = [], error }: Props) {
+export function CoauthorPicker({ people, ownerId, selected, onChange, selectedPeople = [], error, turmaName }: Props) {
   const [query, setQuery] = useState("");
   const inputId = useId();
   const normalize = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -20,7 +20,7 @@ export function CoauthorPicker({ people, ownerId, selected, onChange, selectedPe
   }
   return <div className="coauthor-picker" data-field="coauthorIds">
     <div className="form-field">
-      <label htmlFor={inputId}>Coautores (opcional)</label>
+      <label htmlFor={inputId}>Coautores{turmaName ? ` da ${turmaName}` : ""} (opcional)</label>
       <input id={inputId} type="search" value={query} aria-invalid={!!error} aria-describedby={error ? `${inputId}-error` : undefined} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === "Enter") event.preventDefault(); }} placeholder="Buscar por nome"/>
       <FieldError id={`${inputId}-error`} text={error}/>
     </div>

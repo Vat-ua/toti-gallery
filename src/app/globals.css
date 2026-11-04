@@ -975,15 +975,6 @@ html[data-theme="dark"] .theme-icon-moon {
   gap: var(--space-2);
 }
 
-.view-tab span {
-  font-size: var(--text-label);
-  font-weight: var(--weight-semibold);
-  background: color-mix(in srgb, var(--ink) 9%, transparent);
-  border-radius: 999px;
-  padding: 1px var(--space-1-5);
-  color: var(--ink-2);
-}
-
 .view-tab:hover {
   color: var(--ink);
 }
@@ -992,11 +983,6 @@ html[data-theme="dark"] .theme-icon-moon {
   background: var(--surface);
   color: var(--ink);
   box-shadow: var(--shadow-soft);
-}
-
-.view-tab.is-active span {
-  background: var(--accent);
-  color: var(--accent-fg);
 }
 
 .gallery-toolbar {
@@ -3854,11 +3840,6 @@ html[data-theme="dark"] .theme-icon-moon {
 
 .coauthor-picker .form-field {
   margin-bottom: var(--space-3);
-}
-
-.project-turma-value {
-  font-size: var(--text-ui);
-  line-height: var(--leading-copy);
 }
 
 .coauthor-selected {
