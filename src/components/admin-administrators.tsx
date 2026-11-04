@@ -1,12 +1,16 @@
 "use client";
 
+import { FormValidationError, identityErrors } from "@/lib/form-validation";
+import { focusFirstError } from "./form-feedback";
+
 import { useEffect, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { AdministratorCandidate, ManagedAdministrator } from "@/lib/admin-types";
 import { formatAccessExpiry } from "@/lib/access-message";
 import { Avatar, useToast } from "./ui";
 import { Icon } from "./icon";
-import { AccessLinkBox, Dialog, ErrorText, Search, message, normalize, request, statusText } from "./admin-turmas";
+import { AccessLinkBox, Dialog, ErrorText, Search } from "./admin-ui";
+import { message, normalize, request, statusText } from "@/lib/admin-client";
 
 type Grant = { url: string; expiresAt: string };
 type AddedAdministrator = { id: string; name: string; email: string; grant: Grant | null };
@@ -63,12 +67,9 @@ function AddAdministrator({ close, saved }: { close: () => void; saved: (text: s
   }, [mode, added, search, attempt]);
   function changeMode(value: "existing" | "new") { setMode(value); setError(""); setFieldErrors({}); }
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setError("");
+    event.preventDefault(); if (pending) return; const form = event.currentTarget; setError("");
     if (mode === "new") {
-      const errors = {
-        name: name.trim().length < 2 || name.trim().length > 70 ? "Informe um nome de 2 a 70 caracteres." : undefined,
-        email: email.trim().length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ? "Informe um email válido." : undefined,
-      };
+      const errors = identityErrors(name, email);
       setFieldErrors(errors);
       if (errors.email || errors.name) { (event.currentTarget.elements.namedItem(errors.email ? "email" : "name") as HTMLInputElement).focus(); return; }
     } else if (!chosen) return;
@@ -77,7 +78,10 @@ function AddAdministrator({ close, saved }: { close: () => void; saved: (text: s
       const result: AddedAdministrator = await request("/api/admin/administradores", mode === "new" ? { action: "create", name, email } : { action: "promote", userId: chosen!.id });
       saved(result.grant ? "Administrador adicionado. Compartilhe o link de ativação." : "Acesso administrativo concedido. A pessoa precisa entrar novamente.");
       if (result.grant) setAdded(result); else close();
-    } catch (error) { setError(message(error)); }
+    } catch (error) {
+      if (error instanceof FormValidationError) { setFieldErrors(error.fieldErrors); focusFirstError(form, error.fieldErrors); }
+      else setError(message(error));
+    }
     finally { setPending(false); }
   }
   return <Dialog title={added ? "Ativação da conta" : "Adicionar administrador"} description={added ? `${added.name} · ${added.email}` : undefined} close={close} busy={pending} drawer>

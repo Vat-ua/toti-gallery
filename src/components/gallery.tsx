@@ -4,7 +4,6 @@ import Link from "next/link";
 import {
   useDeferredValue,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -17,7 +16,7 @@ import { ProjectCard } from "./project-card";
 import { SortMenu } from "./sort-menu";
 import { galleryFilterParams } from "@/lib/gallery-filters";
 import { useGalleryFilters } from "./use-gallery-filters";
-import { useDropdownPosition } from "./use-dropdown-position";
+import { Popover } from "./popover";
 
 const normalize = (value: string) =>
   value
@@ -73,10 +72,7 @@ export function Gallery({ projects }: { projects: Project[] }) {
     "cohort",
   );
   const searchRef = useRef<HTMLInputElement>(null);
-  const filtersButtonRef = useRef<HTMLButtonElement>(null);
   const filterTabsRef = useRef<HTMLDivElement>(null);
-  const filterPanelRef = useRef<HTMLDivElement>(null);
-  useDropdownPosition(filtersOpen, filtersButtonRef, filterPanelRef);
   const hasFilters = !!(
     query ||
     cohort ||
@@ -102,42 +98,6 @@ export function Gallery({ projects }: { projects: Project[] }) {
     document.addEventListener("keydown", shortcut);
     return () => document.removeEventListener("keydown", shortcut);
   }, []);
-
-  useLayoutEffect(() => {
-    if (!filtersOpen) return;
-    filterTabsRef.current
-      ?.querySelector<HTMLButtonElement>('[aria-selected="true"]')
-      ?.focus({ preventScroll: true });
-  }, [filtersOpen]);
-
-  useEffect(() => {
-    if (!filtersOpen) return;
-    function outside(event: Event) {
-      const target = event.target;
-      if (
-        target instanceof Node &&
-        !filterPanelRef.current?.contains(target) &&
-        !filtersButtonRef.current?.contains(target)
-      ) {
-        setFiltersOpen(false);
-      }
-    }
-    function escape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setFiltersOpen(false);
-        filtersButtonRef.current?.focus();
-      }
-    }
-    document.addEventListener("pointerdown", outside);
-    document.addEventListener("focusin", outside);
-    document.addEventListener("keydown", escape);
-    return () => {
-      document.removeEventListener("pointerdown", outside);
-      document.removeEventListener("focusin", outside);
-      document.removeEventListener("keydown", escape);
-    };
-  }, [filtersOpen]);
 
   const filtered = useMemo(
     () =>
@@ -166,7 +126,7 @@ export function Gallery({ projects }: { projects: Project[] }) {
     [projects, search, cohort, featured, finalOnly, techs, sort],
   );
 
-  const featuredCount = projects.filter((project) => project.featured).length;
+  const featuredCount = projects.filter(project => project.featured).length;
 
   function clear() {
     updateFilters({
@@ -227,27 +187,11 @@ export function Gallery({ projects }: { projects: Project[] }) {
           <h2 id="gallery-title">
             Projetos<span className="gallery-title-dot">.</span>
           </h2>
-          <div
-            className="view-tabs"
-            role="group"
-            aria-label="Filtrar por destaque"
-          >
-            <button
-              className={!featured ? "view-tab is-active" : "view-tab"}
-              aria-pressed={!featured}
-              onClick={() => {
-                updateFilters({ featured: false });
-              }}
-            >
+          <div className="view-tabs" role="group" aria-label="Filtrar por destaque">
+            <button type="button" className={!featured ? "view-tab is-active" : "view-tab"} aria-pressed={!featured} onClick={() => updateFilters({ featured: false })}>
               Todos<span>{projects.length}</span>
             </button>
-            <button
-              className={featured ? "view-tab is-active" : "view-tab"}
-              aria-pressed={featured}
-              onClick={() => {
-                updateFilters({ featured: true });
-              }}
-            >
+            <button type="button" className={featured ? "view-tab is-active" : "view-tab"} aria-pressed={featured} onClick={() => updateFilters({ featured: true })}>
               Destaques<span>{featuredCount}</span>
             </button>
           </div>
@@ -284,14 +228,10 @@ export function Gallery({ projects }: { projects: Project[] }) {
                 )}
               </div>
               <div className="filter-dropdown">
-                <button
+                <Popover open={filtersOpen} onOpenChange={setFiltersOpen} className="filter-panel"
+                  id="project-filters" label="Filtros de projetos" initialFocus='[role="tab"][aria-selected="true"]' trigger={<button
                   type="button"
-                  ref={filtersButtonRef}
-                  className={`filters-toggle ${filtersOpen || activeFilterCount ? "is-active" : ""}`}
-                  aria-haspopup="dialog"
-                  aria-expanded={filtersOpen}
-                  aria-controls="project-filters"
-                  onClick={() => setFiltersOpen((open) => !open)}
+                  className="filters-toggle"
                 >
                   <Icon name="sliders" size={18} />
                   <span>Filtros</span>
@@ -310,15 +250,7 @@ export function Gallery({ projects }: { projects: Project[] }) {
                     size={16}
                     className={filtersOpen ? "is-open" : ""}
                   />
-                </button>
-                {filtersOpen && (
-                  <div
-                    className="dropdown-menu filter-panel"
-                    id="project-filters"
-                    ref={filterPanelRef}
-                    role="dialog"
-                    aria-label="Filtros de projetos"
-                  >
+                </button>}>
                     <div
                       className="filter-tabs"
                       role="tablist"
@@ -438,8 +370,7 @@ export function Gallery({ projects }: { projects: Project[] }) {
                         </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                </Popover>
               </div>
               <SortMenu
                 value={sort}

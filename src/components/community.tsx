@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Person, Project } from "@/lib/types";
 import { Avatar } from "./ui";
 import { Icon } from "./icon";
 import { useGalleryFilters } from "./use-gallery-filters";
-import { useDropdownPosition } from "./use-dropdown-position";
+import { Popover } from "./popover";
 
 const PAGE_SIZE = 9;
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -24,9 +24,6 @@ export function Community({ people, projects }: { people: Person[]; projects: Pr
   if (pagination.key !== filterKey) setPagination({ key: filterKey, visible: PAGE_SIZE });
   const [filtersOpen, setFiltersOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
-  const filtersButtonRef = useRef<HTMLButtonElement>(null);
-  const filterPanelRef = useRef<HTMLDivElement>(null);
-  useDropdownPosition(filtersOpen, filtersButtonRef, filterPanelRef);
 
   useEffect(() => {
     function shortcut(event: KeyboardEvent) {
@@ -39,33 +36,6 @@ export function Community({ people, projects }: { people: Person[]; projects: Pr
     document.addEventListener("keydown", shortcut);
     return () => document.removeEventListener("keydown", shortcut);
   }, []);
-
-  useLayoutEffect(() => {
-    if (filtersOpen) filterPanelRef.current?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')?.focus({ preventScroll: true });
-  }, [filtersOpen]);
-
-  useEffect(() => {
-    if (!filtersOpen) return;
-    function outside(event: Event) {
-      const target = event.target;
-      if (target instanceof Node && !filterPanelRef.current?.contains(target) && !filtersButtonRef.current?.contains(target)) setFiltersOpen(false);
-    }
-    function escape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setFiltersOpen(false);
-        filtersButtonRef.current?.focus();
-      }
-    }
-    document.addEventListener("pointerdown", outside);
-    document.addEventListener("focusin", outside);
-    document.addEventListener("keydown", escape);
-    return () => {
-      document.removeEventListener("pointerdown", outside);
-      document.removeEventListener("focusin", outside);
-      document.removeEventListener("keydown", escape);
-    };
-  }, [filtersOpen]);
 
   function clear() {
     updateFilters({ query: "", cohort: "" });
@@ -84,18 +54,18 @@ export function Community({ people, projects }: { people: Person[]; projects: Pr
             {query ? <button type="button" aria-label="Limpar busca" onClick={() => changeQuery("")}><Icon name="x" size={16}/></button> : <kbd>/</kbd>}
           </div>
           <div className="filter-dropdown">
-            <button type="button" ref={filtersButtonRef} className={`filters-toggle ${filtersOpen || cohort ? "is-active" : ""}`} aria-haspopup="dialog" aria-expanded={filtersOpen} aria-controls="people-filters" onClick={() => setFiltersOpen(open => !open)}>
+            <Popover open={filtersOpen} onOpenChange={setFiltersOpen} className="people-filter-panel"
+              id="people-filters" label="Filtros de pessoas" initialFocus='[aria-pressed="true"]' trigger={<button type="button" className="filters-toggle">
               <Icon name="sliders" size={18}/><span>Filtros</span>
               {cohort && <><span className="filter-count" aria-hidden="true">1</span><span className="sr-only">1 ativo</span></>}
               <Icon name="chevron-down" size={16} className={filtersOpen ? "is-open" : ""}/>
-            </button>
-            {filtersOpen && <div className="dropdown-menu people-filter-panel" id="people-filters" ref={filterPanelRef} role="dialog" aria-label="Filtros de pessoas">
+            </button>}>
               <span className="people-filter-heading">Turma</span>
               <div className="filter-choices" role="group" aria-label="Filtrar por turma">
                 <button type="button" className={`filter-choice ${!cohort ? "is-on" : ""}`} aria-pressed={!cohort} onClick={() => updateFilters({ cohort: "" })}>Todas</button>
                 {filterOptions.cohorts.map(value => <button key={value} type="button" className={`filter-choice ${cohort === value ? "is-on" : ""}`} aria-pressed={cohort === value} onClick={() => updateFilters({ cohort: cohort === value ? "" : value })}>{value}</button>)}
               </div>
-            </div>}
+            </Popover>
           </div>
         </div>
       </div>

@@ -1,5 +1,8 @@
 "use client";
 
+import { FormValidationError, identityErrors } from "@/lib/form-validation";
+import { focusFirstError } from "./form-feedback";
+
 import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { AdminTurma, ManagedStudent, StudentListPage } from "@/lib/admin-types";
@@ -9,7 +12,9 @@ import { SelectMenu } from "./select-menu";
 import { AdminTurmaFilter } from "./admin-turma-filter";
 import { Icon } from "./icon";
 import { Avatar, useToast } from "./ui";
-import { AccessLinkBox, AddStudent, Dialog, ErrorText, ImportStudents, Search, message, request, statusText } from "./admin-turmas";
+import { AccessLinkBox, Dialog, ErrorText, Search } from "./admin-ui";
+import { AddStudent, ImportStudents } from "./admin-student-forms";
+import { message, request, statusText } from "@/lib/admin-client";
 
 function StatusBadge({ student }: { student: ManagedStudent }) {
   return <span className={`admin-badge ${student.isDemo ? "is-muted" : `is-${student.status}`}`}>{student.isDemo ? "Perfil de exemplo" : statusText[student.status]}</span>;
@@ -52,7 +57,7 @@ export function StudentsList({ result, turmas, owner }: { result: StudentListPag
     <div className="admin-pagination">
       <p>{total ? `${(filters.page - 1) * filters.pageSize + 1}–${Math.min(filters.page * filters.pageSize, total)} de ${total}` : "0 estudantes"}</p>
       <label className="admin-page-size">Por página<select className="admin-select" value={filters.pageSize} disabled={refreshing} onChange={event => navigate({ pageSize: event.target.value === "50" ? 50 : 25 })}><option value="25">25</option><option value="50">50</option></select></label>
-      <nav aria-label="Paginação de estudantes"><button className="button button-outline admin-small-button" type="button" disabled={refreshing || filters.page <= 1} onClick={() => navigate({ page: filters.page - 1 })}><Icon name="arrow-left" size={16}/>Anterior</button><span aria-live="polite">Página {filters.page} de {pages}</span><button className="button button-outline admin-small-button" type="button" disabled={refreshing || filters.page >= pages} onClick={() => navigate({ page: filters.page + 1 })}>Próxima<Icon name="arrow-right" size={16}/></button></nav>
+      <nav aria-label="Paginação de estudantes"><button className="button button-outline admin-small-button" type="button" disabled={refreshing || filters.page <= 1} onClick={() => navigate({ page: filters.page - 1 })}><Icon name="arrow-left" size={16}/>Anterior</button><span aria-live="polite">{filters.page} de {pages}</span><button className="button button-outline admin-small-button" type="button" disabled={refreshing || filters.page >= pages} onClick={() => navigate({ page: filters.page + 1 })}>Próxima<Icon name="arrow-right" size={16}/></button></nav>
     </div>
     {modal === "add" && <AddStudent turmas={turmas} close={() => setModal(null)} saved={() => refresh("Estudante adicionado à turma.")}/>}
     {modal === "import" && <ImportStudents turmas={turmas} close={() => setModal(null)} saved={refresh}/>}
@@ -91,12 +96,9 @@ function StudentPanel({ student, turmas, refreshing, close, saved }: { student: 
     if (result) { setConfirmStatus(false); setGrant(null); }
   }
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setProfileError("");
+    event.preventDefault(); if (pending) return; const form = event.currentTarget; setProfileError("");
     const name = identity.name.trim(), email = identity.email.trim().toLowerCase();
-    const errors = {
-      name: name.length < 2 || name.length > 70 ? "Informe um nome de 2 a 70 caracteres." : undefined,
-      email: email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? "Informe um email válido." : undefined,
-    };
+    const errors = identityErrors(name, email);
     setFieldErrors(errors);
     if (errors.name || errors.email) { (event.currentTarget.elements.namedItem(errors.name ? "name" : "email") as HTMLInputElement).focus(); return; }
     setPending(true);
@@ -104,7 +106,10 @@ function StudentPanel({ student, turmas, refreshing, close, saved }: { student: 
       const result = await request(`/api/admin/estudantes/${student.id}`, { action: "profile", name, email });
       setIdentity({ name: result.name, email: result.email }); setGrant(null);
       saved(result.emailChanged ? "Email atualizado. Os links anteriores foram revogados; gere um novo link de ativação." : "Dados do estudante atualizados.");
-    } catch (error) { setProfileError(message(error)); }
+    } catch (error) {
+      if (error instanceof FormValidationError) { setFieldErrors(error.fieldErrors); focusFirstError(form, error.fieldErrors); }
+      else setProfileError(message(error));
+    }
     finally { setPending(false); }
   }
   async function deleteProfile() {

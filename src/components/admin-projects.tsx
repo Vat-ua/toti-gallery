@@ -5,7 +5,8 @@ import { useEffect, useRef, useState, useTransition, type FormEvent } from "reac
 import { useRouter } from "next/navigation";
 import type { AdminProject, AdminProjectPage, AdminTurma } from "@/lib/admin-types";
 import { adminProjectHref, type AdminProjectFilters } from "@/lib/admin-project-params";
-import { Dialog, ErrorText, Search, message, request } from "./admin-turmas";
+import { Dialog, ErrorText, Search } from "./admin-ui";
+import { message, request } from "@/lib/admin-client";
 import { ProjectCard } from "./project-card";
 import { SelectMenu } from "./select-menu";
 import { AdminTurmaFilter } from "./admin-turma-filter";
