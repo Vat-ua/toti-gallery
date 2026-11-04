@@ -43,15 +43,16 @@ not additional production migrations.
 
 `20261027_stage3_owner.sql` adds the `owner` role and enforces a single owner.
 Existing-account promotion uses an explicitly selected active administrator ID;
-see [Administration](../docs/administration.md). It is currently applied only to
-development and its isolated test copy, not production.
+see [Administration](../docs/administration.md). Applied to development and
+production after isolated verification. Production received only the schema
+changes; existing administrator roles were preserved.
 
 `20261027_turma_details.sql` adds unique turma numbers, course names and start
 years. Only numbers are backfilled from existing labels; unknown course/start-year
 values remain null, and historical graduation years are retained. New group saves
 require all three fields. The guarded development/test runner snapshots all
 original rows and verifies that they are preserved. Applied to development and
-its isolated test copy only; see [Administration](../docs/administration.md).
+production after isolated verification; see [Administration](../docs/administration.md).
 
 `20261028_image_storage.sql` adds nullable JSON metadata to profile photos and
 project covers. Existing URLs, profiles and projects remain unchanged. Test it
@@ -59,8 +60,10 @@ on a temporary branch before applying it with
 `node scripts/migrate-image-storage.cjs --env-file=.env.local`. The guarded runner
 refuses production, saves an ignored snapshot, and verifies all original rows
 inside the migration transaction. See [Image storage](../docs/image-storage.md).
+Applied to development and production after isolated verification.
 
 `20261028_cover_framing.sql` adds nullable project display settings without
 changing existing images or rows. Verify it on a test copy, then use the same
 guarded runner with `--framing` for development. Null preserves the original
-top-center placement at 100% zoom; production remains a separately approved step.
+top-center placement at 100% zoom. Applied to development and production after
+isolated verification and approval.

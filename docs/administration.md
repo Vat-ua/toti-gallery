@@ -30,6 +30,11 @@ index. It promotes an existing active, non-demo administrator only when the call
 explicitly sets `gallery.owner_user_id`; an invalid ID rolls back the migration.
 No credentials, memberships, credits, sessions or profile values are rewritten.
 Fresh demo-only auth fixtures apply the DDL without selecting an owner.
+Production initially received the schema changes without selecting an owner.
+Its first administrator was subsequently promoted explicitly to `owner`,
+preserving the existing ID and all other account data. Administradores is
+restricted to that owner; regular administrators access Turmas, Estudantes
+and Projetos.
 
 The guarded runner supports **development and isolated test environments only**:
 
@@ -44,7 +49,9 @@ node scripts/migrate-admin-foundation.cjs --env-file=.env.local \
 It verifies the actual Neon target, uses a direct connection, saves a private
 before-snapshot under ignored `tmp/admin-review`, and compares every table after
 the migration, allowing only the selected user's role to differ. Apply once; do
-not overwrite a prior backup to rerun it. Production has not received this migration.
+not overwrite a prior backup to rerun it. Production received this migration
+through a separately approved operation after isolated verification, with all
+existing roles preserved.
 Follow [Environments](environments.md) before any future production operation.
 
 ## Groups and imports
@@ -69,7 +76,8 @@ years. New saves require all three fields. The guarded
 `scripts/migrate-turma-details.cjs --env-file=...` runner accepts development/test
 targets, snapshots original rows privately and verifies preservation after applying
 the migration once. It has been checked on an isolated copy and applied to
-development; production is unchanged.
+development and production. The production operation preserved all existing
+records and derived turma numbers only from their existing names.
 
 Archiving is organizational: students keep access and can publish in archived
 turmas. Removing membership affects only that turma/user relationship; project
