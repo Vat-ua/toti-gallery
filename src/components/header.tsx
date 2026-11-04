@@ -7,12 +7,13 @@ import type { Person } from "@/lib/types";
 import { isStaff, type Role } from "@/lib/permissions";
 type HeaderUser = Person & { role?: Role };
 import { Icon } from "./icon";
+import { BrandSymbol } from "./brand-symbol";
 import { Avatar, useToast } from "./ui";
 import { ThemeToggle } from "./theme-toggle";
 import { useDropdownPosition } from "./use-dropdown-position";
 
 export function Logo() {
-  return <Link href="/" className="brand" aria-label="Toti Gallery, página inicial"><span className="brand-mark" aria-hidden="true">✳</span><span className="brand-word">toti</span>{" "}<span className="brand-gallery">gallery</span></Link>;
+  return <Link href="/" className="brand" aria-label="Toti Gallery, página inicial"><span className="brand-mark" aria-hidden="true"><BrandSymbol/></span><span className="brand-word">toti</span>{" "}<span className="brand-gallery">gallery</span></Link>;
 }
 export function Header({ user }: { user: HeaderUser | null }) {
   const pathname = usePathname();

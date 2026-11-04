@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "./icon";
+import { BrandSymbol } from "./brand-symbol";
 import { useToast } from "./ui";
 
 export function AuthForm({ nextPath, googleEnabled, initialError }: { nextPath: string; googleEnabled: boolean; initialError: string }) {
@@ -70,7 +71,7 @@ export function AuthForm({ nextPath, googleEnabled, initialError }: { nextPath: 
   }
 
   return <main id="conteudo" className="container auth-page">
-    <section className="auth-story"><div><span className="eyebrow"><span className="eyebrow-dot"/> Área de publicação</span><h2>Compartilhe o que você está <span>construindo.</span></h2><p>Publique seus projetos, descubra ideias e aprenda com outras pessoas.</p><ul className="auth-bullets"><li><Icon name="check" size={17}/>Um perfil para seus projetos</li><li><Icon name="check" size={17}/>Trabalhos individuais e em grupo</li><li><Icon name="check" size={17}/>Conexões entre turmas</li></ul></div><span className="auth-decoration" aria-hidden="true">✳</span></section>
+    <section className="auth-story"><div><span className="eyebrow"><span className="eyebrow-dot"/> Área de publicação</span><h2>Compartilhe o que você está <span>construindo.</span></h2><p>Publique seus projetos, descubra ideias e aprenda com outras pessoas.</p><ul className="auth-bullets"><li><Icon name="check" size={17}/>Um perfil para seus projetos</li><li><Icon name="check" size={17}/>Trabalhos individuais e em grupo</li><li><Icon name="check" size={17}/>Conexões entre turmas</li></ul></div><span className="auth-decoration" aria-hidden="true"><BrandSymbol/></span></section>
     <section className="auth-form-section">
       <h1>Entrar</h1><p>Use o email cadastrado pela administração.</p>
       {googleEnabled ? <><button className="button button-outline google-login" type="button" disabled={!!pending} onClick={google}>

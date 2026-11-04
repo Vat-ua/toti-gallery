@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type PointerEvent, type KeyboardEvent } from "react";
 import { Icon } from "./icon";
+import { BrandSymbol } from "./brand-symbol";
 import { coverThumbnail } from "@/lib/image-policy";
 import { DEFAULT_COVER_FRAMING, moveCoverFraming, type CoverFraming } from "@/lib/cover-framing";
 
@@ -20,10 +21,10 @@ function Poster({ title, style }: { title: string; style: string }) {
     {style === "eco" && <><span className="poster-bloko-strip" aria-hidden="true"/>{heading}</>}
     {style === "books" && <><div className="poster-grade-grid" aria-hidden="true"/>{heading}</>}
     {style === "finance" && <><span className="poster-arco-arc a" aria-hidden="true"/><span className="poster-arco-arc b" aria-hidden="true"/><span className="poster-arco-arc c" aria-hidden="true"/><span className="poster-arco-plus" aria-hidden="true">+</span>{heading}</>}
-    {style === "connect" && <><span className="poster-faisca-rays" aria-hidden="true"/><span className="poster-faisca-star" aria-hidden="true">✳</span>{heading}</>}
+    {style === "connect" && <><span className="poster-faisca-rays" aria-hidden="true"/><span className="poster-faisca-star" aria-hidden="true"><BrandSymbol/></span>{heading}</>}
     {style === "weather" && <><span className="poster-duo-sun" aria-hidden="true"/><span className="poster-duo-line" aria-hidden="true"/>{heading}</>}
     {style === "quiz" && <><div className="poster-codigo-grid" aria-hidden="true"/><span className="poster-codigo-code" aria-hidden="true">&lt;/&gt;</span>{heading}</>}
-    {style === "abstract" && <><span className="poster-tipo-star" aria-hidden="true">✳</span>{heading}<span className="poster-tipo-rule" aria-hidden="true"/></>}
+    {style === "abstract" && <><span className="poster-tipo-star" aria-hidden="true"><BrandSymbol/></span>{heading}<span className="poster-tipo-rule" aria-hidden="true"/></>}
   </div>;
 }
 

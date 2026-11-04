@@ -12,6 +12,7 @@ import {
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { Project } from "@/lib/types";
 import { Icon } from "./icon";
+import { BrandSymbol } from "./brand-symbol";
 import { ProjectCard } from "./project-card";
 import { SortMenu } from "./sort-menu";
 import { galleryFilterParams } from "@/lib/gallery-filters";
@@ -569,7 +570,7 @@ export function Gallery({ projects }: { projects: Project[] }) {
             <Icon name="arrow-up-right" size={18} />
           </Link>
           <span className="publish-band-mark" aria-hidden="true">
-            ✳
+            <BrandSymbol/>
           </span>
         </section>
       </div>
