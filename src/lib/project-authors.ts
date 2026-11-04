@@ -1,6 +1,7 @@
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { projectAuthors, projects, turmaMembers, users } from "@/db/schema";
+import { FormValidationError } from "./form-validation";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -14,7 +15,7 @@ export async function setProjectAuthors(tx: Transaction, projectId: string, owne
   if (added.length) {
     const eligible = await tx.select({ id: users.id }).from(turmaMembers).innerJoin(users, eq(users.id, turmaMembers.userId))
       .where(and(eq(turmaMembers.turmaId, project.turmaId), inArray(users.id, added), eq(users.status, "active"), eq(users.emailVerified, true), eq(users.isDemo, false)));
-    if (eligible.length !== added.length) throw new Error("Selecione apenas participantes ativos da turma do projeto.");
+    if (eligible.length !== added.length) throw new FormValidationError({ coauthorIds: "Selecione apenas participantes ativos da turma do projeto." });
   }
   await tx.delete(projectAuthors).where(and(eq(projectAuthors.projectId, projectId), ne(projectAuthors.userId, ownerId)));
   await tx.insert(projectAuthors).values(ids.map((userId) => ({ projectId, userId }))).onConflictDoNothing();

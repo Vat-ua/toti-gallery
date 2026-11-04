@@ -5,6 +5,7 @@ import { ProjectCover } from "./project-cover";
 import { ProjectCard, ProjectLikeCount } from "./project-card";
 import { Icon } from "./icon";
 import { Avatar, LikeButton } from "./ui";
+import { ProjectDescription } from "./project-description";
 
 export function ProjectDetails({ project, related = [], canEdit = false, readOnly = false, embedded = false, backHref = "/", backLabel = "Projetos", notice }: {
   project: Project; related?: Project[]; canEdit?: boolean; readOnly?: boolean; embedded?: boolean;
@@ -37,7 +38,7 @@ export function ProjectDetails({ project, related = [], canEdit = false, readOnl
         <ProjectCover title={project.title} style={project.coverStyle} imageUrl={project.imageUrl} framing={project.coverFraming} fullSize/>
         <section className="detail-description">
           <h2>Sobre o projeto</h2>
-          {project.description.split(/\n\s*\n/).map((paragraph, index) => <p key={index}>{paragraph}</p>)}
+          <ProjectDescription>{project.description}</ProjectDescription>
         </section>
       </div>
       <aside className="project-sidebar" aria-labelledby="project-details-title">

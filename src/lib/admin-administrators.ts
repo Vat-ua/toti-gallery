@@ -1,3 +1,4 @@
+import { identityErrors, rejectFields } from "./form-validation";
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -66,10 +67,8 @@ export async function findAdministratorCandidates(actorId: string, query: string
 }
 
 export async function createAdministrator(actorId: string, name: unknown, email: unknown) {
-  if (typeof name !== "string" || typeof email !== "string") throw new AdminError("Informe um nome e email válidos.");
-  let identity: ReturnType<typeof provisionIdentity>;
-  try { identity = provisionIdentity(name, email); }
-  catch { throw new AdminError("Informe um nome de 2 a 70 caracteres e um email válido."); }
+  rejectFields(identityErrors(name, email));
+  const identity = provisionIdentity(name as string, email as string);
   return db.transaction(async tx => {
     await owner(tx, actorId);
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${identity.email}))`);

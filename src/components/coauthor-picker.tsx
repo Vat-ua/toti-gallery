@@ -4,10 +4,11 @@ import { useId, useState } from "react";
 import type { Person } from "@/lib/types";
 import { Avatar } from "./ui";
 import { Icon } from "./icon";
+import { FieldError } from "./form-feedback";
 
-type Props = { people: Person[]; ownerId: string; selected: string[]; onChange: (ids: string[]) => void; selectedPeople?: Person[] };
+type Props = { people: Person[]; ownerId: string; selected: string[]; onChange: (ids: string[]) => void; selectedPeople?: Person[]; error?: string };
 
-export function CoauthorPicker({ people, ownerId, selected, onChange, selectedPeople = [] }: Props) {
+export function CoauthorPicker({ people, ownerId, selected, onChange, selectedPeople = [], error }: Props) {
   const [query, setQuery] = useState("");
   const inputId = useId();
   const normalize = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -17,10 +18,11 @@ export function CoauthorPicker({ people, ownerId, selected, onChange, selectedPe
   function toggle(id: string) {
     onChange(selected.includes(id) ? selected.filter(value => value !== id) : [...selected, id]);
   }
-  return <div className="coauthor-picker">
+  return <div className="coauthor-picker" data-field="coauthorIds">
     <div className="form-field">
       <label htmlFor={inputId}>Coautores (opcional)</label>
-      <input id={inputId} type="search" value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === "Enter") event.preventDefault(); }} placeholder="Buscar por nome"/>
+      <input id={inputId} type="search" value={query} aria-invalid={!!error} aria-describedby={error ? `${inputId}-error` : undefined} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key === "Enter") event.preventDefault(); }} placeholder="Buscar por nome"/>
+      <FieldError id={`${inputId}-error`} text={error}/>
     </div>
     {selected.length > 0 && <div className="coauthor-selected" role="group" aria-label="Coautores selecionados">
       {selected.map(id => knownPeople.get(id)).filter((person): person is Person => person !== undefined && person.id !== ownerId).map(person => <button type="button" className="active-filter" key={person.id} onClick={() => toggle(person.id)} aria-label={`Remover coautor ${person.name}`}>{person.name}<Icon name="x" size={14}/></button>)}

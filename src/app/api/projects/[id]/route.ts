@@ -1,3 +1,4 @@
+import { FormValidationError } from "@/lib/form-validation";
 import { after } from "next/server";
 import { db } from "@/db";
 import { projects } from "@/db/schema";
@@ -24,7 +25,7 @@ async function mutate(request: Request, { params }: Context, remove: boolean) {
     const [original] = await db.select({ imageUrl: projects.imageUrl, turmaId: projects.turmaId }).from(projects).where(owned).limit(1);
     if (!original) return Response.json({ error: "Projeto não encontrado ou sem permissão para editar." }, { status: 404 });
     const form = remove ? null : await readImageForm(request);
-    if (form && form.body.turmaId !== undefined && form.body.turmaId !== original.turmaId) throw new Error("A turma de um projeto publicado não pode ser alterada.");
+    if (form && form.body.turmaId !== undefined && form.body.turmaId !== original.turmaId) throw new FormValidationError({ turmaId: "A turma de um projeto publicado não pode ser alterada." });
     const data = form ? validateProject(form.body, original.imageUrl) : null;
     const coauthorIds = form ? validateCoauthorIds(form.body) : undefined;
     if (form?.file) {
@@ -49,6 +50,7 @@ async function mutate(request: Request, { params }: Context, remove: boolean) {
     return Response.json({ ok: true, slug: result.slug });
   } catch (error) {
     if (uploaded && !committed) await deleteImage(uploaded.metadata);
+    if (error instanceof FormValidationError) return Response.json({ error: error.message, fieldErrors: error.fieldErrors }, { status: 400 });
     return Response.json({ error: error instanceof Error && !("query" in error) ? error.message : "Não foi possível salvar." }, { status: error instanceof ImageFormError ? error.status : 400 });
   }
 }

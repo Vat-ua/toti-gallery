@@ -1,11 +1,12 @@
 import { IMAGE_MAX_BYTES, validateImageFile } from "./image-policy";
+import { FormValidationError } from "./form-validation";
 
 export class ImageFormError extends Error {
   constructor(message: string, public status = 400) { super(message); }
 }
 
 /** Bound the stream before parsing; Content-Length alone is not trustworthy. */
-export async function readImageForm(request: Request) {
+export async function readImageForm(request: Request, imageField: "imageUrl" | "avatar" = "imageUrl") {
   const limit = IMAGE_MAX_BYTES + 64 * 1024;
   if (Number(request.headers.get("content-length")) > limit) throw new ImageFormError("Os dados excedem o limite de 3 MB para a imagem.", 413);
   const reader = request.body?.getReader();
@@ -37,6 +38,9 @@ export async function readImageForm(request: Request) {
     else throw new Error();
     if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error();
   } catch { throw new ImageFormError("Os dados do formulário são inválidos. Revise e tente novamente."); }
-  if (file) validateImageFile(file);
+  if (file) {
+    try { validateImageFile(file); }
+    catch (error) { throw new FormValidationError({ [imageField]: error instanceof Error ? error.message : "Use uma imagem JPG, PNG ou WebP." }); }
+  }
   return { body: body as Record<string, unknown>, file };
 }

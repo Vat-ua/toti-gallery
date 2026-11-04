@@ -7,8 +7,12 @@ import { COVER_STYLES, TECHNOLOGIES, type Person, type Project, type Publication
 import { Icon } from "./icon";
 import { Avatar, useToast } from "./ui";
 import { CoverFramingEditor } from "./cover-framing-editor";
+import { DescriptionEditor } from "./description-editor";
 import type { CoverFraming } from "@/lib/cover-framing";
 import { CoauthorPicker } from "./coauthor-picker";
+import { FieldError, useFormFeedback } from "./form-feedback";
+import { validateProject } from "@/lib/validation";
+import { FormValidationError, responseError } from "@/lib/form-validation";
 import { validateImageFile } from "@/lib/image-policy";
 
 const styles = [
@@ -25,6 +29,7 @@ export function ProjectEditor({ user, project, people, turmas = [] }: { user: Pe
   const notify = useToast();
   const [title, setTitle] = useState(project?.title || "");
   const [description, setDescription] = useState(project?.description || "");
+  const [descriptionPreview, setDescriptionPreview] = useState(false);
   const [technologies, setTechnologies] = useState<string[]>(project?.technologies || []);
   const [isFinal, setIsFinal] = useState(project?.isFinal ?? false);
   const [coauthorIds, setCoauthorIds] = useState<string[]>(project?.authors.filter(author => author.id !== user.id).map(author => author.id) || []);
@@ -37,18 +42,20 @@ export function ProjectEditor({ user, project, people, turmas = [] }: { user: Pe
   const [githubUrl, setGithubUrl] = useState(project?.githubUrl || "");
   const [liveUrl, setLiveUrl] = useState(project?.liveUrl || "");
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
+  const feedback = useFormFeedback();
+  const { fields, error } = feedback;
   const [imageFile, setImageFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const errorRef = useRef<HTMLDivElement>(null);
   useEffect(() => () => { if (imageUrl.startsWith("blob:")) URL.revokeObjectURL(imageUrl); }, [imageUrl]);
-  function changeImage(value: string) { setImageFile(null); setImageUrl(value); setCoverFraming(null); }
+  function changeImage(value: string) { feedback.clear("imageUrl"); feedback.clear("coverFraming"); setImageFile(null); setImageUrl(value); setCoverFraming(null); }
   function changeTurma(value: string) {
+    feedback.clear("turmaId"); feedback.clear("coauthorIds");
     if (value === turmaId) return;
     setTurmaId(value); setCoauthorIds([]);
     if (coauthorIds.length) notify("Turma alterada. Selecione novamente os coautores.");
   }
   function toggleTech(tech: string) {
+    feedback.clear("technologies");
     if (technologies.includes(tech)) setTechnologies(technologies.filter(value => value !== tech));
     else if (technologies.length < 8) setTechnologies([...technologies, tech]);
     else notify("Selecione no máximo 8 tecnologias.", true);
@@ -59,61 +66,66 @@ export function ProjectEditor({ user, project, people, turmas = [] }: { user: Pe
     if (!file) return;
     try {
       validateImageFile(file);
+      feedback.clear("imageUrl"); feedback.clear("coverFraming");
       setImageFile(file); setImageUrl(URL.createObjectURL(file)); setCoverFraming(null);
       notify("Imagem adicionada à prévia. Salve o projeto para enviar.");
-    } catch (error) { notify(error instanceof Error ? error.message : "Não foi possível preparar a imagem.", true); }
+    } catch (error) {
+      feedback.report(new FormValidationError({ imageUrl: error instanceof Error ? error.message : "Não foi possível preparar a imagem." }));
+    }
   }
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setError("");
-    if (!technologies.length) { setError("Selecione pelo menos uma tecnologia usada no projeto."); setTimeout(() => errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 30); return; }
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    if (pending) return;
+    setDescriptionPreview(false);
+    const value = { title, description, technologies, isFinal, turmaId, coauthorIds, coverStyle, imageUrl: imageFile ? "" : imageUrl, coverFraming, githubUrl, liveUrl };
+    if (!feedback.validate(() => validateProject(value, project?.imageUrl), formElement)) return;
     setPending(true);
     try {
       const form = new FormData();
-      form.set("data", JSON.stringify({ title, description, technologies, isFinal, turmaId, coauthorIds, coverStyle, imageUrl: imageFile ? "" : imageUrl, coverFraming, githubUrl, liveUrl }));
+      form.set("data", JSON.stringify(value));
       if (imageFile) form.set("image", imageFile);
       const response = await fetch(project ? `/api/projects/${project.id}` : "/api/projects", { method: project ? "PATCH" : "POST", body: form });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Não foi possível salvar seu projeto.");
+      if (!response.ok) throw responseError(data, "Não foi possível salvar seu projeto.");
       notify(project ? "Projeto atualizado." : "Projeto publicado.");
       router.push(project?.visibility === "hidden" ? `/meus-projetos/${project.id}` : `/projetos/${data.slug}`); router.refresh();
-    } catch (err) { setError(err instanceof Error ? err.message : "Confira sua conexão e tente novamente."); setPending(false); setTimeout(() => errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 30); }
+    } catch (err) { setDescriptionPreview(false); feedback.report(err, formElement); setPending(false); }
   }
   return <main id="conteudo" className="container inner-page">
     <Link href="/meus-projetos" className="back-link"><Icon name="arrow-left" size={16}/>Meus projetos</Link>
     <div className="editor-heading"><h1>{project ? "Editar projeto" : "Publicar projeto"}</h1></div>
     {project?.visibility === "hidden" && <div className="admin-notice project-moderation-note"><strong>Oculto pela administração</strong><p>{project.moderationReason}</p><p>Você pode editar o projeto. A publicação só poderá ser restaurada pela administração.</p></div>}
     <div className="editor-layout">
-      <form className="editor-form" onSubmit={submit}>
+      <form className="editor-form" onSubmit={submit} noValidate aria-busy={pending}>
         <fieldset disabled={pending} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
           <section className="editor-form-section" aria-label="Informações do projeto">
             <div className="form-field">
               <div className="field-label-row"><label htmlFor="project-title">Nome do projeto <span className="required-dot">*</span></label><span>{title.length}/80</span></div>
-              <input id="project-title" value={title} onChange={event => setTitle(event.target.value)} required minLength={3} maxLength={80}/>
+              <input id="project-title" name="title" aria-invalid={!!fields.title} aria-describedby={fields.title ? "project-title-error" : undefined} value={title} onChange={event => { setTitle(event.target.value); feedback.clear("title"); }} required minLength={3} maxLength={80}/><FieldError id="project-title-error" text={fields.title}/>
             </div>
-            <div className="form-field">
-              <label htmlFor="project-description">Descrição <span className="required-dot">*</span></label>
-              <textarea id="project-description" value={description} onChange={event => setDescription(event.target.value)} aria-describedby="project-description-help" required minLength={30} maxLength={6000} rows={7}/>
-              <small id="project-description-help">Conte o que o projeto faz, como foi desenvolvido e o que você aprendeu. De 30 a 6.000 caracteres.</small>
-            </div>
-            <label className="checkbox-field" htmlFor="project-is-final"><input id="project-is-final" type="checkbox" checked={isFinal} onChange={event => setIsFinal(event.target.checked)}/><span>Projeto final de curso</span></label>
+            <DescriptionEditor value={description} onChange={value => { setDescription(value); feedback.clear("description"); }} error={fields.description} preview={descriptionPreview} onPreviewChange={setDescriptionPreview}/>
+            <label className="checkbox-field" htmlFor="project-is-final"><input name="isFinal" id="project-is-final" type="checkbox" checked={isFinal} onChange={event => setIsFinal(event.target.checked)}/><span>Projeto final de curso</span></label>
           </section>
           <section className="editor-form-section">
             <h2 id="technologies-label">Tecnologias <span className="required-dot">*</span></h2>
-            <div className="editor-technology-options" role="group" aria-labelledby="technologies-label">
+            <div className="editor-technology-options" data-field="technologies" aria-describedby={fields.technologies ? "project-technologies-error" : undefined} role="group" aria-labelledby="technologies-label">
               {TECHNOLOGIES.map(tech => <button key={tech} type="button" className={`technology-option ${technologies.includes(tech) ? "selected" : ""}`} aria-pressed={technologies.includes(tech)} onClick={() => toggleTech(tech)}>{technologies.includes(tech) && <Icon name="check" size={12}/>} {tech}</button>)}
             </div>
           </section>
+          <FieldError id="project-technologies-error" text={fields.technologies}/>
           <section className="editor-form-section">
             <h2>Autores</h2>
             <p>Responsável pela publicação: <strong>{user.name}</strong>. Adicione colegas da mesma turma que participaram do projeto.</p>
             <div className="form-field">
               <label htmlFor="project-turma">Turma</label>
-              {!project && turmas.length > 1 ? <select id="project-turma" value={turmaId} onChange={event => changeTurma(event.target.value)}>
+              {!project && turmas.length > 1 ? <select name="turmaId" id="project-turma" value={turmaId} aria-invalid={!!fields.turmaId} aria-describedby={fields.turmaId ? "project-turma-error" : undefined} onChange={event => changeTurma(event.target.value)}>
                 {turmas.map(turma => <option key={turma.id} value={turma.id}>{[turma.name, turma.courseName].filter(Boolean).join(" · ")}</option>)}
-              </select> : <output id="project-turma" className="project-turma-value">{turmaLabel}</output>}
+              </select> : <output id="project-turma" data-field="turmaId" tabIndex={-1} aria-describedby={fields.turmaId ? "project-turma-error" : undefined} className="project-turma-value">{turmaLabel}</output>}
+              <FieldError id="project-turma-error" text={fields.turmaId}/>
               {!project && !turmas.length && <small>Peça à administração para associar sua conta a uma turma antes de publicar.</small>}
             </div>
-            <CoauthorPicker key={turmaId} people={people.filter(person => person.turmaId === turmaId)} ownerId={user.id} selected={coauthorIds} onChange={setCoauthorIds} selectedPeople={project?.authors}/>
+            <CoauthorPicker key={turmaId} people={people.filter(person => person.turmaId === turmaId)} ownerId={user.id} selected={coauthorIds} onChange={ids => { setCoauthorIds(ids); feedback.clear("coauthorIds"); }} selectedPeople={project?.authors} error={fields.coauthorIds}/>
           </section>
           <section className="editor-form-section">
             <h2>Capa</h2>
@@ -122,25 +134,26 @@ export function ProjectEditor({ user, project, people, turmas = [] }: { user: Pe
             <div className="cover-style-options" role="group" aria-labelledby="cover-styles-label">
               {COVER_STYLES.map((style, index) => <button key={style} type="button" className={`cover-style-option ${coverStyle === style && !imageUrl ? "selected" : ""}`} style={{ background: styles[index].color, color: styles[index].ink }} aria-label={`Capa ${styles[index].name}`} aria-pressed={coverStyle === style && !imageUrl} title={styles[index].name} onClick={() => { setCoverStyle(style); changeImage(""); if (fileRef.current) fileRef.current.value = ""; }}>{coverStyle === style && !imageUrl && <Icon name="check" size={16}/>}</button>)}
             </div>
-            <label className="upload-cover">
+            <label className="upload-cover" data-field="imageUrl">
               <Icon name="upload" size={23}/>
               <span>{imageUrl ? "Trocar imagem" : "Enviar imagem (opcional)"}<small>JPG, PNG ou WebP · Até 3 MB · Recomendado: horizontal 7:5</small></span>
-              <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFile} disabled={pending} aria-label="Enviar imagem de capa"/>
+              <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFile} disabled={pending} aria-label="Enviar imagem de capa" aria-invalid={!!fields.imageUrl} aria-describedby={fields.imageUrl ? "project-image-error" : undefined}/>
             </label>
+            <FieldError id="project-image-error" text={fields.imageUrl}/>
             {imageUrl && <button type="button" className="remove-image" onClick={() => { changeImage(""); if (fileRef.current) fileRef.current.value = ""; }}><Icon name="x" size={13}/>Remover imagem e usar capa padrão</button>}
           </section>
           <section className="editor-form-section">
             <h2>Links</h2>
             <div className="form-field">
               <label htmlFor="project-github">Repositório no GitHub <span className="required-dot">*</span></label>
-              <input id="project-github" type="url" required value={githubUrl} onChange={event => setGithubUrl(event.target.value)} placeholder="https://github.com/seu-usuario/seu-projeto" maxLength={2000}/>
+              <input name="githubUrl" aria-invalid={!!fields.githubUrl} aria-describedby={fields.githubUrl ? "project-github-error" : undefined} id="project-github" type="url" required value={githubUrl} onChange={event => { setGithubUrl(event.target.value); feedback.clear("githubUrl"); }} placeholder="https://github.com/seu-usuario/seu-projeto" maxLength={2000}/><FieldError id="project-github-error" text={fields.githubUrl}/>
             </div>
             <div className="form-field">
               <label htmlFor="project-live">Projeto online (opcional)</label>
-              <input id="project-live" type="url" value={liveUrl} onChange={event => setLiveUrl(event.target.value)} placeholder="https://meu-projeto.vercel.app" maxLength={2000}/>
+              <input name="liveUrl" aria-invalid={!!fields.liveUrl} aria-describedby={fields.liveUrl ? "project-live-error" : undefined} id="project-live" type="url" value={liveUrl} onChange={event => { setLiveUrl(event.target.value); feedback.clear("liveUrl"); }} placeholder="https://meu-projeto.vercel.app" maxLength={2000}/><FieldError id="project-live-error" text={fields.liveUrl}/>
             </div>
           </section>
-          {error && <div ref={errorRef} className="form-error" role="alert"><Icon name="x" size={16}/>{error}</div>}
+          {(error || fields.coverFraming) && <div className="form-error" role="alert"><Icon name="x" size={16}/>{error || fields.coverFraming}</div>}
           <div className="editor-submit">
             <Link href="/meus-projetos" className="button button-outline" aria-disabled={pending} onClick={event => { if (pending) event.preventDefault(); }}>Cancelar</Link>
             <button className="button button-dark" type="submit" disabled={pending || (!project && !turmaId)}>{pending ? <><Icon name="loader" size={17} className="spinner"/>Salvando...</> : <>{project ? "Salvar alterações" : "Publicar projeto"}<Icon name="arrow-up-right" size={17}/></>}</button>

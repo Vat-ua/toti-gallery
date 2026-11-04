@@ -1,3 +1,4 @@
+import { FormValidationError } from "./form-validation";
 import { getCurrentUser, isSameOrigin } from "./auth";
 import { isStaff } from "./permissions";
 import { AdminError } from "./admin-turmas";
@@ -16,6 +17,7 @@ export async function adminMutation(request: Request, action: (actorId: string, 
     const result = await action(actor.id, body);
     return Response.json(result || { ok: true }, { headers });
   } catch (error) {
+    if (error instanceof FormValidationError) return Response.json({ error: error.message, fieldErrors: error.fieldErrors }, { status: 400, headers });
     if (error instanceof AdminError) return Response.json({ error: error.message }, { status: error.status, headers });
     if (error instanceof SyntaxError) return Response.json({ error: "Dados inválidos." }, { status: 400, headers });
     const code = (error as { cause?: { code?: string }; code?: string }).cause?.code || (error as { code?: string }).code;

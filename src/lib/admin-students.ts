@@ -1,3 +1,4 @@
+import { identityErrors, rejectFields } from "./form-validation";
 import { and, count, desc, eq, inArray, isNull, ne, notInArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { accounts, authSessions, invitations, projectAuthors, projects, turmaMembers, turmas, users } from "@/db/schema";
@@ -54,10 +55,8 @@ export async function listStudents(actorId: string, options: Partial<StudentList
 }
 
 export async function updateStudentProfile(actorId: string, id: string, name: unknown, email: unknown) {
-  if (typeof name !== "string" || typeof email !== "string") throw new AdminError("Informe um nome e email válidos.");
-  let identity: ReturnType<typeof provisionIdentity>;
-  try { identity = provisionIdentity(name, email); }
-  catch { throw new AdminError("Informe um nome de 2 a 70 caracteres e um email válido."); }
+  rejectFields(identityErrors(name, email));
+  const identity = provisionIdentity(name as string, email as string);
   try {
     return await db.transaction(async tx => {
       const actor = await staff(tx, actorId);

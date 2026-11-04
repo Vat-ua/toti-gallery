@@ -2364,22 +2364,93 @@ html[data-theme="dark"] .theme-icon-moon {
   margin-top: var(--space-8);
 }
 
-.detail-description h2 {
+.detail-description>h2 {
   font-size: 1.8125rem;
   margin-bottom: var(--space-4);
 }
 
-.detail-description p {
+.project-markdown {
+  min-width: 0;
+  max-width: 70ch;
   font-size: var(--text-lg);
   line-height: var(--leading-relaxed);
   color: var(--ink-2);
-  margin-bottom: var(--space-4);
-  max-width: 70ch;
+  overflow-wrap: anywhere;
 }
 
-.detail-description p:first-of-type {
-  font-size: 1.1875rem;
+.project-markdown>*+* {
+  margin-top: var(--space-4);
+}
+
+.project-markdown :is(h2, h3, h4) {
   color: var(--ink);
+  line-height: var(--leading-compact);
+  margin-top: var(--space-6);
+  font-size: var(--text-lead);
+}
+
+.project-markdown h4,
+.description-preview .project-markdown h3 {
+  font-size: var(--text-lg);
+}
+
+.project-markdown>:first-child {
+  margin-top: 0;
+}
+
+.project-markdown :is(ul, ol) {
+  padding-left: var(--space-6);
+}
+
+.project-markdown ul {
+  list-style: disc;
+}
+
+.project-markdown ol {
+  list-style: decimal;
+}
+
+.project-markdown li+li,
+.project-markdown li>p+p {
+  margin-top: var(--space-2);
+}
+
+.project-markdown a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: .2em;
+}
+
+.project-markdown a:hover {
+  color: var(--accent);
+}
+
+.project-markdown blockquote {
+  border-left: 3px solid var(--line-strong);
+  padding-left: var(--space-4);
+}
+
+.project-markdown code {
+  font-family: var(--font-mono);
+  font-size: var(--text-secondary);
+  background: var(--surface-2);
+  border-radius: 4px;
+  padding: var(--space-0-5) var(--space-1);
+}
+
+.project-markdown pre {
+  max-width: 100%;
+  overflow-x: auto;
+  padding: var(--space-4);
+  background: var(--surface-2);
+  border-radius: 12px;
+  line-height: var(--leading-body);
+}
+
+.project-markdown pre code {
+  padding: 0;
+  background: none;
+  border-radius: 0;
 }
 
 .project-sidebar {
@@ -2584,12 +2655,11 @@ html[data-theme="dark"] .theme-icon-moon {
     margin-top: var(--space-6);
   }
 
-  .detail-description h2 {
+  .detail-description>h2 {
     font-size: var(--text-subtitle);
   }
 
-  .detail-description p,
-  .detail-description p:first-of-type {
+  .project-markdown {
     font-size: var(--text-ui);
     line-height: var(--leading-relaxed);
   }
@@ -3187,6 +3257,94 @@ html[data-theme="dark"] .theme-icon-moon {
   line-height: var(--leading-copy);
 }
 
+.description-editor {
+  min-width: 0;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.description-editor:focus-within {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--focus) 16%, transparent);
+}
+
+.description-editor[data-invalid="true"] {
+  border-color: var(--accent);
+}
+
+.description-tabs {
+  display: flex;
+  gap: var(--space-4);
+  padding-inline: var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+
+.description-tabs button {
+  min-height: 40px;
+  padding-block: var(--space-2);
+  border-bottom: 2px solid transparent;
+  font-size: var(--text-secondary);
+  line-height: var(--leading-ui);
+  color: var(--ink-3);
+}
+
+.description-tabs button[aria-selected="true"] {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+  font-weight: var(--weight-semibold);
+}
+
+.description-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.description-tools button {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--ink-2);
+}
+
+.description-tools button:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.description-editor textarea {
+  display: block;
+  border: 0;
+  border-radius: 0;
+}
+
+.description-editor textarea:focus {
+  box-shadow: none;
+}
+
+.description-preview {
+  min-height: 18rem;
+  max-height: 32rem;
+  overflow: auto;
+  padding: var(--space-3);
+}
+
+.description-preview .project-markdown {
+  font-size: var(--text-ui);
+}
+
+.description-empty {
+  color: var(--ink-3);
+  font-size: var(--text-ui);
+  line-height: var(--leading-copy);
+}
+
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -3297,7 +3455,9 @@ html[data-theme="dark"] .theme-icon-moon {
   line-height: var(--leading-copy);
 }
 
-.form-field input[aria-invalid="true"] {
+.form-field input[aria-invalid="true"],
+.form-field select[aria-invalid="true"],
+.form-field textarea[aria-invalid="true"] {
   border-color: var(--accent);
 }
 

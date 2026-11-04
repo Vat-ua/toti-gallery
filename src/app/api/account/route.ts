@@ -1,3 +1,4 @@
+import { FormValidationError } from "@/lib/form-validation";
 import { after } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
@@ -15,7 +16,7 @@ export async function PATCH(request: Request) {
   let uploaded: Awaited<ReturnType<typeof saveImage>> | undefined;
   let committed = false;
   try {
-    const { body, file } = await readImageForm(request);
+    const { body, file } = await readImageForm(request, "avatar");
     const profile = validateProfile(body, user.avatar);
     if (file) {
       if (!await allowAttempt("image-upload", user.id, 20, 900)) throw new ImageFormError("Muitos envios. Aguarde alguns minutos.", 429);
@@ -35,6 +36,7 @@ export async function PATCH(request: Request) {
     return Response.json({ user: await getCurrentUser() }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (uploaded && !committed) await deleteImage(uploaded.metadata);
+    if (error instanceof FormValidationError) return Response.json({ error: error.message, fieldErrors: error.fieldErrors }, { status: 400 });
     const message = error instanceof Error && !("query" in error) ? error.message : "Não foi possível salvar seu perfil. Tente novamente.";
     return Response.json({ error: message }, { status: error instanceof ImageFormError ? error.status : 400 });
   }

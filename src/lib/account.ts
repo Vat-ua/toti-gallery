@@ -1,3 +1,5 @@
+import { httpsUrlError, rejectFields, type FieldErrors } from "./form-validation";
+
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Os dados da conta são inválidos.");
   return value as Record<string, unknown>;
@@ -8,31 +10,26 @@ export function validateProfile(value: unknown, currentAvatar: string | null = n
   if (Object.keys(body).some(key => !["name", "bio", "avatar", "github"].includes(key))) {
     throw new Error("Altere apenas o nome, a foto, a apresentação e o GitHub.");
   }
-  if (typeof body.name !== "string" || body.name.trim().length < 2 || body.name.trim().length > 70) {
-    throw new Error("O nome precisa ter entre 2 e 70 caracteres.");
-  }
-  if (typeof body.bio !== "string" || body.bio.trim().length > 600) throw new Error("A apresentação deve ter até 600 caracteres.");
-  let github: string | null = null;
-  if (body.github !== null && body.github !== "") {
-    if (typeof body.github !== "string" || body.github.length > 2000) throw new Error("Informe um endereço válido do GitHub.");
-    try {
-      const url = new URL(body.github.trim());
-      if (url.protocol !== "https:" || !["github.com", "www.github.com"].includes(url.hostname) || url.username || url.password) throw new Error();
-      github = url.href;
-    } catch { throw new Error("Informe um endereço do GitHub começando com https://."); }
-  }
+  const errors: FieldErrors = {};
+  if (typeof body.name !== "string" || body.name.trim().length < 2 || body.name.trim().length > 70) errors.name = "O nome precisa ter entre 2 e 70 caracteres.";
+  if (typeof body.bio !== "string" || body.bio.trim().length > 600) errors.bio = "A apresentação deve ter até 600 caracteres.";
+  errors.github = httpsUrlError(body.github, true);
   const avatar = body.avatar;
   // Keep the existing static/provider/data-URL photo; new files are multipart.
-  if (avatar !== null && (typeof avatar !== "string" || avatar !== currentAvatar)) throw new Error("Envie uma nova foto pelo botão Alterar foto.");
-  return { name: body.name.trim(), bio: body.bio.trim(), avatar, github };
+  if (avatar !== null && (typeof avatar !== "string" || avatar !== currentAvatar)) errors.avatar = "Envie uma nova foto pelo botão Alterar foto.";
+  rejectFields(errors);
+  const github = typeof body.github === "string" && body.github.trim() ? new URL(body.github.trim()).href : null;
+  return { name: (body.name as string).trim(), bio: (body.bio as string).trim(), avatar: avatar as string | null, github };
 }
 
 export function validatePasswordChange(value: unknown) {
   const body = record(value);
   const { currentPassword, newPassword, confirmPassword } = body;
-  if (typeof currentPassword !== "string" || !currentPassword || currentPassword.length > 128) throw new Error("Informe sua senha atual.");
-  if (typeof newPassword !== "string" || newPassword.length < 15 || newPassword.length > 128) throw new Error("A nova senha precisa ter entre 15 e 128 caracteres.");
-  if (newPassword !== confirmPassword) throw new Error("A confirmação não corresponde à nova senha.");
-  if (newPassword === currentPassword) throw new Error("Escolha uma senha diferente da atual.");
-  return { currentPassword, newPassword };
+  const errors: FieldErrors = {};
+  if (typeof currentPassword !== "string" || !currentPassword || currentPassword.length > 128) errors.currentPassword = "Informe sua senha atual.";
+  if (typeof newPassword !== "string" || newPassword.length < 15 || newPassword.length > 128) errors.newPassword = "A nova senha precisa ter entre 15 e 128 caracteres.";
+  if (typeof confirmPassword !== "string" || !confirmPassword || newPassword !== confirmPassword) errors.confirmPassword = "A confirmação não corresponde à nova senha.";
+  if (typeof newPassword === "string" && newPassword === currentPassword) errors.newPassword = "Escolha uma senha diferente da atual.";
+  rejectFields(errors);
+  return { currentPassword: currentPassword as string, newPassword: newPassword as string };
 }

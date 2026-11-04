@@ -1,3 +1,4 @@
+import { identityErrors, rejectFields, turmaErrors } from "./form-validation";
 import { randomUUID } from "node:crypto";
 import { and, asc, count, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -40,10 +41,8 @@ export function validateTurma(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new AdminError("Confira os dados da turma.");
   const data = value as Record<string, unknown>;
   if (Object.keys(data).some(k => !["number", "courseName", "startYear"].includes(k))) throw new AdminError("Confira os dados da turma.");
-  if (typeof data.number !== "number" || !Number.isInteger(data.number) || data.number < 1 || data.number > 999999999) throw new AdminError("Informe um número de turma válido.");
-  if (typeof data.courseName !== "string" || data.courseName.trim().length < 2 || data.courseName.trim().length > 100) throw new AdminError("Informe o nome do curso, de 2 a 100 caracteres.");
-  if (typeof data.startYear !== "number" || !Number.isInteger(data.startYear) || data.startYear < 2000 || data.startYear > 2100) throw new AdminError("Informe o ano de início, de 2000 a 2100.");
-  return { number: data.number, name: `Turma ${data.number}`, courseName: data.courseName.trim(), startYear: data.startYear };
+  rejectFields(turmaErrors(data));
+  return { number: data.number as number, name: `Turma ${data.number}`, courseName: (data.courseName as string).trim(), startYear: data.startYear as number };
 }
 
 export async function listTurmas(actorId: string): Promise<AdminTurma[]> {
@@ -151,8 +150,8 @@ export async function lookupStudent(actorId: string, turmaId: string, email: str
 }
 
 export async function addStudent(actorId: string, turmaId: string, name: string, email: string): Promise<StudentAdded> {
-  let identity;
-  try { identity = provisionIdentity(name, email); } catch { throw new AdminError("Informe um nome e email válidos."); }
+  rejectFields(identityErrors(name, email));
+  const identity = provisionIdentity(name, email);
   return db.transaction(async tx => {
     const actor = await staff(tx, actorId); await group(tx, turmaId);
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${identity.email}))`);
