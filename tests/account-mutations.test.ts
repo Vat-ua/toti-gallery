@@ -117,7 +117,7 @@ test("upload failures and throttling keep the original profile and image", async
   assert.equal((await harness.profile.PATCH(request("/api/account", input(), { file: true }))).status, 429);
   assert.equal(harness.state.uploaded.length, 0); assert.deepEqual(await row(), original);
   harness.state.allowUpload = true; harness.state.uploadError = new Error("Fixture upload failed");
-  assert.equal((await harness.profile.PATCH(request("/api/account", input(), { file: true }))).status, 400);
+  assert.equal((await harness.profile.PATCH(request("/api/account", input(), { file: true }))).status, 500);
   assert.deepEqual(await row(), original); assert.equal(harness.state.deferred.length, 0);
 });
 test("SQL failure rolls back profile changes and removes only the newly uploaded avatar", async () => {
@@ -128,7 +128,7 @@ test("SQL failure rolls back profile changes and removes only the newly uploaded
   await pool.query(`CREATE TRIGGER ${name} BEFORE UPDATE ON gallery_users FOR EACH ROW EXECUTE FUNCTION ${name}()`);
   try {
     const response = await harness.profile.PATCH(request("/api/account", input(), { file: true }));
-    assert.equal(response.status, 400); assert.equal((await response.json()).error, "Não foi possível salvar seu perfil. Tente novamente.");
+    assert.equal(response.status, 500); assert.equal((await response.json()).error, "Não foi possível salvar seu perfil. Tente novamente.");
     assert.deepEqual(await row(), original); assert.deepEqual(harness.state.deleted, harness.state.uploaded);
     assert.equal(harness.state.deleted.length, 1); assert.notEqual(harness.state.deleted[0].key, old.key); assert.equal(harness.state.deferred.length, 0);
   } finally { await pool.query(`DROP TRIGGER ${name} ON gallery_users`); await pool.query(`DROP FUNCTION ${name}()`); }
@@ -171,7 +171,7 @@ test("a concurrent avatar replacement cannot be overwritten by a stale photo ref
     }
     assert(blocked, "Profile update must reach its transaction row lock");
     await writer.query("COMMIT"); const response = await pending;
-    assert.equal(response.status, 400); assert.match((await response.json()).error, /foto mudou/);
+    assert.equal(response.status, 409); assert.match((await response.json()).error, /foto mudou/);
     assert.equal((await row()).avatar, `/media/${replacement.key}`); assert.equal(harness.state.deferred.length, 0);
   } finally { await writer.query("ROLLBACK"); writer.release(); if (pending) await pending; }
 });
@@ -184,4 +184,22 @@ test("committed profile returns its saved user without a second session lookup",
   assert.equal(response.status, 200, "A post-commit session failure must not report a failed save");
   const result = await response.json(); assert.equal(result.user.id, owner); assert.equal(result.user.name, name);
   assert.equal(harness.state.sessionChecks, 1);
+});
+
+test("a real profile commit whose acknowledgement is lost keeps its newly referenced avatar", async () => {
+  const { db } = await import("../src/db");
+  const { updateAccountProfile } = await import("../src/lib/account-mutations");
+  const previous = await row();
+  const originalTransaction = db.transaction;
+  const failure = Object.assign(new Error("Fixture lost COMMIT acknowledgement"), { code: "ECONNRESET" });
+  db.transaction = (async (...args: Parameters<typeof db.transaction>) => {
+    await originalTransaction.apply(db, args); throw failure;
+  }) as typeof db.transaction;
+  try {
+    await assert.rejects(updateAccountProfile({ id: owner, avatar: previous.avatar }, { body: input(), file: new File(["fixture"], "avatar.png", { type: "image/png" }) }), error => error instanceof Error && error.cause === failure);
+    const stored = await row();
+    assert.equal(stored.avatar, `/media/${harness.state.uploaded[0].key}`);
+    assert.deepEqual(stored.avatar_metadata, harness.state.uploaded[0]);
+    assert.deepEqual(harness.state.deleted, []); assert.deepEqual(harness.state.retired, []);
+  } finally { db.transaction = originalTransaction; }
 });

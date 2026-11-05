@@ -3,6 +3,7 @@ import { APIError, createAuthMiddleware, addOAuthServerContext, getOAuthState } 
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
+import { logServerError } from "./server-log";
 import { accounts, authSessions, rateLimits, users, verifications } from "@/db/schema";
 import { admitGoogleIdentity, inspectAccessLink } from "./access-links";
 import { allowAttempt } from "./auth-rate-limit";
@@ -70,7 +71,9 @@ function createAuth() {
       }
     }) },
     onAPIError: { errorURL: `${settings.baseURL}/entrar` },
-    logger: { level: "error" },
+    logger: { level: "error", log: (_level, _message, ...args) => {
+      logServerError("auth.library.failed", args.find(value => value instanceof Error) || new Error("Authentication failure"));
+    } },
   });
 }
 

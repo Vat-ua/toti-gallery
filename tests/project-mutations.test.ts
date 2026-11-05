@@ -150,7 +150,7 @@ test("cover replacement retires old image only after commit; removal resets fram
 test("upload failure and invalid coauthors roll back updates and never retire the original image", async () => {
   const { id } = await create(); const old = await attachImage(id); const original = await row(id);
   harness.state.uploadError = new Error("Fixture upload failed");
-  assert.equal((await harness.item.PATCH(request("PATCH", input(), true), context(id))).status, 400);
+  assert.equal((await harness.item.PATCH(request("PATCH", input(), true), context(id))).status, 500);
   assert.deepEqual(await row(id), original);
   harness.state.uploadError = null;
   const response = await harness.item.PATCH(request("PATCH", input({ coauthorIds: [outsider] }), true), context(id));
@@ -203,4 +203,20 @@ test("a concurrent cover replacement cannot be overwritten by an earlier image r
     assert.equal((await row(id)).image_url, `/media/${replacement.key}`);
     assert.deepEqual(harness.state.deleted, []); assert.equal(harness.state.deferred.length, 0);
   } finally { await writer.query("ROLLBACK"); writer.release(); if (pending) await pending; }
+});
+
+test("a real project commit whose acknowledgement is lost keeps its new image and author credits", async () => {
+  const { db } = await import("../src/db");
+  const originalTransaction = db.transaction;
+  db.transaction = (async (...args: Parameters<typeof db.transaction>) => {
+    await originalTransaction.apply(db, args);
+    throw Object.assign(new Error("Fixture lost COMMIT acknowledgement"), { code: "ECONNRESET" });
+  }) as typeof db.transaction;
+  try {
+    const response = await harness.collection.POST(request("POST", input(), true));
+    assert.equal(response.status, 503);
+    const saved = (await pool.query("SELECT id FROM gallery_projects WHERE author_id=$1 AND image_url=$2", [owner, `/media/${harness.state.uploaded[0].key}`])).rows;
+    assert.equal(saved.length, 1); assert.deepEqual(await credits(saved[0].id), [owner, coauthor].sort());
+    assert.deepEqual(harness.state.deleted, []); assert.deepEqual(harness.state.retired, []);
+  } finally { db.transaction = originalTransaction; }
 });

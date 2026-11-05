@@ -1,3 +1,5 @@
+import { PublicError } from "./errors";
+
 export class BodyLimitError extends Error {}
 
 /** Enforce a byte limit while consuming the stream, even without Content-Length. */
@@ -18,4 +20,10 @@ export async function readLimitedBody(request: Request, limit: number) {
     } finally { reader.releaseLock(); }
   }
   return Buffer.concat(chunks);
+}
+
+export async function readJsonBody(request: Request, limit: number): Promise<unknown> {
+  const bytes = await readLimitedBody(request, limit);
+  try { return JSON.parse(bytes.toString("utf8")); }
+  catch { throw new PublicError("Dados inválidos. Revise o formulário e tente novamente."); }
 }

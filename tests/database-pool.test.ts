@@ -1,0 +1,23 @@
+import { after, test } from "node:test";
+import assert from "node:assert/strict";
+import { createRequire } from "node:module";
+const require = createRequire(`${process.cwd()}/package.json`);
+const id = require.resolve("@vercel/functions"), saved = require.cache[id];
+let attached = 0;
+require.cache[id] = { id, filename: id, loaded: true, exports: { attachDatabasePool: () => { attached++; } } } as NodeJS.Module;
+const { createDatabasePool } = require("./src/lib/database-pool.ts") as typeof import("../src/lib/database-pool");
+const originalConsole = console.error, vercel = process.env.VERCEL;
+after(() => { console.error = originalConsole; if (vercel === undefined) delete process.env.VERCEL; else process.env.VERCEL = vercel; if (saved) require.cache[id] = saved; else delete require.cache[id]; });
+test("bounded pool config, safe background error handling and Vercel lifecycle are installed", async () => {
+  delete process.env.VERCEL;
+  const pool = createDatabasePool("postgresql://fixture:fixture@127.0.0.1:1/fixture");
+  assert.equal(pool.options.max, 5); assert.equal(pool.options.connectionTimeoutMillis, 10000);
+  assert.equal(pool.options.statement_timeout, 30000); assert.ok(pool.options.query_timeout! > pool.options.statement_timeout!);
+  assert.equal(pool.options.lock_timeout, 10000); assert.equal(attached, 0);
+  const logs: string[] = []; console.error = value => logs.push(String(value));
+  assert.doesNotThrow(() => pool.emit("error", Object.assign(new Error("secret database URL"), { code: "ECONNRESET" })));
+  assert.equal(JSON.parse(logs[0]).event, "database.pool.error"); assert.ok(!logs.join("").includes("secret"));
+  await pool.end();
+  process.env.VERCEL = "1"; const hosted = createDatabasePool("postgresql://fixture:fixture@127.0.0.1:1/fixture");
+  assert.equal(attached, 1); await hosted.end();
+});

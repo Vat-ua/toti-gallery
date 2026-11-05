@@ -5,8 +5,9 @@ import { db } from "@/db";
 import { accounts, authSessions, invitations, users } from "@/db/schema";
 import { authSettings } from "./auth-settings";
 import { canManageAccount, isStaff } from "./permissions";
+import { PublicError } from "./errors";
 
-export class AccessError extends Error {
+export class AccessError extends PublicError {
   constructor(message = "Este link é inválido, expirou ou já foi usado.") { super(message); }
 }
 export type AccessPurpose = "activation" | "password_reset";

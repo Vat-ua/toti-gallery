@@ -1,10 +1,9 @@
 import { IMAGE_MAX_BYTES, validateImageFile } from "./image-policy";
 import { FormValidationError } from "./form-validation";
 import { BodyLimitError, readLimitedBody } from "./request-body";
+import { PublicError } from "./errors";
 
-export class ImageFormError extends Error {
-  constructor(message: string, public status = 400) { super(message); }
-}
+export class ImageFormError extends PublicError {}
 
 /** Bound the stream before parsing; Content-Length alone is not trustworthy. */
 export async function readImageForm(request: Request, imageField: "imageUrl" | "avatar" = "imageUrl") {

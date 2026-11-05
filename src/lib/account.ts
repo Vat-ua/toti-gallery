@@ -1,14 +1,15 @@
 import { httpsUrlError, rejectFields, type FieldErrors } from "./form-validation";
+import { PublicError } from "./errors";
 
 function record(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Os dados da conta são inválidos.");
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new PublicError("Os dados da conta são inválidos.");
   return value as Record<string, unknown>;
 }
 
 export function validateProfile(value: unknown, currentAvatar: string | null = null) {
   const body = record(value);
   if (Object.keys(body).some(key => !["name", "bio", "avatar", "github", "linkedin"].includes(key))) {
-    throw new Error("Altere apenas os dados do seu perfil.");
+    throw new PublicError("Altere apenas os dados do seu perfil.");
   }
   const errors: FieldErrors = {};
   if (typeof body.name !== "string" || body.name.trim().length < 2 || body.name.trim().length > 70) errors.name = "O nome precisa ter entre 2 e 70 caracteres.";

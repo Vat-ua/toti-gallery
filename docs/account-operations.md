@@ -25,9 +25,10 @@ Single-profile lookups by ID or slug use one scoped query with turma memberships
 including profiles with no turma. They share the public projection and primary
 turma selection rules with list queries, without loading the entire community.
 
-The avatar row lock and stale-photo check are preserved. A failed update removes
-only its new upload; successful replacement/removal schedules retirement of the
-old image after commit. Storage still checks existing references before deletion.
+The avatar row lock and stale-photo check are preserved. A failed transaction
+callback checks references before retiring its new upload; an uncertain COMMIT
+retains that upload. An acknowledged replacement/removal schedules retirement
+of the old image after commit. Storage still checks existing references before deletion.
 No database migration, auth configuration or API shape change is needed.
 
 Password hashing, credential checks, session replacement and revocation remain
@@ -57,3 +58,6 @@ the post-commit session regression, password validation, incorrect current
 passwords, throttling, replacement cookies and other-session revocation. Client
 tests cover multipart/JSON formats, structured errors, 401, network failures and
 malformed success responses. Browser checks separately verify UI interactions.
+
+For commit uncertainty, connection limits and operational logging, see
+[Server reliability](server-reliability.md).

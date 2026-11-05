@@ -13,6 +13,7 @@ export function projectRouteHarness() {
     deleted: [] as ImageMetadata[],
     retired: [] as ImageMetadata[],
     deferred: [] as (() => Promise<void>)[],
+    processingDeferred: false,
   };
   function replace(path: string, exports: object) {
     const id = require.resolve(path);
@@ -36,14 +37,21 @@ export function projectRouteHarness() {
       return { url: `/media/${key}`, metadata };
     },
     deleteImage: async (metadata: ImageMetadata) => { state.deleted.push(metadata); },
-    retireImage: async (metadata: ImageMetadata) => { state.retired.push(metadata); },
+    retireImage: async (metadata: ImageMetadata) => {
+      if (!state.processingDeferred && state.uploaded.some(image => image.key === metadata.key)) state.deleted.push(metadata);
+      else state.retired.push(metadata);
+    },
   });
   return {
     state,
     collection: require("./src/app/api/projects/route.ts") as typeof import("../../src/app/api/projects/route"),
     item: require("./src/app/api/projects/[id]/route.ts") as typeof import("../../src/app/api/projects/[id]/route"),
     authors: require("./src/app/api/projects/[id]/authors/me/route.ts") as typeof import("../../src/app/api/projects/[id]/authors/me/route"),
-    async flush() { for (const work of state.deferred.splice(0)) await work(); },
+    async flush() {
+      state.processingDeferred = true;
+      try { for (const work of state.deferred.splice(0)) await work(); }
+      finally { state.processingDeferred = false; }
+    },
     reset() { state.allowUpload = true; state.uploadError = null; state.uploaded = []; state.deleted = []; state.retired = []; state.deferred = []; },
     restore() { for (const [id, original] of originals) { if (original) require.cache[id] = original; else delete require.cache[id]; } },
   };

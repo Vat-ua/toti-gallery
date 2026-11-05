@@ -8,28 +8,23 @@ import { validateCoauthorIds, validateProject, validateProjectTurma } from "./va
 import { getPublicationTurmas } from "./queries";
 import { setProjectAuthors } from "./project-authors";
 import { allowAttempt } from "./auth-rate-limit";
-import { deleteImage, saveImage } from "./image-storage";
+import { saveImage } from "./image-storage";
+import { PublicError } from "./errors";
+import { commitImageChange } from "./image-transaction";
 
 export type ProjectSubmission = { body: Record<string, unknown>; file: File | null };
-export class ProjectMutationError extends Error {
-  constructor(message: string, public status = 400) { super(message); }
-}
+export class ProjectMutationError extends PublicError {}
 type UploadedCover = Awaited<ReturnType<typeof saveImage>>;
 const ownedBy = (actorId: string, id: string) => and(eq(projects.id, id), eq(projects.authorId, actorId));
 
-/** Object storage cannot join a SQL transaction: compensate only failed commits. */
+/** Image commit/rollback handling is shared with profile updates. */
 async function withCoverUpload<T>(actorId: string, file: File | null, commit: (cover: UploadedCover | undefined) => Promise<T>) {
   let uploaded: UploadedCover | undefined;
-  try {
-    if (file) {
-      if (!await allowAttempt("image-upload", actorId, 20, 900)) throw new ProjectMutationError("Muitos envios. Aguarde alguns minutos.", 429);
-      uploaded = await saveImage(file, "cover");
-    }
-    return await commit(uploaded);
-  } catch (error) {
-    if (uploaded) await deleteImage(uploaded.metadata);
-    throw error;
+  if (file) {
+    if (!await allowAttempt("image-upload", actorId, 20, 900)) throw new ProjectMutationError("Muitos envios. Aguarde alguns minutos.", 429);
+    uploaded = await saveImage(file, "cover");
   }
+  return await commit(uploaded);
 }
 
 export async function createProject(actorId: string, { body, file }: ProjectSubmission) {
@@ -40,7 +35,7 @@ export async function createProject(actorId: string, { body, file }: ProjectSubm
   const id = randomUUID();
   const prefix = data.title.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const slug = `${prefix || "projeto"}-${id.slice(0, 8)}`;
-  await withCoverUpload(actorId, file, uploaded => db.transaction(async tx => {
+  await withCoverUpload(actorId, file, uploaded => commitImageChange(uploaded?.metadata, async tx => {
     await tx.insert(projects).values({ ...data, imageUrl: uploaded?.url ?? data.imageUrl,
       coverFraming: uploaded || data.imageUrl ? data.coverFraming ?? null : null,
       imageMetadata: uploaded?.metadata ?? null, id, slug, authorId: actorId, turmaId });
@@ -59,7 +54,7 @@ export async function updateProject(actorId: string, id: string, readSubmission:
   if (body.turmaId !== undefined && body.turmaId !== original.turmaId) throw new FormValidationError({ turmaId: "A turma de um projeto publicado não pode ser alterada." });
   const data = validateProject(body, original.imageUrl);
   const coauthorIds = validateCoauthorIds(body);
-  return withCoverUpload(actorId, file, uploaded => db.transaction(async tx => {
+  return withCoverUpload(actorId, file, uploaded => commitImageChange(uploaded?.metadata, async tx => {
     const [found] = await tx.select({ slug: projects.slug, imageUrl: projects.imageUrl, metadata: projects.imageMetadata, coverFraming: projects.coverFraming }).from(projects).where(owned).for("update").limit(1);
     if (!found) throw new ProjectMutationError("Projeto não encontrado ou sem permissão para editar.");
     if (!uploaded && data.imageUrl && data.imageUrl === original.imageUrl && data.imageUrl !== found.imageUrl) throw new ProjectMutationError("A capa mudou. Atualize a página e tente novamente.");

@@ -2,6 +2,7 @@ import { TECHNOLOGIES, COVER_STYLES } from "./types";
 import { imageKey } from "./image-policy";
 import { validateCoverFraming } from "./cover-framing";
 import { FormValidationError, httpsUrlError, rejectFields, type FieldErrors } from "./form-validation";
+import { PublicError } from "./errors";
 
 export function validateCoauthorIds(body: Record<string, unknown>): string[] | undefined {
   if (body.coauthorIds === undefined) return undefined;
@@ -19,7 +20,7 @@ export function validateProjectTurma(value: unknown, allowedIds: readonly string
 }
 
 export function validateProject(body: Record<string, unknown>, currentImage: string | null = null) {
-  if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("Os dados do projeto são inválidos.");
+  if (!body || typeof body !== "object" || Array.isArray(body)) throw new PublicError("Os dados do projeto são inválidos.");
   const text = (key: string) => typeof body[key] === "string" ? (body[key] as string).trim() : "";
   const title = text("title");
   const description = text("description");

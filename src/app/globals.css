@@ -4386,6 +4386,17 @@ html[data-theme="dark"] .theme-icon-moon {
   margin-bottom: var(--space-4);
 }
 
+.error-page-actions {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.error-page .error-reference {
+  font-size: var(--text-label);
+}
+
 @media (prefers-reduced-motion:reduce) {
   html {
     scroll-behavior: auto;

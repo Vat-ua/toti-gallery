@@ -15,6 +15,7 @@ export function accountRouteHarness() {
     uploadError: null as Error | null,
     uploaded: [] as ImageMetadata[], deleted: [] as ImageMetadata[], retired: [] as ImageMetadata[],
     deferred: [] as (() => Promise<void>)[],
+    processingDeferred: false,
   };
   function replace(path: string, exports: object) {
     const id = require.resolve(path);
@@ -31,7 +32,10 @@ export function accountRouteHarness() {
       state.uploaded.push(metadata); return { url: `/media/${metadata.key}`, metadata };
     },
     deleteImage: async (metadata: ImageMetadata) => { state.deleted.push(metadata); },
-    retireImage: async (metadata: ImageMetadata) => { state.retired.push(metadata); },
+    retireImage: async (metadata: ImageMetadata) => {
+      if (!state.processingDeferred && state.uploaded.some(image => image.key === metadata.key)) state.deleted.push(metadata);
+      else state.retired.push(metadata);
+    },
   });
   const authModule = require("./src/lib/auth.ts") as typeof import("../../src/lib/auth");
   replace("./src/lib/auth.ts", { ...authModule, getCurrentUser: async () => {
@@ -44,7 +48,11 @@ export function accountRouteHarness() {
     auth: (require("./src/lib/auth-core.ts") as typeof import("../../src/lib/auth-core")).getAuth(),
     profile: require("./src/app/api/account/route.ts") as typeof import("../../src/app/api/account/route"),
     password: require("./src/app/api/account/password/route.ts") as typeof import("../../src/app/api/account/password/route"),
-    async flush() { for (const work of state.deferred.splice(0)) await work(); },
+    async flush() {
+      state.processingDeferred = true;
+      try { for (const work of state.deferred.splice(0)) await work(); }
+      finally { state.processingDeferred = false; }
+    },
     reset() { state.sessionChecks = 0; state.failSecondSessionCheck = false; state.allowUpload = true; state.allowPassword = true; state.uploadError = null; state.uploaded = []; state.deleted = []; state.retired = []; state.deferred = []; },
     restore() { for (const [id, original] of originals) { if (original) require.cache[id] = original; else delete require.cache[id]; } },
   };

@@ -25,8 +25,9 @@ on Request, Response, cookies, routing or React. The row is checked again under 
 transaction lock before mutation. Missing coauthors/framing retain their existing
 semantics; explicit empty coauthors remove credits except the owner's.
 
-Object storage cannot participate in a SQL transaction. `withCoverUpload` removes
-a newly uploaded object if the database operation fails. Successful updates and
+Object storage cannot participate in a SQL transaction. `commitImageChange`
+retires a new upload only when the transaction callback fails before COMMIT. Once COMMIT can have started, it retains the upload because
+a rejected client promise cannot prove rollback. Successful updates and
 deletions return the previous image metadata to the route; retirement is scheduled
 only after commit. The storage module still checks whether another record refers
 to the image before removing it. Existing cover conflict checks, moderation
@@ -54,3 +55,6 @@ Auth and image decoding have separate existing tests.
 The client tests cover request formats, field errors, authentication errors,
 network failures and invalid/non-JSON responses. They do not replace browser
 checks of notifications, dialog behavior and navigation.
+
+For commit uncertainty, connection limits and operational logging, see
+[Server reliability](server-reliability.md).

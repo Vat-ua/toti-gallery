@@ -75,8 +75,10 @@ origin. Cover changes also require publication ownership. Clients cannot adopt
 another upload's managed key. Uploads are limited per account, request streams
 are bounded before parsing, and originals are decoded with a pixel limit.
 
-The database update commits after successful processing/upload. A failed database
-write removes the new upload. Replacement, removal and project deletion retire
+The database update commits after successful processing/upload. A failure before
+COMMIT checks database references before retiring the new upload. An uncertain
+COMMIT or an unavailable reference lookup retains the file. Replacement, removal
+and project deletion retire
 the previous managed object after commit, once it is no longer referenced.
 Legacy/external images are never deleted. Failed cleanup is logged without
 credentials and may leave an unreferenced file for later maintenance.
@@ -92,3 +94,6 @@ invalid/oversized files, bounded multipart parsing, legacy-image preservation,
 and storage-branch configuration without connecting to a database. API/browser
 write checks additionally require an explicitly selected temporary `test/*`
 branch with its own SQL/storage endpoint, never development or production.
+
+For commit uncertainty, connection limits and operational logging, see
+[Server reliability](server-reliability.md).
