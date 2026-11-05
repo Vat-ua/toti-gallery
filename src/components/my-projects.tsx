@@ -7,6 +7,7 @@ import type { Person, Project } from "@/lib/types";
 import { ProjectCard } from "./project-card";
 import { Icon } from "./icon";
 import { useToast } from "./ui";
+import { deleteProject, leaveProject } from "@/lib/projects-client";
 
 export function MyProjects({ projects, user }: { projects: Project[]; user: Person }) {
   const [list, setList] = useState({ source: projects, items: projects });
@@ -23,9 +24,8 @@ export function MyProjects({ projects, user }: { projects: Project[]; user: Pers
     if (!target) return;
     setPending(true);
     try {
-      const response = await fetch(`/api/projects/${target.id}${removingPublication ? "" : "/authors/me"}`, { method: "DELETE" });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      if (removingPublication) await deleteProject(target.id);
+      else await leaveProject(target.id);
       setList(current => ({ ...current, items: current.items.filter(item => item.id !== target.id) })); setTarget(null);
       notify(removingPublication ? "Projeto excluído." : "Você saiu do projeto. Ele continua disponível para os outros autores."); router.refresh();
     } catch (err) { notify(err instanceof Error ? err.message : "Não foi possível excluir o projeto.", true); }

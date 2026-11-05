@@ -12,8 +12,9 @@ import type { CoverFraming } from "@/lib/cover-framing";
 import { CoauthorPicker } from "./coauthor-picker";
 import { FieldError, useFormFeedback } from "./form-feedback";
 import { validateProject } from "@/lib/validation";
-import { FormValidationError, responseError } from "@/lib/form-validation";
+import { FormValidationError } from "@/lib/form-validation";
 import { validateImageFile } from "@/lib/image-policy";
+import { createProject, updateProject, type ProjectFormValues } from "@/lib/projects-client";
 
 const styles = [
   { name: "Tipografia", color: "#f2e6d2", ink: "#17130f" },
@@ -78,16 +79,11 @@ export function ProjectEditor({ user, project, people, turmas = [] }: { user: Pe
     const formElement = event.currentTarget;
     if (pending) return;
     setDescriptionPreview(false);
-    const value = { title, description, technologies, isFinal, turmaId, coauthorIds, coverStyle, imageUrl: imageFile ? "" : imageUrl, coverFraming, githubUrl, liveUrl };
+    const value: ProjectFormValues = { title, description, technologies, isFinal, turmaId, coauthorIds, coverStyle, imageUrl: imageFile ? "" : imageUrl, coverFraming, githubUrl, liveUrl };
     if (!feedback.validate(() => validateProject(value, project?.imageUrl), formElement)) return;
     setPending(true);
     try {
-      const form = new FormData();
-      form.set("data", JSON.stringify(value));
-      if (imageFile) form.set("image", imageFile);
-      const response = await fetch(project ? `/api/projects/${project.id}` : "/api/projects", { method: project ? "PATCH" : "POST", body: form });
-      const data = await response.json();
-      if (!response.ok) throw responseError(data, "Não foi possível salvar seu projeto.");
+      const data = project ? await updateProject(project.id, value, imageFile) : await createProject(value, imageFile);
       notify(project ? "Projeto atualizado." : "Projeto publicado.");
       router.push(project?.visibility === "hidden" ? `/meus-projetos/${project.id}` : `/projetos/${data.slug}`); router.refresh();
     } catch (err) { setDescriptionPreview(false); feedback.report(err, formElement); setPending(false); }
