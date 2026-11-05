@@ -8,8 +8,10 @@ import { Avatar, useToast } from "./ui";
 import { Icon } from "./icon";
 import { FieldError, useFormFeedback } from "./form-feedback";
 import { validateProfile, validatePasswordChange } from "@/lib/account";
-import { responseError } from "@/lib/form-validation";
+import { HttpError } from "@/lib/http-client";
+import { changeAccountPassword, updateAccountProfile, type PasswordInput } from "@/lib/account-client";
 import { validateImageFile } from "@/lib/image-policy";
+import { ImageActions } from "./image-actions";
 
 function PasswordField({ id, label, autoComplete, help, error, clear }: { id: string; label: string; autoComplete: "current-password" | "new-password"; help?: string; error?: string; clear: () => void }) {
   const [visible, setVisible] = useState(false);
@@ -66,18 +68,15 @@ export function AccountForm({ user, email, canChangePassword }: { user: Person; 
     if (!profileFeedback.validate(() => validateProfile({ name, bio, github, linkedin, avatar: photoFile ? null : avatar }, avatar), formElement)) return;
     setSavingProfile(true);
     try {
-      const form = new FormData();
-      form.set("data", JSON.stringify({ name, bio, avatar: photoFile ? null : avatar, github, linkedin }));
-      if (photoFile) form.set("image", photoFile);
-      const response = await fetch("/api/account", { method: "PATCH", body: form });
-      if (response.status === 401) { signInAgain(); return; }
-      const data = await response.json();
-      if (!response.ok) throw responseError(data, "Não foi possível salvar seu perfil.");
-      setName(data.user.name); setBio(data.user.bio); setGithub(data.user.github || ""); setLinkedin(data.user.linkedin || ""); setAvatar(data.user.avatar);
+      const profile = await updateAccountProfile({ name, bio, avatar: photoFile ? null : avatar, github, linkedin }, photoFile);
+      setName(profile.name); setBio(profile.bio); setGithub(profile.github || ""); setLinkedin(profile.linkedin || ""); setAvatar(profile.avatar);
       setPhotoFile(null);
       notify("Perfil atualizado.");
       router.refresh();
-    } catch (error) { profileFeedback.report(error, formElement); }
+    } catch (error) {
+      if (error instanceof HttpError && error.status === 401) signInAgain();
+      else profileFeedback.report(error, formElement);
+    }
     finally { setSavingProfile(false); }
   }
 
@@ -85,18 +84,19 @@ export function AccountForm({ user, email, canChangePassword }: { user: Person; 
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
+    const values: PasswordInput = { currentPassword: String(data.get("currentPassword") ?? ""), newPassword: String(data.get("newPassword") ?? ""), confirmPassword: String(data.get("confirmPassword") ?? "") };
     if (savingPassword) return;
-    if (!passwordFeedback.validate(() => validatePasswordChange(Object.fromEntries(data)), form)) return;
+    if (!passwordFeedback.validate(() => validatePasswordChange(values), form)) return;
     setSavingPassword(true);
     try {
-      const response = await fetch("/api/account/password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.fromEntries(data)) });
-      if (response.status === 401) { signInAgain(); return; }
-      const result = await response.json();
-      if (!response.ok) throw responseError(result, "Não foi possível alterar sua senha.");
+      await changeAccountPassword(values);
       form.reset();
       notify("Senha alterada. As outras sessões foram encerradas.");
       router.refresh();
-    } catch (error) { passwordFeedback.report(error, form); }
+    } catch (error) {
+      if (error instanceof HttpError && error.status === 401) signInAgain();
+      else passwordFeedback.report(error, form);
+    }
     finally { setSavingPassword(false); }
   }
 
@@ -111,10 +111,7 @@ export function AccountForm({ user, email, canChangePassword }: { user: Person; 
             <Avatar key={avatar || "initials"} person={{ name: name || user.name, avatar }} size={88}/>
             <div className="account-photo-actions">
               <input ref={fileRef} id="account-photo" type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={uploadPhoto}/>
-              <div className="account-photo-buttons">
-                <button type="button" className="photo-change" aria-describedby={fields.avatar ? "account-avatar-error" : undefined} onClick={() => fileRef.current?.click()}><Icon name={avatar ? "edit" : "plus"} size={15}/>{avatar ? "Alterar foto" : "Adicionar foto"}</button>
-                {avatar && <button type="button" className="photo-remove" aria-label="Remover foto" onClick={() => { setAvatar(null); setPhotoFile(null); }}><Icon name="trash" size={16}/>Remover</button>}
-              </div>
+              <ImageActions changeLabel={avatar ? "Alterar foto" : "Adicionar foto"} hasImage={!!avatar} removeLabel="Remover foto" disabled={savingProfile} describedBy={fields.avatar ? "account-avatar-error" : undefined} onChange={() => fileRef.current?.click()} onRemove={() => { profileFeedback.clear("avatar"); setAvatar(null); setPhotoFile(null); }}/>
               <small>JPG, PNG ou WebP, até 3 MB. Recorte quadrado, centralizado.</small>
             </div>
           </div>

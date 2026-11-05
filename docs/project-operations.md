@@ -7,7 +7,7 @@ authorization check.
 | Module | Responsibility |
 | --- | --- |
 | `components/project-editor.tsx`, `components/my-projects.tsx` | Form/dialog state, validation feedback, notifications, navigation and list refresh. |
-| `lib/projects-client.ts` | Typed create/update/delete/leave requests, multipart serialization and response/error decoding. It does not navigate or own React state. |
+| `lib/projects-client.ts` | Typed create/update/delete/leave requests and multipart serialization. Shared `lib/http-client.ts` decodes JSON, HTTP errors and field feedback for projects and accounts. Neither module navigates or owns React state. |
 | `app/api/projects/**/route.ts` | Origin/session checks, request parsing, HTTP responses and scheduling post-commit image retirement with Next.js `after()`. |
 | `lib/project-mutations.ts` | Authorized project operations, turma/coauthor rules, locked writes and SQL transactions. |
 | `lib/validation.ts`, `lib/project-authors.ts` | Shared field validation and transaction-scoped author eligibility/credits. |

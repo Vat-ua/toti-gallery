@@ -10,6 +10,7 @@ import { CoverFramingEditor } from "./cover-framing-editor";
 import { DescriptionEditor } from "./description-editor";
 import type { CoverFraming } from "@/lib/cover-framing";
 import { CoauthorPicker } from "./coauthor-picker";
+import { ImageActions } from "./image-actions";
 import { FieldError, useFormFeedback } from "./form-feedback";
 import { validateProject } from "@/lib/validation";
 import { FormValidationError } from "@/lib/form-validation";
@@ -128,18 +129,23 @@ export function ProjectEditor({ user, project, people, turmas = [] }: { user: Pe
           </section>
           <section className="editor-form-section">
             <h2>Capa</h2>
-            <p>Escolha uma capa pronta ou envie uma imagem.</p>
-            <span className="form-label" id="cover-styles-label">Estilo da capa</span>
+            <p>Escolha uma capa pronta ou envie sua própria imagem. Confira o resultado na prévia.</p>
+            <span className="form-label" id="cover-styles-label">Capas prontas</span>
             <div className="cover-style-options" role="group" aria-labelledby="cover-styles-label">
               {COVER_STYLES.map((style, index) => <button key={style} type="button" className={`cover-style-option ${coverStyle === style && !imageUrl ? "selected" : ""}`} style={{ background: styles[index].color, color: styles[index].ink }} aria-label={`Capa ${styles[index].name}`} aria-pressed={coverStyle === style && !imageUrl} title={styles[index].name} onClick={() => { setCoverStyle(style); changeImage(""); if (fileRef.current) fileRef.current.value = ""; }}>{coverStyle === style && !imageUrl && <Icon name="check" size={16}/>}</button>)}
             </div>
-            <label className="upload-cover" data-field="imageUrl">
-              <Icon name="upload" size={23}/>
-              <span>{imageUrl ? "Trocar imagem" : "Enviar imagem (opcional)"}<small>JPG, PNG ou WebP · Até 3 MB · Recomendado: horizontal 7:5</small></span>
-              <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFile} disabled={pending} aria-label="Enviar imagem de capa" aria-invalid={!!fields.imageUrl} aria-describedby={fields.imageUrl ? "project-image-error" : undefined}/>
-            </label>
+            <div className="cover-image-controls" data-field="imageUrl">
+              <label className="form-label" htmlFor="project-cover-file">Imagem própria (opcional)</label>
+              {imageUrl ? <>
+                <ImageActions changeLabel="Alterar imagem" hasImage removeLabel="Remover imagem" disabled={pending} describedBy={`cover-image-help${fields.imageUrl ? " project-image-error" : ""}`} onChange={() => fileRef.current?.click()} onRemove={() => { changeImage(""); if (fileRef.current) fileRef.current.value = ""; }}/>
+                <small id="cover-image-help">JPG, PNG ou WebP · Até 3 MB · Recomendado: horizontal 7:5</small>
+              </> : <label className="upload-cover" htmlFor="project-cover-file">
+                <Icon name="upload" size={23}/>
+                <span>Enviar imagem<small>JPG, PNG ou WebP · Até 3 MB · Recomendado: horizontal 7:5</small></span>
+              </label>}
+              <input ref={fileRef} id="project-cover-file" type="file" accept="image/jpeg,image/png,image/webp" hidden={!!imageUrl} onChange={handleFile} disabled={pending} aria-label="Enviar imagem de capa" aria-invalid={!!fields.imageUrl} aria-describedby={fields.imageUrl ? "project-image-error" : undefined}/>
+            </div>
             <FieldError id="project-image-error" text={fields.imageUrl}/>
-            {imageUrl && <button type="button" className="remove-image" onClick={() => { changeImage(""); if (fileRef.current) fileRef.current.value = ""; }}><Icon name="x" size={13}/>Remover imagem e usar capa padrão</button>}
           </section>
           <section className="editor-form-section">
             <h2>Links</h2>

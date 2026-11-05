@@ -3598,10 +3598,6 @@ html[data-theme="dark"] .theme-icon-moon {
   gap: var(--space-2);
 }
 
-.account-photo-buttons>button {
-  white-space: nowrap;
-}
-
 .account-photo-actions small,
 .account-help {
   font-size: var(--text-secondary);
@@ -3695,14 +3691,18 @@ html[data-theme="dark"] .theme-icon-moon {
 }
 
 .management-actions,
-.account-photo-buttons {
+.image-actions {
   display: flex;
   gap: var(--space-2);
 }
 
+.image-actions {
+  flex-wrap: wrap;
+}
+
 .management-actions>a,
 .management-actions>button,
-.account-photo-buttons>button {
+.image-actions>button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3718,9 +3718,15 @@ html[data-theme="dark"] .theme-icon-moon {
   transition: background-color .18s, border-color .18s, color .18s;
 }
 
+.image-actions>button {
+  padding: var(--space-2) var(--space-3);
+  line-height: 1;
+  white-space: nowrap;
+}
+
 .management-actions>a:hover,
 .management-actions>.project-moderation-action:not(.is-accent):hover,
-.account-photo-buttons>.photo-change:hover {
+.image-actions>.image-change:hover {
   background: var(--surface-2);
   border-color: var(--line-strong);
   color: var(--ink);
@@ -3732,7 +3738,7 @@ html[data-theme="dark"] .theme-icon-moon {
 
 .management-actions>button:not(.project-moderation-action),
 .project-moderation-action.is-accent,
-.account-photo-buttons>.photo-remove {
+.image-actions>.image-remove {
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 25%, transparent);
 }
@@ -3741,8 +3747,8 @@ html[data-theme="dark"] .theme-icon-moon {
 .management-actions>button:not(.project-moderation-action):focus-visible,
 .project-moderation-action.is-accent:hover,
 .project-moderation-action.is-accent:focus-visible,
-.account-photo-buttons>.photo-remove:hover,
-.account-photo-buttons>.photo-remove:focus-visible {
+.image-actions>.image-remove:hover,
+.image-actions>.image-remove:focus-visible {
   border-color: color-mix(in srgb, var(--accent) 60%, transparent);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
@@ -4120,8 +4126,30 @@ html[data-theme="dark"] .theme-icon-moon {
   color: inherit;
 }
 
-.upload-cover {
+.cover-image-controls {
   position: relative;
+  margin-top: var(--space-4);
+}
+
+.cover-image-controls>.form-label {
+  display: block;
+  margin-bottom: var(--space-2);
+}
+
+.cover-image-controls .image-actions {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.cover-image-controls>small {
+  display: block;
+  margin-top: var(--space-2);
+  font-size: var(--text-secondary);
+  line-height: var(--leading-body);
+  color: var(--ink-3);
+}
+
+.upload-cover {
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -4129,7 +4157,6 @@ html[data-theme="dark"] .theme-icon-moon {
   border: 1.5px dashed var(--line-strong);
   border-radius: 12px;
   background: var(--bg);
-  margin-top: var(--space-4);
   cursor: pointer;
 }
 
@@ -4157,31 +4184,16 @@ html[data-theme="dark"] .theme-icon-moon {
   color: var(--ink-3);
 }
 
-.upload-cover input {
+.cover-image-controls>input {
   position: absolute;
   width: 1px;
   height: 1px;
   opacity: 0;
 }
 
-.upload-cover:focus-within {
+.cover-image-controls:focus-within .upload-cover {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
-}
-
-.remove-image {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1-5);
-  font-size: var(--text-secondary);
-  font-weight: 550;
-  color: var(--accent);
-  margin-top: var(--space-3);
-}
-
-.remove-image:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
 }
 
 .editor-submit {

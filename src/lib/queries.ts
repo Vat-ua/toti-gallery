@@ -1,12 +1,22 @@
 import { db } from "@/db";
 import { users, projects, likes, projectAuthors, turmaMembers, turmas } from "@/db/schema";
-import { and, eq, desc, count, or, inArray } from "drizzle-orm";
+import { and, eq, desc, count, or, inArray, type SQL } from "drizzle-orm";
 import { cookies } from "next/headers";
 import type { Project, Person } from "./types";
 
+const personFields = { id: users.id, slug: users.slug, name: users.name, bio: users.bio, avatar: users.image, github: users.github, linkedin: users.linkedin, primaryTurmaId: users.primaryTurmaId };
+type ProfileRow = Omit<Person, "turmaId" | "cohort" | "cohorts" | "courseName" | "year"> & { primaryTurmaId: string | null };
+type ProfileTurma = { id: string; name: string; courseName: string | null; startYear: number | null };
+
+function publicPerson({ primaryTurmaId, ...person }: ProfileRow, groups: ProfileTurma[]): Person {
+  const primary = groups.find(group => group.id === primaryTurmaId) || groups[0];
+  return { ...person, turmaId: primary?.id || null, cohort: primary?.name || "Sem turma",
+    cohorts: groups.map(group => group.name), courseName: primary?.courseName || null, year: primary?.startYear || 0 };
+}
+
 async function peopleRows(includePending = false): Promise<Person[]> {
   const [rows, memberships] = await Promise.all([
-    db.select({ id: users.id, slug: users.slug, name: users.name, bio: users.bio, avatar: users.image, github: users.github, linkedin: users.linkedin, primaryTurmaId: users.primaryTurmaId })
+    db.select(personFields)
       .from(users).where(includePending ? undefined : or(eq(users.emailVerified, true), eq(users.isDemo, true))).orderBy(users.name, users.id),
     db.select({ userId: turmaMembers.userId, id: turmas.id, name: turmas.name, number: turmas.number, courseName: turmas.courseName, startYear: turmas.startYear })
       .from(turmaMembers).innerJoin(turmas, eq(turmas.id, turmaMembers.turmaId)).orderBy(desc(turmas.number)),
@@ -16,20 +26,28 @@ async function peopleRows(includePending = false): Promise<Person[]> {
     const groups = byUser.get(membership.userId) || [];
     groups.push(membership); byUser.set(membership.userId, groups);
   }
-  return rows.map(({ primaryTurmaId, ...person }) => {
-    const groups = byUser.get(person.id) || [];
-    const primary = groups.find(group => group.id === primaryTurmaId) || groups[0];
-    return { ...person, turmaId: primary?.id || null, cohort: primary?.name || "Sem turma",
-      cohorts: groups.map(group => group.name), courseName: primary?.courseName || null, year: primary?.startYear || 0 };
-  });
+  return rows.map(person => publicPerson(person, byUser.get(person.id) || []));
+}
+
+async function findPerson(where: SQL, connection: Pick<typeof db, "select">): Promise<Person | null> {
+  // Fetch only this person's memberships in one round trip, including no-turma profiles.
+  const rows = await connection.select({ person: personFields, turma: {
+    id: turmas.id, name: turmas.name, courseName: turmas.courseName, startYear: turmas.startYear,
+  } }).from(users)
+    .leftJoin(turmaMembers, eq(turmaMembers.userId, users.id))
+    .leftJoin(turmas, eq(turmas.id, turmaMembers.turmaId))
+    .where(and(where, or(eq(users.emailVerified, true), eq(users.isDemo, true))))
+    .orderBy(desc(turmas.number));
+  if (!rows.length) return null;
+  return publicPerson(rows[0].person, rows.flatMap(row => row.turma ? [row.turma] : []));
 }
 
 export async function getPeople() { return peopleRows(); }
 export async function getCommunityPeople() {
   return (await getPeople()).filter(person => person.turmaId !== null);
 }
-export async function getPerson(id: string) { return (await peopleRows()).find(person => person.id === id) || null; }
-export async function getPersonBySlug(slug: string) { return (await peopleRows()).find(person => person.slug === slug) || null; }
+export async function getPerson(id: string, connection: Pick<typeof db, "select"> = db) { return findPerson(eq(users.id, id), connection); }
+export async function getPersonBySlug(slug: string, connection: Pick<typeof db, "select"> = db) { return findPerson(eq(users.slug, slug), connection); }
 
 export async function getPublicationTurmas(userId: string) {
   return db.select({ id: turmas.id, name: turmas.name, number: turmas.number, courseName: turmas.courseName })

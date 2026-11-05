@@ -88,6 +88,42 @@ test("primary-turma writes enforce staff permissions and actual membership", asy
   assert.equal((await queries.getPerson(person))?.turmaId, groupIds[0]);
 });
 
+test("single-profile lookups match the public list, including eligibility and missing memberships", async () => {
+  const pending = await fixture(), demo = await fixture(), noTurma = await fixture();
+  await pool.query("UPDATE gallery_users SET email_verified=false WHERE id=ANY($1::text[])", [[pending, demo]]);
+  await pool.query("UPDATE gallery_users SET is_demo=true WHERE id=$1", [demo]);
+  const people = await queries.getPeople();
+  for (const id of [person, pending, demo, noTurma]) {
+    const slug = (await pool.query("SELECT slug FROM gallery_users WHERE id=$1", [id])).rows[0].slug;
+    const expected = people.find(p => p.id === id) || null;
+    assert.deepEqual(await queries.getPerson(id), expected);
+    assert.deepEqual(await queries.getPersonBySlug(slug), expected);
+  }
+  assert.equal(await queries.getPerson(pending), null);
+  assert.equal((await queries.getPerson(demo))?.id, demo);
+  assert.deepEqual((await queries.getPerson(noTurma))?.cohorts, []);
+  assert.equal((await queries.getPerson(noTurma))?.cohort, "Sem turma");
+  assert.equal(await queries.getPerson(randomUUID()), null);
+  assert.equal(await queries.getPersonBySlug("missing-profile-fixture"), null);
+});
+
+test("profile lookup uses one scoped query and works with a transaction", async () => {
+  const { drizzle } = await import("drizzle-orm/node-postgres");
+  const statements: string[] = [];
+  const connection = drizzle(pool, { logger: { logQuery(query) { statements.push(query); } } });
+  const result = await queries.getPerson(person, connection);
+  assert.equal(result?.id, person);
+  assert.equal(statements.length, 1);
+  assert.match(statements[0], /where.*"gallery_users"\."id" = \$1/i);
+  statements.length = 0;
+  assert.deepEqual(await queries.getPersonBySlug(result!.slug, connection), result);
+  assert.equal(statements.length, 1);
+  assert.match(statements[0], /where.*"gallery_users"\."slug" = \$1/i);
+  await connection.transaction(async tx => {
+    assert.deepEqual(await queries.getPerson(person, tx), result);
+  });
+});
+
 test("optional LinkedIn persists on the same public profile and can be removed", async () => {
   const { validateProfile } = await import("../src/lib/account");
   const original = (await pool.query("SELECT * FROM gallery_users WHERE id=$1", [person])).rows[0];
