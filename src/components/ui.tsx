@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon } from "./icon";
+import { useProjectLike } from "./use-project-like";
 import type { Person } from "@/lib/types";
 
 const ToastContext = createContext<(message: string, error?: boolean) => void>(() => {});
@@ -25,22 +26,9 @@ export function Avatar({ person, size = 28, className = "" }: { person: Pick<Per
 }
 
 export function LikeButton({ id, initialLikes, initialLiked, full = false }: { id: string; initialLikes: number; initialLiked: boolean; full?: boolean }) {
-  const [liked, setLiked] = useState(initialLiked);
-  const [likes, setLikes] = useState(initialLikes);
-  const [pending, setPending] = useState(false);
+  const { liked, likes, pending, error, toggle } = useProjectLike(id, initialLiked, initialLikes);
   const notify = useToast();
-  useEffect(() => { setLikes(initialLikes); setLiked(initialLiked); }, [initialLikes, initialLiked]);
-  async function toggle() {
-    if (pending) return;
-    setPending(true);
-    setLiked(!liked); setLikes(likes + (liked ? -1 : 1));
-    try {
-      const response = await fetch(`/api/projects/${id}/like`, { method: "POST" });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
-      setLiked(data.liked); setLikes(data.likes);
-    } catch { setLiked(liked); setLikes(likes); notify("Não foi possível curtir. Tente novamente.", true); }
-    finally { setPending(false); }
-  }
-  return <button className={`like-button ${liked ? "is-liked" : ""} ${full ? "like-full" : ""}`} type="button" onClick={toggle} disabled={pending} aria-pressed={liked} aria-label={`${liked ? "Descurtir" : "Curtir"} projeto, ${likes} curtidas`}><Icon name="heart" size={full ? 19 : 16}/>{full && <span>{liked ? "Curtido" : "Curtir"}</span>}<span className="like-count">{likes}</span></button>;
+  const reported = useRef<string | null>(null);
+  useEffect(() => { if (error && reported.current !== error) notify(error, true); reported.current = error; }, [error, notify]);
+  return <button className={`like-button ${liked ? "is-liked" : ""} ${full ? "like-full" : ""}`} type="button" onClick={toggle} aria-busy={pending} aria-pressed={liked} aria-label={`${liked ? "Descurtir" : "Curtir"} projeto, ${likes} curtidas`}><Icon name="heart" size={full ? 19 : 16}/>{full && <span>{liked ? "Curtido" : "Curtir"}</span>}<span className="like-count">{likes}</span></button>;
 }
