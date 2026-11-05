@@ -125,6 +125,10 @@ maintenance credentials: Next loads that file automatically for local builds.
 
 ## Temporary tests
 
+CI uses a disposable PostgreSQL service on loopback, with an explicit local-test
+guard and an empty `gallery_test_*` database. It has no Neon/Vercel credentials.
+See [Regression checks](testing.md). The Neon workflows below remain separate.
+
 Never point `.env.auth-test` at production or the development database. The auth
 suite creates fixtures and cleans its test data, including rate-limit records.
 
@@ -166,3 +170,6 @@ restored before any subsequent rebuild. Once new writes exist in the US database
 returning to São Paulo requires reconciling those writes first. Old connections,
 source snapshots and restoration evidence are kept in ignored local migration
 notes; they must never be committed.
+
+For the prototype’s current recovery limits and a manual database/image backup
+procedure, see [Backup and restore](backup-and-restore.md).

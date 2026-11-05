@@ -7,7 +7,18 @@ const PRODUCTION = Object.freeze({
 });
 const endpointId = value => new URL(value).hostname.split(".")[0].replace(/-pooler$/, "");
 
+function assertLocalTestTarget(url, env) {
+  const target = new URL(url);
+  const database = decodeURIComponent(target.pathname.slice(1));
+  if (env.GALLERY_DATABASE_ENV !== "test" || env.VERCEL_ENV || env.GALLERY_ALLOW_PRODUCTION_DATABASE
+    || !["postgres:", "postgresql:"].includes(target.protocol) || !["127.0.0.1", "localhost", "[::1]"].includes(target.hostname)
+    || target.search || target.hash || !/^gallery_test_[a-z0-9_]+$/.test(database) || env.DATABASE_NAME !== database) {
+    throw new Error("Local tests require an explicit loopback gallery_test_* database, without URL overrides or production context.");
+  }
+}
+
 function assertRuntimeTarget(url, env = process.env) {
+  if (env.GALLERY_LOCAL_TEST_DATABASE === "1") { assertLocalTestTarget(url, env); return; }
   const endpoint = endpointId(url);
   const database = decodeURIComponent(new URL(url).pathname.slice(1));
   if (env.VERCEL_ENV === "production" || env.GALLERY_ALLOW_PRODUCTION_DATABASE === "1") {
@@ -19,6 +30,13 @@ function assertRuntimeTarget(url, env = process.env) {
 }
 
 async function assertDatabaseTarget(client, env = process.env, purpose = "test") {
+  if (env.GALLERY_LOCAL_TEST_DATABASE === "1") {
+    assertLocalTestTarget(env.DATABASE_URL, env);
+    if (purpose !== "test") throw new Error("Local test databases cannot be used for development or production operations.");
+    const row = (await client.query("SELECT current_database() AS database, current_setting('neon.project_id',true) AS project_id, current_setting('neon.branch_id',true) AS branch_id, current_setting('neon.endpoint_id',true) AS endpoint_id")).rows[0];
+    if (row.database !== env.DATABASE_NAME || row.project_id || row.branch_id || row.endpoint_id) throw new Error("Local test target does not match, or connects to Neon. No writes allowed.");
+    return row;
+  }
   if (!["development", "test", "operations"].includes(purpose) || env.GALLERY_DATABASE_ENV !== purpose || !env.DATABASE_NAME || !env.NEON_PROJECT_ID || !env.NEON_BRANCH_ID || !env.NEON_ENDPOINT_ID) throw new Error("An explicit database environment and resource identity are required.");
   const row = (await client.query("SELECT current_database() AS database, current_setting('neon.project_id',true) AS project_id, current_setting('neon.branch_id',true) AS branch_id, current_setting('neon.endpoint_id',true) AS endpoint_id")).rows[0];
   if (row.project_id !== PRODUCTION.projectId || row.project_id !== env.NEON_PROJECT_ID || row.branch_id !== env.NEON_BRANCH_ID || row.endpoint_id !== env.NEON_ENDPOINT_ID || row.database !== env.DATABASE_NAME) throw new Error("Connected Neon branch/endpoint/database does not match the selected environment. No writes allowed.");

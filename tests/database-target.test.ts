@@ -21,3 +21,23 @@ test("production needs its exact target and an explicit maintenance or Vercel co
   assert.doesNotThrow(() => assertRuntimeTarget(url, { VERCEL_ENV: "production" }));
   assert.throws(() => assertRuntimeTarget(url.replace("toti_gallery", "legacy"), { VERCEL_ENV: "production" }), /does not match/);
 });
+
+const local = { GALLERY_DATABASE_ENV: "test", GALLERY_LOCAL_TEST_DATABASE: "1", DATABASE_NAME: "gallery_test_ci", DATABASE_URL: "postgresql://fixture:fixture@127.0.0.1:5432/gallery_test_ci" };
+test("explicit local test target accepts only loopback and a dedicated test database", () => {
+  assert.doesNotThrow(() => assertRuntimeTarget(local.DATABASE_URL, local));
+  for (const change of [
+    { DATABASE_URL: local.DATABASE_URL.replace("127.0.0.1", "example.com") },
+    { DATABASE_URL: local.DATABASE_URL + "?host=example.com" },
+    { DATABASE_URL: local.DATABASE_URL.replace("gallery_test_ci", "toti_gallery"), DATABASE_NAME: "toti_gallery" },
+    { GALLERY_DATABASE_ENV: "development" }, { VERCEL_ENV: "production" }, { GALLERY_ALLOW_PRODUCTION_DATABASE: "1" },
+  ]) { const selected = { ...local, ...change }; assert.throws(() => assertRuntimeTarget(selected.DATABASE_URL, selected)); }
+  assert.throws(() => assertRuntimeTarget(local.DATABASE_URL, { ...local, GALLERY_LOCAL_TEST_DATABASE: undefined }));
+});
+test("local write verification rejects mismatched databases and any Neon identity", async () => {
+  const plain = { query: async () => ({ rows: [{ database: local.DATABASE_NAME, project_id: "", branch_id: "", endpoint_id: "" }] }) };
+  await assertDatabaseTarget(plain, local, "test");
+  await assert.rejects(() => assertDatabaseTarget(plain, local, "development"));
+  await assert.rejects(() => assertDatabaseTarget(client(), local, "test"));
+  const wrong = { query: async () => ({ rows: [{ database: "other", project_id: "", branch_id: "", endpoint_id: "" }] }) };
+  await assert.rejects(() => assertDatabaseTarget(wrong, local, "test"));
+});

@@ -1,0 +1,54 @@
+name: Checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: gallery_test_ci
+          POSTGRES_USER: gallery_test
+          POSTGRES_PASSWORD: local-fixture-only
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U gallery_test -d gallery_test_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      GALLERY_LOCAL_TEST_DATABASE: '1'
+      GALLERY_DATABASE_ENV: test
+      DATABASE_NAME: gallery_test_ci
+      DATABASE_URL: postgresql://gallery_test:local-fixture-only@127.0.0.1:5432/gallery_test_ci
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:unit
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build:smoke
+      - run: npm run test:smoke
+      - uses: actions/upload-artifact@v5
+        if: failure()
+        with:
+          name: smoke-failure
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
