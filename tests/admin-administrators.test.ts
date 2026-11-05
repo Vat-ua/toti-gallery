@@ -29,7 +29,7 @@ async function create(name: string, email: string) {
 const token = (url: string) => new URL(url).hash.slice(7);
 
 before(async () => {
-  config({ path: ".env.admin-test", override: true, quiet: true });
+  config({ path: process.env.GALLERY_ADMIN_TEST_ENV_FILE || ".env.admin-test", override: true, quiet: true });
   delete process.env.VERCEL_ENV; delete process.env.GALLERY_ALLOW_PRODUCTION_DATABASE;
   assertRuntimeTarget(process.env.DATABASE_URL!);
   ({ pool } = await import("../src/db"));

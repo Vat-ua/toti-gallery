@@ -3,13 +3,12 @@
 import { FieldError, useFormFeedback } from "./form-feedback";
 import { identityErrors, rejectFields } from "@/lib/form-validation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import type { AdminStudent, AdminTurma, ImportPreview, StudentLookup, StudentAdded } from "@/lib/admin-types";
+import type { AdminTurma, ImportPreview, StudentLookup, StudentAdded } from "@/lib/admin-types";
 import { Icon } from "./icon";
 import { AccessLinkBox, Dialog, ErrorText, Search, type Grant } from "./admin-ui";
-import { message, normalize, request } from "@/lib/admin-client";
+import { message, turmasApi, type StudentCandidate } from "@/lib/admin-client";
 
-type StudentCandidate = Pick<AdminStudent, "id" | "name" | "email" | "status" | "isDemo">;
-export function AddStudent({ turmaId, turmaName, turmas, candidates, close, saved }: { turmaId?: string; turmaName?: string; turmas?: AdminTurma[]; candidates?: AdminStudent[]; close: () => void; saved: () => void }) {
+export function AddStudent({ turmaId, turmaName, turmas, close, saved }: { turmaId?: string; turmaName?: string; turmas?: AdminTurma[]; close: () => void; saved: () => void }) {
   const [selectedTurma, setSelectedTurma] = useState("");
   const activeTurmaId = turmaId || selectedTurma;
   const activeTurmaName = turmaName || turmas?.find(t => t.id === activeTurmaId)?.name;
@@ -24,8 +23,8 @@ export function AddStudent({ turmaId, turmaName, turmas, candidates, close, save
   const [remoteCandidates, setRemoteCandidates] = useState<{ key: string; people: StudentCandidate[] } | null>(null);
   const [candidateError, setCandidateError] = useState(""), [candidateAttempt, setCandidateAttempt] = useState(0);
   const candidateKey = `${activeTurmaId}:${query}`;
-  const filtered = candidates ? candidates.filter(p => !p.turmaIds.includes(activeTurmaId) && normalize(p.name + " " + p.email).includes(normalize(query))) : remoteCandidates?.key === candidateKey ? remoteCandidates.people : [];
-  const checkingCandidates = mode === "existing" && !!activeTurmaId && !candidates && remoteCandidates?.key !== candidateKey && !candidateError;
+  const filtered = remoteCandidates?.key === candidateKey ? remoteCandidates.people : [];
+  const checkingCandidates = mode === "existing" && !!activeTurmaId && remoteCandidates?.key !== candidateKey && !candidateError;
   const normalizedEmail = email.trim().toLowerCase();
   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail);
   const checking = mode === "new" && !!activeTurmaId && validEmail && lookup?.email !== normalizedEmail && !lookupError;
@@ -35,26 +34,26 @@ export function AddStudent({ turmaId, turmaName, turmas, candidates, close, save
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const result = await request(`/api/admin/turmas/${activeTurmaId}/members`, { action: "lookup", email: normalizedEmail }, "POST", controller.signal);
-        if (!controller.signal.aborted) { setLookup({ email: normalizedEmail, student: result.student }); setLookupError(""); }
+        const student = await turmasApi.lookup(activeTurmaId, normalizedEmail, controller.signal);
+        if (!controller.signal.aborted) { setLookup({ email: normalizedEmail, student }); setLookupError(""); }
       } catch { if (!controller.signal.aborted) setLookupError("Não foi possível verificar o email. Altere-o ou tente novamente."); }
     }, 350);
     return () => { clearTimeout(timer); controller.abort(); };
   }, [mode, added, validEmail, normalizedEmail, activeTurmaId, lookupAttempt]);
   useEffect(() => {
-    if (mode !== "existing" || candidates || added || !activeTurmaId) return;
+    if (mode !== "existing" || added || !activeTurmaId) return;
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const result = await request(`/api/admin/turmas/${activeTurmaId}/members`, { action: "candidates", query }, "POST", controller.signal);
-        if (!controller.signal.aborted) { setRemoteCandidates({ key: candidateKey, people: result.candidates }); setCandidateError(""); }
+        const people = await turmasApi.candidates(activeTurmaId, query, controller.signal);
+        if (!controller.signal.aborted) { setRemoteCandidates({ key: candidateKey, people }); setCandidateError(""); }
       } catch { if (!controller.signal.aborted) setCandidateError("Não foi possível buscar os perfis. Tente novamente."); }
     }, 350);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [mode, candidates, added, activeTurmaId, query, candidateKey, candidateAttempt]);
+  }, [mode, added, activeTurmaId, query, candidateKey, candidateAttempt]);
   async function generate(student: StudentAdded) {
     setBusy(true); setError("");
-    try { setGrant(await request(`/api/admin/turmas/${activeTurmaId}/access`, { userId: student.id, purpose: "activation" })); }
+    try { setGrant(await turmasApi.access(activeTurmaId, student.id, "activation")); }
     catch { setError("O estudante foi adicionado. Não foi possível criar o link; tente gerar novamente."); }
     finally { setBusy(false); }
   }
@@ -67,11 +66,11 @@ export function AddStudent({ turmaId, turmaName, turmas, candidates, close, save
       if (mode === "existing") {
         const person = filtered.find(p => p.id === chosen);
         if (!person) throw new Error("Escolha uma pessoa.");
-        await request(`/api/admin/turmas/${activeTurmaId}/members`, { userId: chosen });
+        await turmasApi.membership(activeTurmaId, chosen, true);
         student = { ...person, created: false };
       } else {
         if (checking || lookupError || !validEmail || lookup?.email !== normalizedEmail || found?.member || found?.blocked) throw new Error("Confira o email e aguarde a verificação.");
-        student = await request(`/api/admin/turmas/${activeTurmaId}/members`, { action: "add", name: found?.name || name, email: normalizedEmail });
+        student = await turmasApi.add(activeTurmaId, found?.name || name, normalizedEmail);
       }
       setAdded(student); saved();
       if (student.created && student.status === "pending") await generate(student);
@@ -90,7 +89,7 @@ export function AddStudent({ turmaId, turmaName, turmas, candidates, close, save
         <div id="student-lookup-status" className="admin-lookup-status" role="status">{checking ? "Verificando email..." : lookupError ? lookupError : found?.member ? "Já participa desta turma." : found?.blocked ? found.reason : found ? "Este perfil já existe. Você pode adicioná-lo à turma." : lookup?.email === normalizedEmail ? "Novo email. Informe o nome para criar o perfil." : ""}</div>
         {lookupError && <button type="button" className="button button-outline admin-small-button" onClick={() => { setLookupError(""); setLookupAttempt(n => n + 1); }}>Tentar novamente</button>}
         <div className="form-field"><label htmlFor="student-name">Nome completo</label><input id="student-name" name="name" required minLength={2} maxLength={70} value={found?.name || name} onChange={e => { setName(e.target.value); feedback.clear("name"); }} aria-invalid={!!feedback.fields.name} aria-describedby={feedback.fields.name ? "student-name-error" : undefined} readOnly={!!found || checking} autoComplete="off"/><FieldError id="student-name-error" text={feedback.fields.name}/></div>
-      </> : <><Search value={query} change={value => { setQuery(value); setChosen(""); setCandidateError(""); }} placeholder="Buscar perfil cadastrado"/>{!candidates && activeTurmaId && <p className="admin-help">Até 25 perfis por busca. Procure por nome ou email.</p>}<div className="admin-candidates" role="group" aria-label="Perfis disponíveis" aria-busy={checkingCandidates}>{checkingCandidates ? <p className="admin-help" role="status">Buscando perfis...</p> : candidateError ? <><ErrorText text={candidateError}/><button type="button" className="button button-outline admin-small-button" onClick={() => { setCandidateError(""); setCandidateAttempt(n => n + 1); }}>Tentar novamente</button></> : filtered.length ? filtered.map(p => <label key={p.id} className="admin-candidate"><input type="radio" name="person" value={p.id} checked={chosen === p.id} onChange={() => setChosen(p.id)}/><span><strong>{p.name}</strong><small>{p.email}{p.isDemo ? " · Perfil de exemplo" : ""}</small></span></label>) : <p className="admin-help">{!activeTurmaId ? "Selecione uma turma para buscar perfis." : "Nenhum perfil disponível."}</p>}</div></>}
+      </> : <><Search value={query} change={value => { setQuery(value); setChosen(""); setCandidateError(""); }} placeholder="Buscar perfil cadastrado"/>{activeTurmaId && <p className="admin-help">Até 25 perfis por busca. Procure por nome ou email.</p>}<div className="admin-candidates" role="group" aria-label="Perfis disponíveis" aria-busy={checkingCandidates}>{checkingCandidates ? <p className="admin-help" role="status">Buscando perfis...</p> : candidateError ? <><ErrorText text={candidateError}/><button type="button" className="button button-outline admin-small-button" onClick={() => { setCandidateError(""); setCandidateAttempt(n => n + 1); }}>Tentar novamente</button></> : filtered.length ? filtered.map(p => <label key={p.id} className="admin-candidate"><input type="radio" name="person" value={p.id} checked={chosen === p.id} onChange={() => setChosen(p.id)}/><span><strong>{p.name}</strong><small>{p.email}{p.isDemo ? " · Perfil de exemplo" : ""}</small></span></label>) : <p className="admin-help">{!activeTurmaId ? "Selecione uma turma para buscar perfis." : "Nenhum perfil disponível."}</p>}</div></>}
       <ErrorText text={error || feedback.error}/><div className="admin-dialog-actions"><button type="button" className="button button-outline" onClick={close}>Cancelar</button><button type="submit" className="button button-dark" disabled={!canSubmit}>{busy ? "Adicionando..." : mode === "new" && !found ? "Criar e adicionar" : "Adicionar à turma"}</button></div>
     </fieldset></form></>}
   </Dialog>;
@@ -109,12 +108,12 @@ export function ImportStudents({ turmaId, turmaName, turmas, close, saved }: { t
   const unchanged = selected.filter(r => r.kind === "member").length, errors = selected.filter(r => r.kind === "error").length;
   async function preview() {
     setBusy(true); setError("");
-    try { const data = await request(`/api/admin/turmas/${activeTurmaId}/import`, { action: "preview", text }); setRows(data.preview); setExcluded([]); }
+    try { const data = await turmasApi.import(activeTurmaId, text, "preview"); setRows(data.preview); setExcluded([]); }
     catch (error) { setError(message(error)); } finally { setBusy(false); }
   }
   async function confirm() {
     setBusy(true); setError("");
-    try { const data = await request(`/api/admin/turmas/${activeTurmaId}/import`, { action: "confirm", text, excluded }); setResult(data); saved("Importação concluída."); }
+    try { const data = await turmasApi.import(activeTurmaId, text, "confirm", excluded); setResult(data); saved("Importação concluída."); }
     catch (error) { setError(message(error)); } finally { setBusy(false); }
   }
   function reset() { setResult(null); setRows(null); setExcluded([]); setText(""); setError(""); }

@@ -16,7 +16,7 @@
     "test:images": "node --import tsx --test tests/images.test.ts",
     "test:projects": "node --import tsx --test --test-concurrency=1 tests/projects-client.test.ts tests/project-mutations.test.ts",
     "test:account": "node --import tsx --test --test-concurrency=1 tests/account-client.test.ts tests/account-mutations.test.ts",
-    "test:admin": "node --import tsx --test --test-concurrency=1 tests/student-import.test.ts tests/admin-turmas.test.ts tests/admin-students.test.ts tests/admin-projects.test.ts tests/admin-administrators.test.ts tests/profile-slug.test.ts tests/public-profiles.test.ts",
+    "test:admin": "node --import tsx --test --test-concurrency=1 tests/admin-client.test.ts tests/admin-http.test.ts tests/admin-concurrency.test.ts tests/student-import.test.ts tests/admin-turmas.test.ts tests/admin-students.test.ts tests/admin-projects.test.ts tests/admin-administrators.test.ts tests/profile-slug.test.ts tests/public-profiles.test.ts",
     "test:forms": "node --import tsx --test tests/form-validation.test.ts tests/project-description.test.tsx tests/profile-summary.test.tsx"
   },
   "dependencies": {

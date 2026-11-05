@@ -8,7 +8,10 @@ export class HttpError extends Error {
 export async function requestJson(path: string, init: RequestInit, fallback: string): Promise<Record<string, unknown>> {
   let response: Response;
   try { response = await fetch(path, init); }
-  catch { throw new Error("Confira sua conexão e tente novamente."); }
+  catch (error) {
+    if (init.signal?.aborted) throw error;
+    throw new Error("Confira sua conexão e tente novamente.");
+  }
   const data: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     const error = responseError(data, fallback);

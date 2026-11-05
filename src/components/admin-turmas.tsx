@@ -8,7 +8,7 @@ import { SelectMenu } from "./select-menu";
 import { Icon } from "./icon";
 import { AccessLinkBox, Dialog, ErrorText, Search } from "./admin-ui";
 import { AddStudent, ImportStudents } from "./admin-student-forms";
-import { message, normalize, request, statusText } from "@/lib/admin-client";
+import { message, normalize, turmasApi, statusText } from "@/lib/admin-client";
 import { FieldError, useFormFeedback } from "./form-feedback";
 import { rejectFields, turmaErrors } from "@/lib/form-validation";
 import { Avatar, useToast } from "./ui";
@@ -23,13 +23,13 @@ function TurmaForm({ turma, close, saved }: { turma?: Pick<AdminTurma, "id" | "n
     const value = { number: Number(fields.get("number")), courseName: String(fields.get("courseName")), startYear: Number(fields.get("startYear")) };
     if (!feedback.validate(() => rejectFields(turmaErrors(value)), formElement)) return;
     setBusy(true);
-    try { const data = await request(turma ? `/api/admin/turmas/${turma.id}` : "/api/admin/turmas", turma ? { action: "save", ...value } : value, turma ? "PATCH" : "POST"); saved(data.id); }
+    try { const data = await turmasApi.save(turma?.id, value); saved(data.id); }
     catch (error) { feedback.report(error, formElement); } finally { setBusy(false); }
   }
   async function archive() {
     if (!turma) return;
     setBusy(true); setArchiveError("");
-    try { await request(`/api/admin/turmas/${turma.id}`, { action: "archive", archived: !turma.archived }, "PATCH"); saved(turma.id, turma.archived ? "Turma desarquivada." : "Turma arquivada."); }
+    try { await turmasApi.archive(turma.id, !turma.archived); saved(turma.id, turma.archived ? "Turma desarquivada." : "Turma arquivada."); }
     catch (error) { setArchiveError(message(error)); } finally { setBusy(false); }
   }
   return <Dialog title={turma ? "Editar turma" : "Nova turma"} description={turma ? undefined : "Informe o curso e o ano de início desta turma."} close={close} busy={busy} drawer><form noValidate aria-busy={busy} onChange={event => { const target = event.target; if (target instanceof HTMLInputElement) feedback.clear(target.name); }} onSubmit={submit}><fieldset disabled={busy || confirmArchive} className="account-fieldset">
@@ -59,8 +59,8 @@ export function TurmasList({ turmas }: { turmas: AdminTurma[] }) {
   </>;
 }
 
-type DetailProps = { turma: Pick<AdminTurma, "id" | "name" | "number" | "courseName" | "startYear" | "archived">; members: AdminStudent[]; candidates: AdminStudent[]; projectCount: number; projectContent: ReactNode | null; owner: boolean };
-export function TurmaDetail({ turma, members, candidates, projectCount, projectContent, owner }: DetailProps) {
+type DetailProps = { turma: Pick<AdminTurma, "id" | "name" | "number" | "courseName" | "startYear" | "archived">; members: AdminStudent[]; projectCount: number; projectContent: ReactNode | null; owner: boolean };
+export function TurmaDetail({ turma, members, projectCount, projectContent, owner }: DetailProps) {
   const router = useRouter(), notify = useToast();
   const tab = projectContent ? "projects" : "students";
   const [query, setQuery] = useState(""), [status, setStatus] = useState("all");
@@ -70,7 +70,7 @@ export function TurmaDetail({ turma, members, candidates, projectCount, projectC
   function refresh(text: string) { setModal(null); setSelected(null); notify(text); router.refresh(); }
   async function archive() {
     setBusy(true); setError("");
-    try { await request(`/api/admin/turmas/${turma.id}`, { action: "archive", archived: !turma.archived }, "PATCH"); refresh(turma.archived ? "Turma desarquivada." : "Turma arquivada."); }
+    try { await turmasApi.archive(turma.id, !turma.archived); refresh(turma.archived ? "Turma desarquivada." : "Turma arquivada."); }
     catch (error) { setError(message(error)); } finally { setBusy(false); }
   }
   return <>
@@ -84,7 +84,7 @@ export function TurmaDetail({ turma, members, candidates, projectCount, projectC
     </> : projectContent}
     {modal === "edit" && <TurmaForm turma={turma} close={() => setModal(null)} saved={(_id, text) => refresh(text || "Turma atualizada.")}/>}
     {modal === "archive" && <Dialog context={turma.name} title={turma.archived ? "Desarquivar turma?" : "Arquivar turma?"} description={turma.archived ? "A turma voltará à lista de ativas." : "A turma irá para a lista de arquivadas. Estudantes, projetos e permissões de publicação serão mantidos."} close={() => setModal(null)} busy={busy}><ErrorText text={error}/><div className="admin-dialog-actions"><button className="button button-outline" onClick={() => setModal(null)} disabled={busy}>Cancelar</button><button className="button button-dark" onClick={archive} disabled={busy}>{busy ? "Salvando..." : turma.archived ? "Desarquivar turma" : "Arquivar turma"}</button></div></Dialog>}
-    {modal === "add" && <AddStudent turmaId={turma.id} turmaName={turma.name} candidates={candidates} close={() => setModal(null)} saved={() => { notify("Estudante adicionado à turma."); router.refresh(); }}/>}
+    {modal === "add" && <AddStudent turmaId={turma.id} turmaName={turma.name} close={() => setModal(null)} saved={() => { notify("Estudante adicionado à turma."); router.refresh(); }}/>}
     {modal === "import" && <ImportStudents turmaId={turma.id} turmaName={turma.name} close={() => setModal(null)} saved={text => { notify(text); router.refresh(); }}/>}
     {selected && <ManageStudent turmaId={turma.id} turmaName={turma.name} student={selected} close={() => setSelected(null)} saved={() => refresh("Estudante removido desta turma. Perfil e autorias preservados.")}/>}
   </>;
@@ -95,12 +95,12 @@ function ManageStudent({ turmaId, turmaName, student, close, saved }: { turmaId:
   const [grant, setGrant] = useState<{ url: string; expiresAt: string } | null>(null);
   async function generate() {
     setBusy(true); setError("");
-    try { setGrant(await request(`/api/admin/turmas/${turmaId}/access`, { userId: student.id, purpose: student.status === "pending" ? "activation" : "password_reset" })); }
+    try { setGrant(await turmasApi.access(turmaId, student.id, student.status === "pending" ? "activation" : "password_reset")); }
     catch (error) { setError(message(error)); } finally { setBusy(false); }
   }
   async function remove() {
     setBusy(true); setError("");
-    try { await request(`/api/admin/turmas/${turmaId}/members`, { userId: student.id }, "DELETE"); saved(); }
+    try { await turmasApi.membership(turmaId, student.id, false); saved(); }
     catch (error) { setError(message(error)); } finally { setBusy(false); }
   }
 

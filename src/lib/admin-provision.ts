@@ -39,6 +39,7 @@ export async function provisionStudent(actorId: string, name: string, email: str
     if (!actor || !isStaff(actor.role)) throw new AccessError("Acesso restrito à administração.");
     const [turma] = await tx.select({ id: turmas.id }).from(turmas).where(eq(turmas.id, turmaId)).limit(1);
     if (!turma) throw new AccessError("Turma não encontrada.");
+    if (actor.email.trim().toLowerCase() === identity.email) throw new AccessError("Este perfil não pode ser usado para ativação.");
     // Serialize duplicate imports before relying on the database unique index.
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${identity.email}))`);
     let [user] = await tx.select().from(users).where(eq(users.email, identity.email)).for("update").limit(1);

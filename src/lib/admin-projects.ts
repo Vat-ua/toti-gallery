@@ -1,7 +1,7 @@
 import { and, count, desc, eq, inArray, or, sql, type SQLWrapper } from "drizzle-orm";
 import { db } from "@/db";
 import { likes, projectAuthors, projects, turmas, users } from "@/db/schema";
-import { AdminError, staff } from "./admin-turmas";
+import { AdminError, staff } from "./admin-server";
 import { ADMIN_PROJECT_PAGE_SIZE, parseAdminProjectFilters, type AdminProjectFilters } from "./admin-project-params";
 import type { AdminProject, AdminProjectPage } from "./admin-types";
 import type { Person } from "./types";

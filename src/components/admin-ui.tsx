@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "./icon";
 import { accessMessage, formatAccessExpiry } from "@/lib/access-message";
+import type { StudentAccessLink } from "@/lib/admin-types";
 
 export function Dialog({ title, context, description, children, close, busy = false, drawer = false }: { title: string; context?: string; description?: string; children: ReactNode; close: () => void; busy?: boolean; drawer?: boolean }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -23,6 +24,10 @@ export function Search({ value, change, placeholder }: { value: string; change: 
   return <div className="search-field admin-search"><Icon name="search" size={19}/><input aria-label={placeholder} placeholder={placeholder} value={value} onChange={e => change(e.target.value)}/>{value && <button type="button" onClick={() => change("")} aria-label="Limpar busca"><Icon name="x" size={17}/></button>}</div>;
 }
 export type Grant = { url: string; expiresAt: string };
+export function AccessLinkStatus({ link }: { link: StudentAccessLink }) {
+  const text = { valid: "Há um link válido", expired: "O último link expirou", used: "O último link já foi utilizado", revoked: "O último link foi revogado" };
+  return <p className="admin-link-state">{text[link.state]}{link.state === "valid" ? ` até ${formatAccessExpiry(link.expiresAt)} (horário de Brasília).` : "."}</p>;
+}
 export function AccessLinkBox({ grant, name, activation }: { grant: Grant; name: string; activation: boolean }) {
   const id = useId(), ref = useRef<HTMLInputElement>(null);
   const [copied, setCopied] = useState(false), [error, setError] = useState("");

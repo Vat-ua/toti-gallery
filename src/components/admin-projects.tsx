@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import type { AdminProject, AdminProjectPage, AdminTurma } from "@/lib/admin-types";
 import { adminProjectHref, type AdminProjectFilters } from "@/lib/admin-project-params";
 import { Dialog, ErrorText, Search } from "./admin-ui";
-import { message, request } from "@/lib/admin-client";
+import { message, moderateProject } from "@/lib/admin-client";
 import { ProjectCard } from "./project-card";
 import { SelectMenu } from "./select-menu";
 import { AdminTurmaFilter } from "./admin-turma-filter";
@@ -22,7 +22,7 @@ export function ProjectModeration({ project, compact = false }: { project: Admin
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError("");
     try {
-      await request(`/api/admin/projetos/${project.id}`, { action: hidden ? "restore" : "hide", expectedVisibility: project.visibility, reason });
+      await moderateProject(project.id, project.visibility, reason);
       setOpen(false); setReason("");
       notify(hidden ? "Projeto restaurado." : "Projeto ocultado.");
       startTransition(() => router.refresh());
