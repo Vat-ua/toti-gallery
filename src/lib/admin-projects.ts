@@ -24,7 +24,7 @@ async function hydrate(tx: Transaction, rows: Row[]): Promise<AdminProject[]> {
     const person = (id: string): Person => ({ ...byId.get(id)!, cohort: turmaName, cohorts: [turmaName], courseName: null, turmaId: project.turmaId, year: year || 0 });
     const author = person(project.authorId);
     return {
-      id: project.id, slug: project.slug, title: project.title, description: project.description,
+      id: project.id, version: project.version, slug: project.slug, title: project.title, description: project.description,
       technologies: project.technologies, coverStyle: project.coverStyle, imageUrl: project.imageUrl, coverFraming: project.coverFraming,
       githubUrl: project.githubUrl, liveUrl: project.liveUrl, featured: project.featured, isFinal: project.isFinal,
       turmaId: project.turmaId, turmaName, createdAt: project.createdAt.toISOString(), author,

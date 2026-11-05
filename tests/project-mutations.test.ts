@@ -14,7 +14,7 @@ const userIds = [owner, coauthor, outsider, noTurma], group = randomUUID(), othe
 const prefix = `Refactor fixture ${randomUUID()}`;
 const origin = "http://localhost:3000";
 const framing = { x: 30, y: 65, zoom: 1.4 };
-const input = (patch: Record<string, unknown> = {}) => ({ title: prefix, description: "Uma descrição de projeto com conteúdo suficiente para validação.", technologies: ["React", "CSS"], coverStyle: "books", githubUrl: "https://github.com/example/project", liveUrl: "", isFinal: true, turmaId: group, coauthorIds: [coauthor], imageUrl: "", coverFraming: null, ...patch });
+const input = (patch: Record<string, unknown> = {}) => ({ requestId: randomUUID(), expectedVersion: 1, title: prefix, description: "Uma descrição de projeto com conteúdo suficiente para validação.", technologies: ["React", "CSS"], coverStyle: "books", githubUrl: "https://github.com/example/project", liveUrl: "", isFinal: true, turmaId: group, coauthorIds: [coauthor], imageUrl: "", coverFraming: null, ...patch });
 function request(method: string, body?: Record<string, unknown>, file = false, requestOrigin = origin) {
   const headers: Record<string, string> = { origin: requestOrigin };
   let data: string | FormData | undefined;
@@ -61,6 +61,7 @@ after(async () => {
   try {
     if (baseline) {
       await pool.query("DELETE FROM gallery_projects WHERE author_id=ANY($1::text[])", [userIds]);
+      await pool.query("DELETE FROM gallery_project_creations WHERE author_id=ANY($1::text[])", [userIds]);
       await pool.query("DELETE FROM gallery_turma_members WHERE user_id=ANY($1::text[])", [userIds]);
       await pool.query("DELETE FROM gallery_users WHERE id=ANY($1::text[])", [userIds]);
       await pool.query("DELETE FROM gallery_turmas WHERE id=ANY($1::text[])", [[group, otherGroup]]);
@@ -116,7 +117,9 @@ test("only the owner edits/deletes; only a coauthor can leave without losing pub
   harness.state.actorId = coauthor;
   const response = await harness.authors.DELETE(request("DELETE"), context(id));
   assert.equal(response.status, 200); assert.deepEqual(await response.json(), { ok: true });
-  assert.deepEqual(await row(id), original); assert.deepEqual(await credits(id), [owner]);
+  const left = await row(id); assert.equal(left.version, original.version + 1);
+  for (const key of Object.keys(original).filter(key => !["version", "updated_at"].includes(key))) assert.deepEqual(left[key], original[key]);
+  assert.deepEqual(await credits(id), [owner]);
   assert.equal((await pool.query("SELECT * FROM gallery_likes WHERE project_id=$1", [id])).rowCount, 1);
   assert.equal((await harness.authors.DELETE(request("DELETE"), context(id))).status, 404);
 });
@@ -131,7 +134,7 @@ test("editing preserves moderation, turma, likes, image/framing and omitted coau
   const stored = await row(id);
   for (const key of ["author_id", "turma_id", "created_at", "visibility", "moderation_reason", "moderated_by", "moderated_at", "image_url", "image_metadata", "cover_framing"]) assert.deepEqual(stored[key], previous[key], key);
   assert.deepEqual(await credits(id), [owner, coauthor].sort()); assert.equal(harness.state.deferred.length, 0);
-  const wrongTurma = await harness.item.PATCH(request("PATCH", input({ turmaId: otherGroup })), context(id));
+  const wrongTurma = await harness.item.PATCH(request("PATCH", input({ turmaId: otherGroup, expectedVersion: 2 })), context(id));
   assert.equal(wrongTurma.status, 400); assert.ok((await wrongTurma.json()).fieldErrors.turmaId);
   assert.equal((await pool.query("SELECT * FROM gallery_likes WHERE project_id=$1", [id])).rowCount, 1);
 });
@@ -143,7 +146,7 @@ test("cover replacement retires old image only after commit; removal resets fram
   assert.deepEqual((await row(id)).cover_framing, framing); assert.deepEqual(harness.state.retired, []);
   await harness.flush(); assert.deepEqual(harness.state.retired, [old]); assert.deepEqual(harness.state.deleted, []);
   const next = (await row(id)).image_metadata;
-  assert.equal((await harness.item.PATCH(request("PATCH", input({ coauthorIds: [] })), context(id))).status, 200);
+  assert.equal((await harness.item.PATCH(request("PATCH", input({ coauthorIds: [], expectedVersion: 2 })), context(id))).status, 200);
   const removed = await row(id); assert.equal(removed.image_url, null); assert.equal(removed.image_metadata, null); assert.equal(removed.cover_framing, null);
   assert.deepEqual(await credits(id), [owner]); await harness.flush(); assert.deepEqual(harness.state.retired, [old, next]);
 });
@@ -219,4 +222,114 @@ test("a real project commit whose acknowledgement is lost keeps its new image an
     assert.equal(saved.length, 1); assert.deepEqual(await credits(saved[0].id), [owner, coauthor].sort());
     assert.deepEqual(harness.state.deleted, []); assert.deepEqual(harness.state.retired, []);
   } finally { db.transaction = originalTransaction; }
+});
+
+test("creation requires a valid request ID; editing requires a version, including direct HTTP requests", async () => {
+  for (const requestId of [undefined, null, "", "wrong", 1]) {
+    assert.equal((await harness.collection.POST(request("POST", input({ requestId }), true))).status, 400);
+  }
+  const { id } = await create(); const original = await row(id);
+  for (const expectedVersion of [undefined, null, "1", 0, -1, 1.5]) {
+    assert.equal((await harness.item.PATCH(request("PATCH", input({ expectedVersion }), true), context(id))).status, 400);
+  }
+  assert.deepEqual(await row(id), original); assert.equal(harness.state.uploaded.length, 0);
+});
+
+test("parallel creates produce one publication/receipt and retries do not re-upload", async () => {
+  const value = input({ coverFraming: framing });
+  const responses = await Promise.all(Array.from({ length: 6 }, () => harness.collection.POST(request("POST", value, true))));
+  for (const response of responses) assert.equal(response.status, 201, JSON.stringify(await response.clone().json()));
+  const results = await Promise.all(responses.map(response => response.json()));
+  assert.equal(new Set(results.map(result => result.id)).size, 1);
+  const stored = await row(results[0].id);
+  const uploads = harness.state.uploaded;
+  assert.equal(harness.state.deleted.length, uploads.length - 1);
+  assert.ok(!harness.state.deleted.some(image => `/media/${image.key}` === stored.image_url));
+  assert.deepEqual(stored.cover_framing, framing); assert.deepEqual(await credits(stored.id), [owner, coauthor].sort());
+  assert.equal((await pool.query("SELECT * FROM gallery_project_creations WHERE author_id=$1 AND request_id=$2", [owner, value.requestId])).rowCount, 1);
+  const retry = await harness.collection.POST(request("POST", value, true));
+  assert.equal(retry.status, 201); assert.deepEqual(await retry.json(), results[0]); assert.equal(harness.state.uploaded.length, uploads.length);
+});
+
+test("one creation key cannot publish changed text, bytes or framing, or recreate a deleted project", async () => {
+  const value = input({ coverFraming: framing });
+  const first = await harness.collection.POST(request("POST", value, true));
+  const result = await first.json(); assert.equal(first.status, 201);
+  for (const patch of [{ title: `${prefix} different` }, { coverFraming: { ...framing, x: 99 } }]) {
+    const response = await harness.collection.POST(request("POST", { ...value, ...patch }, true));
+    assert.equal(response.status, 409); assert.equal((await response.json()).projectId, result.id);
+  }
+  // Same fields but a different file is a different submission.
+  const changedFile = new FormData(); changedFile.set("data", JSON.stringify(value));
+  changedFile.set("image", new File(["different bytes"], "cover.png", { type: "image/png" }));
+  assert.equal((await harness.collection.POST(new Request(`${origin}/api/projects`, { method: "POST", headers: { origin }, body: changedFile }))).status, 409);
+  assert.equal(harness.state.uploaded.length, 1);
+  await harness.item.DELETE(request("DELETE"), context(result.id));
+  assert.equal((await harness.collection.POST(request("POST", value, true))).status, 410);
+  assert.equal(await row(result.id), undefined); assert.equal(harness.state.uploaded.length, 1);
+});
+
+test("a lost creation acknowledgement is recoverable with the same request and one cover", async () => {
+  const { db } = await import("../src/db"); const original = db.transaction;
+  const value = input({ coverFraming: framing });
+  db.transaction = (async (...args: Parameters<typeof db.transaction>) => {
+    await original.apply(db, args); throw Object.assign(new Error("Fixture lost ack"), { code: "ECONNRESET" });
+  }) as typeof db.transaction;
+  try { assert.equal((await harness.collection.POST(request("POST", value, true))).status, 503); }
+  finally { db.transaction = original; }
+  const response = await harness.collection.POST(request("POST", value, true));
+  assert.equal(response.status, 201); const result = await response.json();
+  assert.equal((await row(result.id)).image_url, `/media/${harness.state.uploaded[0].key}`);
+  assert.equal(harness.state.uploaded.length, 1); assert.deepEqual(harness.state.deleted, []);
+});
+
+test("creation IDs are scoped to the owner; a replay never overwrites subsequent edits", async () => {
+  const value = input({ coauthorIds: [] });
+  const response = await harness.collection.POST(request("POST", value)); const result = await response.json();
+  const changed = await harness.item.PATCH(request("PATCH", { ...value, title: `${prefix} edited` }), context(result.id));
+  assert.equal(changed.status, 200);
+  const replay = await harness.collection.POST(request("POST", value)); assert.equal(replay.status, 201);
+  assert.equal((await row(result.id)).title, `${prefix} edited`);
+  harness.state.actorId = coauthor;
+  const other = await harness.collection.POST(request("POST", value)); assert.equal(other.status, 201);
+  assert.notEqual((await other.json()).id, result.id);
+});
+
+test("two simultaneous cover edits accept one version and safely retire only redundant/replaced images", async () => {
+  const { id } = await create(); const old = await attachImage(id);
+  let release!: () => void; const gate = new Promise<void>(resolve => { release = resolve; });
+  harness.state.beforeUploadReturn = async () => { if (harness.state.uploaded.length === 2) release(); await gate; };
+  const results = await Promise.all([10, 90].map(x => harness.item.PATCH(request("PATCH", input({ title: `${prefix} ${x}`, coverFraming: { ...framing, x } }), true), context(id))));
+  assert.deepEqual(results.map(response => response.status).sort(), [200, 409]);
+  const saved = await row(id); assert.equal(saved.version, 2);
+  assert.equal(harness.state.deleted.length, 1);
+  assert.notEqual(saved.image_url, `/media/${harness.state.deleted[0].key}`);
+  assert.equal(saved.cover_framing.x, saved.title.endsWith("10") ? 10 : 90);
+  await harness.flush(); assert.deepEqual(harness.state.retired, [old]);
+  const before = harness.state.uploaded.length;
+  assert.equal((await harness.item.PATCH(request("PATCH", input(), true), context(id))).status, 409);
+  assert.equal(harness.state.uploaded.length, before); assert.deepEqual(await row(id), saved);
+});
+
+test("a coauthor leaving invalidates an open editor and cannot be silently re-added", async () => {
+  const { id } = await create();
+  harness.state.actorId = coauthor;
+  assert.equal((await harness.authors.DELETE(request("DELETE"), context(id))).status, 200);
+  harness.state.actorId = owner;
+  assert.equal((await harness.item.PATCH(request("PATCH", input()), context(id))).status, 409);
+  assert.deepEqual(await credits(id), [owner]);
+});
+
+test("a lost edit acknowledgement preserves the saved cover; retry conflicts without a second upload", async () => {
+  const { id } = await create(); await attachImage(id);
+  const { db } = await import("../src/db"); const original = db.transaction;
+  db.transaction = (async (...args: Parameters<typeof db.transaction>) => {
+    await original.apply(db, args); throw Object.assign(new Error("Fixture lost ack"), { code: "ECONNRESET" });
+  }) as typeof db.transaction;
+  try { assert.equal((await harness.item.PATCH(request("PATCH", input({ coverFraming: framing }), true), context(id))).status, 503); }
+  finally { db.transaction = original; }
+  const saved = await row(id); assert.equal(saved.version, 2); assert.equal(saved.image_url, `/media/${harness.state.uploaded[0].key}`);
+  assert.equal((await harness.item.PATCH(request("PATCH", input({ coverFraming: framing }), true), context(id))).status, 409);
+  assert.deepEqual(await row(id), saved); assert.equal(harness.state.uploaded.length, 1);
+  assert.deepEqual(harness.state.deleted, []); assert.deepEqual(harness.state.retired, []);
 });

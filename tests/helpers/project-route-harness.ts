@@ -9,6 +9,7 @@ export function projectRouteHarness() {
     actorId: null as string | null,
     allowUpload: true,
     uploadError: null as Error | null,
+    beforeUploadReturn: null as (() => Promise<void>) | null,
     uploaded: [] as ImageMetadata[],
     deleted: [] as ImageMetadata[],
     retired: [] as ImageMetadata[],
@@ -34,6 +35,7 @@ export function projectRouteHarness() {
       const key = `covers/${randomUUID()}/image.webp`;
       const metadata: ImageMetadata = { key, width: 1600, height: 1000, bytes: 1234, format: "webp" };
       state.uploaded.push(metadata);
+      await state.beforeUploadReturn?.();
       return { url: `/media/${key}`, metadata };
     },
     deleteImage: async (metadata: ImageMetadata) => { state.deleted.push(metadata); },
@@ -52,7 +54,7 @@ export function projectRouteHarness() {
       try { for (const work of state.deferred.splice(0)) await work(); }
       finally { state.processingDeferred = false; }
     },
-    reset() { state.allowUpload = true; state.uploadError = null; state.uploaded = []; state.deleted = []; state.retired = []; state.deferred = []; },
+    reset() { state.allowUpload = true; state.uploadError = null; state.beforeUploadReturn = null; state.uploaded = []; state.deleted = []; state.retired = []; state.deferred = []; },
     restore() { for (const [id, original] of originals) { if (original) require.cache[id] = original; else delete require.cache[id]; } },
   };
 }

@@ -86,3 +86,12 @@ existing records. Verify it on an isolated copy, then use
 development. The same target and data-preservation checks apply. Applied to
 development after isolated verification. Production has not received this
 migration; it must receive this and the public-profile migration before release.
+
+`20261105_project_save_guards.sql` adds a positive project `version` (existing
+projects start at 1) and durable owner-scoped creation receipts. It preserves all
+existing columns, rows and relationships. Receipts deliberately retain publication
+IDs after deletion, preventing old creation requests from recreating projects.
+Test with `node scripts/migrate-project-save-guards.cjs --env-file=PATH_TO_TEST_ENV`,
+then use the same guarded runner with `.env.local` for development. Production is
+rejected by the runner. Production has not received this migration; apply it under
+the existing approval/recovery process before releasing dependent code.

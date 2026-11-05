@@ -19,6 +19,7 @@ export type PublicationTurma = { id: string; name: string; number: number; cours
 
 export type Project = {
   id: string;
+  version: number;
   slug: string;
   title: string;
   description: string;

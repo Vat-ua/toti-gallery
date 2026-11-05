@@ -87,7 +87,7 @@ export async function getProjects(options: { participantId?: string } = {}): Pro
     const author = { ...personById.get(project.authorId)!, cohort };
     // Deliberate public projection: moderation actor/reason and email stay private.
     return {
-      id: project.id, slug: project.slug, title: project.title, description: project.description,
+      id: project.id, version: project.version, slug: project.slug, title: project.title, description: project.description,
       technologies: project.technologies, coverStyle: project.coverStyle, imageUrl: project.imageUrl, coverFraming: project.coverFraming,
       githubUrl: project.githubUrl, liveUrl: project.liveUrl, featured: project.featured,
       isFinal: project.isFinal, turmaId: project.turmaId, author,

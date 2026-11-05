@@ -15,7 +15,10 @@ import { FieldError, useFormFeedback } from "./form-feedback";
 import { validateProject } from "@/lib/validation";
 import { FormValidationError } from "@/lib/form-validation";
 import { validateImageFile } from "@/lib/image-policy";
-import { createProject, updateProject, type ProjectFormValues } from "@/lib/projects-client";
+import { createProject, updateProject, CreationConflictError, type ProjectFormValues } from "@/lib/projects-client";
+import { HttpError } from "@/lib/http-client";
+import { creationAttempt, finishCreationAttempt } from "@/lib/project-creation-attempt";
+import { useUnsavedChanges } from "./use-unsaved-changes";
 
 const styles = [
   { name: "Tipografia", color: "#f2e6d2", ink: "#17130f" },
@@ -44,9 +47,17 @@ export function ProjectEditor({ user, project, people, turmas = [] }: { user: Pe
   const [githubUrl, setGithubUrl] = useState(project?.githubUrl || "");
   const [liveUrl, setLiveUrl] = useState(project?.liveUrl || "");
   const [pending, setPending] = useState(false);
+  // Keep the version that populated this form, even if router.refresh updates props.
+  const [expectedVersion] = useState(project?.version ?? 0);
   const feedback = useFormFeedback();
   const { fields, error } = feedback;
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [conflictLink, setConflictLink] = useState("");
+  const requestId = useRef("");
+  const submitting = useRef(false);
+  const value: ProjectFormValues = { title, description, technologies, isFinal, turmaId, coauthorIds, coverStyle, imageUrl: imageFile ? "" : imageUrl, coverFraming, githubUrl, liveUrl };
+  const [initial] = useState(() => JSON.stringify(value));
+  const { markSaved } = useUnsavedChanges(!!imageFile || JSON.stringify(value) !== initial);
   const fileRef = useRef<HTMLInputElement>(null);
   useEffect(() => () => { if (imageUrl.startsWith("blob:")) URL.revokeObjectURL(imageUrl); }, [imageUrl]);
   function changeImage(value: string) { feedback.clear("imageUrl"); feedback.clear("coverFraming"); setImageFile(null); setImageUrl(value); setCoverFraming(null); }
@@ -78,16 +89,29 @@ export function ProjectEditor({ user, project, people, turmas = [] }: { user: Pe
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formElement = event.currentTarget;
-    if (pending) return;
+    if (submitting.current) return;
     setDescriptionPreview(false);
-    const value: ProjectFormValues = { title, description, technologies, isFinal, turmaId, coauthorIds, coverStyle, imageUrl: imageFile ? "" : imageUrl, coverFraming, githubUrl, liveUrl };
     if (!feedback.validate(() => validateProject(value, project?.imageUrl), formElement)) return;
+    submitting.current = true;
     setPending(true);
     try {
-      const data = project ? await updateProject(project.id, value, imageFile) : await createProject(value, imageFile);
+      if (!project && !requestId.current) requestId.current = creationAttempt(user.id, crypto.randomUUID());
+      const data = project ? await updateProject(project.id, value, expectedVersion, imageFile) : await createProject(value, requestId.current, imageFile);
+      if (!project) finishCreationAttempt(user.id, requestId.current);
+      markSaved();
       notify(project ? "Projeto atualizado." : "Projeto publicado.");
       router.push(project?.visibility === "hidden" ? `/meus-projetos/${project.id}` : `/projetos/${data.slug}`); router.refresh();
-    } catch (err) { setDescriptionPreview(false); feedback.report(err, formElement); setPending(false); }
+    } catch (err) {
+      if (err instanceof CreationConflictError) {
+        // This receipt is confirmed. Keep this form bound to it, but let a fresh
+        // publication form start a new attempt instead of inheriting a stale key.
+        finishCreationAttempt(user.id, requestId.current);
+        setConflictLink(`/meus-projetos/${encodeURIComponent(err.projectId)}`);
+      }
+      else if (!project && err instanceof HttpError && err.status === 410) finishCreationAttempt(user.id, requestId.current);
+      else if (project && err instanceof HttpError && err.status === 409) setConflictLink(`/meus-projetos/${encodeURIComponent(project.id)}`);
+      setDescriptionPreview(false); feedback.report(err, formElement); setPending(false); submitting.current = false;
+    }
   }
   return <main id="conteudo" className="container inner-page">
     <Link href="/meus-projetos" className="back-link"><Icon name="arrow-left" size={16}/>Meus projetos</Link>
@@ -159,6 +183,7 @@ export function ProjectEditor({ user, project, people, turmas = [] }: { user: Pe
             </div>
           </section>
           {(error || fields.coverFraming) && <div className="form-error" role="alert"><Icon name="x" size={16}/>{error || fields.coverFraming}</div>}
+          {conflictLink && <p><Link className="editor-conflict-link" href={conflictLink} target="_blank" rel="noopener noreferrer">Conferir projeto salvo <Icon name="arrow-up-right" size={16}/></Link></p>}
           <div className="editor-submit">
             <Link href="/meus-projetos" className="button button-outline" aria-disabled={pending} onClick={event => { if (pending) event.preventDefault(); }}>Cancelar</Link>
             <button className="button button-dark" type="submit" disabled={pending || (!project && !turmaId)}>{pending ? <><Icon name="loader" size={17} className="spinner"/>Salvando...</> : <>{project ? "Salvar alterações" : "Publicar projeto"}<Icon name="arrow-up-right" size={17}/></>}</button>

@@ -1,7 +1,7 @@
 import { getCurrentUser, isSameOrigin } from "@/lib/auth";
 import { getProjects } from "@/lib/queries";
 import { readImageForm } from "@/lib/image-form";
-import { createProject } from "@/lib/project-mutations";
+import { createProject, ProjectCreationConflict } from "@/lib/project-mutations";
 import { projectErrorResponse } from "@/lib/project-http";
 
 export async function GET() {
@@ -14,5 +14,8 @@ export async function POST(request: Request) {
     const user = await getCurrentUser();
     if (!user) return Response.json({ error: "Entre na sua conta para publicar." }, { status: 401 });
     return Response.json(await createProject(user.id, await readImageForm(request)), { status: 201 });
-  } catch (error) { return projectErrorResponse(error, "Não foi possível publicar o projeto.", "project.create"); }
+  } catch (error) {
+    if (error instanceof ProjectCreationConflict) return Response.json({ error: error.message, projectId: error.projectId }, { status: 409, headers: { "Cache-Control": "no-store" } });
+    return projectErrorResponse(error, "Não foi possível publicar o projeto.", "project.create");
+  }
 }

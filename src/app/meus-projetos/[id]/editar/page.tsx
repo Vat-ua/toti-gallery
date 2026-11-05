@@ -13,5 +13,5 @@ export default async function EditProjectPage({ params }: { params: Promise<{ id
   const project = projects.find(project => project.id === id && project.author.id === user.id);
   if (!project) notFound();
   const people = await getCoauthorCandidates(project.turmaId);
-  return <ProjectEditor user={user} project={project} people={people}/>;
+  return <ProjectEditor key={project.id} user={user} project={project} people={people}/>;
 }

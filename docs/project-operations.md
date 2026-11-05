@@ -58,3 +58,52 @@ checks of notifications, dialog behavior and navigation.
 
 For commit uncertainty, connection limits and operational logging, see
 [Server reliability](server-reliability.md).
+
+## Safe saves
+
+`POST /api/projects` requires a UUID v4 `requestId` in the form's JSON data.
+The editor retains it across retries, and in owner-scoped `sessionStorage` until
+an acknowledged success. A confirmed existing/deleted publication also clears
+the stored key so a fresh form can start another attempt; the open form keeps its
+original key and never silently creates a second project. Only this opaque identifier is stored, not a draft or
+image. With storage blocked, it remains stable while the editor stays mounted.
+
+A creation receipt in `gallery_project_creations` commits atomically with the
+project and authors. Its `(author_id, request_id)` primary key serializes
+concurrent attempts. A SHA-256 fingerprint binds it to the normalized fields,
+authors, turma, image bytes/type and framing. Identical retries return the same
+project without overwriting subsequent edits. Changed content under an already
+committed key returns `409` and a link to inspect that publication. Deleted
+publications retain receipts and return `410`; a replay cannot recreate them.
+There is no receipt expiry in this small prototype.
+
+Ordinary replays skip image uploads. Simultaneous first requests can both upload
+before the SQL transaction; the loser retires its unreferenced cover after a
+confirmed commit. Storage/network work stays outside row-lock transactions.
+Rollback and uncertain-COMMIT image preservation follow
+[Server reliability](server-reliability.md). An unconfirmed commit can leave an
+orphan, which is preferable to deleting a potentially referenced image.
+
+`PATCH /api/projects/:id` requires a positive integer `expectedVersion`.
+The server checks it before upload and again under the project row lock. A stale
+editor returns `409`, without changing content/authors or retiring the saved
+cover. Successful edits increment `version`; leaving coauthorship also increments
+it so an open editor cannot silently re-add the departing author. Likes and
+moderation do not increment the content version: edits preserve those fields.
+Missing/malformed guards return `400`; none of these checks are optional on the
+student API. A lost update acknowledgement may require inspecting the saved
+project; the client does not blindly repeat writes or merge changes.
+
+Errors keep the open editor's fields, selected File and framing. Conflict feedback
+links to the saved project in a new tab. The dirty-form guard covers same-tab
+links throughout the page and native reload/close warnings; cancellable
+same-document Back/Forward is also guarded where the Navigation API is supported.
+It never rewrites Next.js history. Browser unload prompts are browser-controlled
+and cannot guarantee protection on mobile termination or older browsers'
+same-document history navigation. This is not persistent draft storage.
+
+Apply `20261105_project_save_guards.sql` before this code. The development/test
+runner refuses production and verifies existing rows inside its transaction.
+`npm run test:projects` covers HTTP guard validation, parallel creates and edits,
+coauthor departure, lost COMMIT acknowledgements, cover retirement and preserved
+original fixture-independent data, on an explicitly isolated test branch.
