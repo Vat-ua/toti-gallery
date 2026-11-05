@@ -8,6 +8,7 @@ import { parseStudents } from "./student-import";
 import { provisionIdentity } from "./admin-provision";
 import { studentSearch } from "./student-search";
 import type { StudentAdded, StudentLookup, AdminStudent, AdminTurma, ImportPreview } from "./admin-types";
+import { allocateProfileSlug } from "./profile-slug-server";
 
 export class AdminError extends Error {
   constructor(message: string, public status = 400) { super(message); }
@@ -79,7 +80,7 @@ export async function turmaDetails(actorId: string, id: string) {
     const actor = await staff(tx, actorId);
     const turma = await group(tx, id);
     const memberships = await tx.select({ userId: turmaMembers.userId, turmaId: turmas.id, name: turmas.name }).from(turmaMembers).innerJoin(turmas, eq(turmas.id, turmaMembers.turmaId));
-    const people = await tx.select({ id: users.id, name: users.name, email: users.email, avatar: users.image, status: users.status, role: users.role, isDemo: users.isDemo }).from(users).orderBy(users.name);
+    const people = await tx.select({ id: users.id, name: users.name, email: users.email, avatar: users.image, status: users.status, role: users.role, isDemo: users.isDemo, primaryTurmaId: users.primaryTurmaId }).from(users).orderBy(users.name);
     const [{ projectCount }] = await tx.select({ projectCount: count() }).from(projects).where(eq(projects.turmaId, id));
     const allPeople: AdminStudent[] = people.map(person => ({ ...person, turmaNames: memberships.filter(m => m.userId === person.id).map(m => m.name), turmaIds: memberships.filter(m => m.userId === person.id).map(m => m.turmaId) }));
     const memberIds = new Set(memberships.filter(m => m.turmaId === id).map(m => m.userId));
@@ -97,7 +98,10 @@ export async function setMembership(actorId: string, turmaId: string, userId: st
     if (!target || !canManageAccount(actor, target)) throw new AdminError("Você não pode alterar a turma desta conta.", 403);
     if (add && target.status === "suspended") throw new AdminError("Esta conta está suspensa.");
     if (add) await tx.insert(turmaMembers).values({ turmaId, userId }).onConflictDoNothing();
-    else await tx.delete(turmaMembers).where(and(eq(turmaMembers.turmaId, turmaId), eq(turmaMembers.userId, userId)));
+    else {
+      if (target.primaryTurmaId === turmaId) await tx.update(users).set({ primaryTurmaId: null }).where(eq(users.id, userId));
+      await tx.delete(turmaMembers).where(and(eq(turmaMembers.turmaId, turmaId), eq(turmaMembers.userId, userId)));
+    }
     // Credits and project turma are deliberately independent of membership.
   });
 }
@@ -126,7 +130,7 @@ export async function importStudents(actorId: string, turmaId: string, text: str
       let id = existing.find(u => u.email.trim().toLowerCase() === row.email)?.id;
       if (!id) {
         id = randomUUID();
-        await tx.insert(users).values({ id, name: row.name, email: row.email }); created++;
+        await tx.insert(users).values({ id, name: row.name, email: row.email, slug: await allocateProfileSlug(tx, row.name) }); created++;
       }
       const inserted = await tx.insert(turmaMembers).values({ turmaId, userId: id }).onConflictDoNothing().returning();
       if (inserted.length) linked++; else unchanged++;
@@ -158,7 +162,7 @@ export async function addStudent(actorId: string, turmaId: string, name: string,
     let [user] = await tx.select().from(users).where(sql`lower(btrim(${users.email})) = ${identity.email}`).for("update").limit(1);
     const created = !user;
     if (user && (!canManageAccount(actor, user) || user.isDemo || user.status === "suspended")) throw new AdminError("Este perfil não está disponível para cadastro nesta turma.");
-    if (!user) [user] = await tx.insert(users).values({ id: randomUUID(), ...identity }).returning();
+    if (!user) [user] = await tx.insert(users).values({ id: randomUUID(), ...identity, slug: await allocateProfileSlug(tx, identity.name) }).returning();
     await tx.insert(turmaMembers).values({ turmaId, userId: user.id }).onConflictDoNothing();
     return { id: user.id, name: user.name, email: user.email, status: user.status, created };
   });

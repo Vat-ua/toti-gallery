@@ -34,12 +34,14 @@ export function MyProjects({ projects, user }: { projects: Project[]; user: Pers
   return <main id="conteudo" className="container inner-page">
     <Link href="/" className="back-link"><Icon name="arrow-left" size={16}/>Projetos</Link>
     <div className="page-heading">
-      <div className="page-intro"><h1>Meus projetos</h1><p>As publicações e os projetos em que você participa.</p></div>
-      <Link href="/meus-projetos/novo" className="button button-dark"><Icon name="plus" size={17}/>Publicar projeto</Link>
+      <div className="page-intro"><h1>Meus projetos</h1><p>Projetos publicados por você ou com sua coautoria.</p></div>
+      <div className="page-heading-actions">
+        <Link href={`/pessoas/${user.slug}`} className="button button-outline button-transparent"><Icon name="users" size={18}/>Meu perfil</Link>
+        <Link href="/meus-projetos/novo" className="button button-dark"><Icon name="plus" size={17}/>Publicar projeto</Link>
+      </div>
     </div>
     <div className="dashboard-summary">
       <span><strong>{items.length}</strong> {items.length === 1 ? "projeto" : "projetos"}</span>
-      <Link href={`/pessoas/${user.id}`}>Ver perfil<Icon name="arrow-up-right" size={16}/></Link>
     </div>
     {items.length ? <div className="management-grid">{items.map(project => {
       const isOwner = project.author.id === user.id;

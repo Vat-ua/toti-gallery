@@ -14,7 +14,6 @@ import { Icon } from "./icon";
 import { BrandSymbol } from "./brand-symbol";
 import { ProjectCard } from "./project-card";
 import { SortMenu } from "./sort-menu";
-import { galleryFilterParams } from "@/lib/gallery-filters";
 import { useGalleryFilters } from "./use-gallery-filters";
 import { Popover } from "./popover";
 
@@ -59,14 +58,10 @@ export function Gallery({ projects }: { projects: Project[] }) {
     }),
     [cohorts, techOptions],
   );
-  const { filters, updateFilters, changeQuery, flushQuery } =
+  const { filters, updateFilters, changeQuery, flushQuery, changePage } =
     useGalleryFilters(filterOptions);
-  const { query, cohort, techs, sort, finalOnly } = filters;
+  const { query, cohort, techs, sort, finalOnly, page } = filters;
   const search = useDeferredValue(query);
-  const filterKey = galleryFilterParams(filters).toString();
-  const [page, setPage] = useState({ key: filterKey, visible: PAGE_SIZE });
-  const visible = page.key === filterKey ? page.visible : PAGE_SIZE;
-  if (page.key !== filterKey) setPage({ key: filterKey, visible: PAGE_SIZE });
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filterGroup, setFilterGroup] = useState<"cohort" | "technology">(
     "cohort",
@@ -123,6 +118,8 @@ export function Gallery({ projects }: { projects: Project[] }) {
         ),
     [projects, search, cohort, finalOnly, techs, sort],
   );
+  const loadedPage = Math.min(page, Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)));
+  const visible = loadedPage * PAGE_SIZE;
 
   function clear() {
     updateFilters({
@@ -180,7 +177,7 @@ export function Gallery({ projects }: { projects: Project[] }) {
       >
         <div className="gallery-head">
           <h2 id="gallery-title">
-            Projetos<span className="gallery-title-dot">.</span>
+            Explorar<span className="gallery-title-dot">.</span>
           </h2>
           <div
             className="view-tabs"
@@ -459,24 +456,17 @@ export function Gallery({ projects }: { projects: Project[] }) {
             <div className="load-more-area">
               {visible < filtered.length ? (
                 <button
+                  type="button"
                   className="button button-outline load-more"
-                  onClick={() =>
-                    setPage({ key: filterKey, visible: visible + PAGE_SIZE })
-                  }
+                  onClick={() => changePage(loadedPage + 1)}
                 >
                   Carregar mais projetos
                   <Icon name="arrow-down" size={18} />
                 </button>
               ) : (
-                <>
-                  <p className="end-of-gallery">
-                    Você chegou ao fim da galeria.
-                  </p>
-                  <Link href="/meus-projetos/novo" className="end-link">
-                    Publicar um projeto
-                    <Icon name="arrow-up-right" size={16} />
-                  </Link>
-                </>
+                <p className="end-of-gallery">
+                  Você chegou ao fim da galeria.
+                </p>
               )}
               <p className="load-count">
                 Mostrando {Math.min(visible, filtered.length)} de{" "}

@@ -35,7 +35,7 @@ export async function listStudents(actorId: string, options: Partial<StudentList
     );
     const [{ total }] = await tx.select({ total: count() }).from(users).where(where);
     const page = Math.min(filters.page, Math.max(1, Math.ceil(total / filters.pageSize)));
-    const people = await tx.select({ id: users.id, name: users.name, email: users.email, emailVerified: users.emailVerified, avatar: users.image, status: users.status, role: users.role, isDemo: users.isDemo }).from(users).where(where).orderBy(users.name, users.id).limit(filters.pageSize).offset((page - 1) * filters.pageSize);
+    const people = await tx.select({ id: users.id, name: users.name, email: users.email, emailVerified: users.emailVerified, avatar: users.image, status: users.status, role: users.role, isDemo: users.isDemo, primaryTurmaId: users.primaryTurmaId }).from(users).where(where).orderBy(users.name, users.id).limit(filters.pageSize).offset((page - 1) * filters.pageSize);
     const ids = people.map(person => person.id);
     if (!ids.length) return { students: [], total, filters: { ...filters, page } };
     const memberships = await tx.select({ userId: turmaMembers.userId, turmaId: turmas.id, name: turmas.name }).from(turmaMembers).innerJoin(turmas, eq(turmaMembers.turmaId, turmas.id)).where(inArray(turmaMembers.userId, ids)).orderBy(desc(turmas.number));
@@ -99,18 +99,21 @@ export async function deletePendingStudent(actorId: string, id: string) {
   });
 }
 
-export async function updateStudentTurmas(actorId: string, id: string, turmaIds: unknown) {
+export async function updateStudentTurmas(actorId: string, id: string, turmaIds: unknown, primaryTurmaId?: unknown) {
   if (!Array.isArray(turmaIds) || turmaIds.length > 100 || turmaIds.some(value => typeof value !== "string" || !value) || new Set(turmaIds).size !== turmaIds.length) throw new AdminError("Confira as turmas selecionadas.");
   const selected = turmaIds as string[];
+  if (primaryTurmaId !== undefined && primaryTurmaId !== null && (typeof primaryTurmaId !== "string" || !selected.includes(primaryTurmaId))) throw new AdminError("Escolha uma turma principal entre as participações selecionadas.");
   return db.transaction(async tx => {
-    const actor = await staff(tx, actorId); await targetStudent(tx, actor, id);
+    const actor = await staff(tx, actorId), person = await targetStudent(tx, actor, id);
+    const nextPrimary = primaryTurmaId === undefined ? (selected.includes(person.primaryTurmaId || "") ? person.primaryTurmaId : null) : primaryTurmaId as string | null;
     if (selected.length) {
       const groups = await tx.select({ id: turmas.id }).from(turmas).where(inArray(turmas.id, selected)).for("share");
       if (groups.length !== selected.length) throw new AdminError("Uma das turmas não está disponível. Atualize a página.");
       await tx.insert(turmaMembers).values(selected.map(turmaId => ({ turmaId, userId: id }))).onConflictDoNothing();
     }
+    if (nextPrimary !== person.primaryTurmaId) await tx.update(users).set({ primaryTurmaId: nextPrimary, updatedAt: new Date() }).where(eq(users.id, id));
     await tx.delete(turmaMembers).where(selected.length ? and(eq(turmaMembers.userId, id), notInArray(turmaMembers.turmaId, selected)) : eq(turmaMembers.userId, id));
-    return { turmaIds: selected };
+    return { turmaIds: selected, primaryTurmaId: nextPrimary };
   });
 }
 

@@ -22,7 +22,7 @@ export function ProjectDetails({ project, related = [], canEdit = false, readOnl
           {project.authors.length > 1 ? <a href="#autores" className="detail-author-link">
             <span className="avatar-stack">{project.authors.slice(0, 3).map(author => <Avatar key={author.id} person={author} size={32}/>)}</span>
             <span>{project.authors.length} autores</span>
-          </a> : <Link href={`/pessoas/${project.author.id}`} className="detail-author-link">
+          </a> : <Link href={`/pessoas/${project.author.slug}`} className="detail-author-link">
             <Avatar person={project.author} size={32}/><strong>{project.author.name}</strong>
           </Link>}
           {project.isFinal && <span className="project-final-badge">Projeto final</span>}
@@ -53,7 +53,7 @@ export function ProjectDetails({ project, related = [], canEdit = false, readOnl
         <div className="sidebar-block" id="autores">
           <h3>{project.authors.length > 1 ? "Autores" : "Autor"}</h3>
           <div className="sidebar-authors">
-            {project.authors.map(author => <Link key={author.id} className="sidebar-author" href={`/pessoas/${author.id}`}><Avatar person={author} size={42}/><span>{author.name}</span></Link>)}
+            {project.authors.map(author => <Link key={author.id} className="sidebar-author" href={`/pessoas/${author.slug}`}><Avatar person={author} size={42}/><span>{author.name}</span></Link>)}
           </div>
         </div>
         <div className="sidebar-block">

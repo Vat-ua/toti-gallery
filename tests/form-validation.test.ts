@@ -34,6 +34,17 @@ test("password errors identify the correct fields without including submitted pa
   assert.deepEqual(validatePasswordChange({ currentPassword: "old", newPassword: password, confirmPassword: password }), { currentPassword: "old", newPassword: password });
 });
 
+test("LinkedIn is optional, normalized, and limited to HTTPS LinkedIn addresses", () => {
+  const profile = { name: "Pessoa", bio: "", avatar: null, github: "" };
+  for (const linkedin of [undefined, null, "", " "]) assert.equal(validateProfile({ ...profile, linkedin }).linkedin, null);
+  for (const linkedin of ["https://www.linkedin.com/in/pessoa", "https://br.linkedin.com/in/pessoa"]) {
+    assert.equal(validateProfile({ ...profile, linkedin: ` ${linkedin} ` }).linkedin, linkedin);
+  }
+  for (const linkedin of ["http://linkedin.com/in/pessoa", "javascript:alert(1)", "https://linkedin.com.evil.test/in/pessoa", "https://evil.test/linkedin.com", "https://user:secret@linkedin.com/in/pessoa", 123, "https://linkedin.com/" + "a".repeat(2000)]) {
+    assert.deepEqual(fields(() => validateProfile({ ...profile, linkedin })), ["linkedin"]);
+  }
+});
+
 test("admin input rules and response parsing preserve field errors and general failures", () => {
   assert(identityErrors(" ", "wrong").name); assert(identityErrors("Pessoa", "wrong").email);
   assert(turmaErrors({ number: 0, courseName: "A", startYear: 1999 }).startYear);

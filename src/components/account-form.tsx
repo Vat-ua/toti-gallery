@@ -30,6 +30,7 @@ export function AccountForm({ user, email, canChangePassword }: { user: Person; 
   const [name, setName] = useState(user.name);
   const [bio, setBio] = useState(user.bio);
   const [github, setGithub] = useState(user.github || "");
+  const [linkedin, setLinkedin] = useState(user.linkedin || "");
   const [avatar, setAvatar] = useState(user.avatar);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
@@ -62,17 +63,17 @@ export function AccountForm({ user, email, canChangePassword }: { user: Person; 
     event.preventDefault();
     const formElement = event.currentTarget;
     if (savingProfile) return;
-    if (!profileFeedback.validate(() => validateProfile({ name, bio, github, avatar: photoFile ? null : avatar }, avatar), formElement)) return;
+    if (!profileFeedback.validate(() => validateProfile({ name, bio, github, linkedin, avatar: photoFile ? null : avatar }, avatar), formElement)) return;
     setSavingProfile(true);
     try {
       const form = new FormData();
-      form.set("data", JSON.stringify({ name, bio, avatar: photoFile ? null : avatar, github }));
+      form.set("data", JSON.stringify({ name, bio, avatar: photoFile ? null : avatar, github, linkedin }));
       if (photoFile) form.set("image", photoFile);
       const response = await fetch("/api/account", { method: "PATCH", body: form });
       if (response.status === 401) { signInAgain(); return; }
       const data = await response.json();
       if (!response.ok) throw responseError(data, "Não foi possível salvar seu perfil.");
-      setName(data.user.name); setBio(data.user.bio); setGithub(data.user.github || ""); setAvatar(data.user.avatar);
+      setName(data.user.name); setBio(data.user.bio); setGithub(data.user.github || ""); setLinkedin(data.user.linkedin || ""); setAvatar(data.user.avatar);
       setPhotoFile(null);
       notify("Perfil atualizado.");
       router.refresh();
@@ -100,7 +101,7 @@ export function AccountForm({ user, email, canChangePassword }: { user: Person; 
   }
 
   return <main id="conteudo" className="container inner-page">
-    <Link href={`/pessoas/${user.id}`} className="back-link"><Icon name="arrow-left" size={16}/>Meu perfil</Link>
+    <Link href={`/pessoas/${user.slug}`} className="back-link"><Icon name="arrow-left" size={16}/>Meu perfil</Link>
     <div className="page-heading"><div className="page-intro"><h1>Editar perfil</h1><p>Atualize seu perfil e mantenha seu acesso seguro.</p></div></div>
     <div className="account-layout">
       <form noValidate aria-busy={savingProfile} onSubmit={saveProfile} aria-labelledby="account-profile-title">
@@ -121,6 +122,7 @@ export function AccountForm({ user, email, canChangePassword }: { user: Person; 
           <div className="form-field"><label htmlFor="account-name">Nome</label><input id="account-name" name="name" aria-invalid={!!fields.name} aria-describedby={fields.name ? "account-name-error" : undefined} value={name} onChange={event => { setName(event.target.value); profileFeedback.clear("name"); }} autoComplete="name" required minLength={2} maxLength={70}/><FieldError id="account-name-error" text={fields.name}/></div>
           <div className="form-field"><label htmlFor="account-bio">Apresentação (opcional)</label><textarea id="account-bio" name="bio" aria-invalid={!!fields.bio} value={bio} onChange={event => { setBio(event.target.value); profileFeedback.clear("bio"); }} rows={4} maxLength={600} aria-describedby={`account-bio-help${fields.bio ? " account-bio-error" : ""}`}/><FieldError id="account-bio-error" text={fields.bio}/><small id="account-bio-help">Conte um pouco sobre você. Até 600 caracteres.</small></div>
           <div className="form-field"><label htmlFor="account-github">GitHub (opcional)</label><input id="account-github" name="github" aria-invalid={!!fields.github} aria-describedby={fields.github ? "account-github-error" : undefined} type="url" value={github} onChange={event => { setGithub(event.target.value); profileFeedback.clear("github"); }} placeholder="https://github.com/seu-usuario" maxLength={2000}/><FieldError id="account-github-error" text={fields.github}/></div>
+          <div className="form-field"><label htmlFor="account-linkedin">LinkedIn (opcional)</label><input id="account-linkedin" name="linkedin" aria-invalid={!!fields.linkedin} aria-describedby={fields.linkedin ? "account-linkedin-error" : undefined} type="url" value={linkedin} onChange={event => { setLinkedin(event.target.value); profileFeedback.clear("linkedin"); }} placeholder="https://www.linkedin.com/in/seu-perfil" maxLength={2000}/><FieldError id="account-linkedin-error" text={fields.linkedin}/></div>
           <dl className="account-details" aria-label="Dados de acesso"><div><dt>Email</dt><dd>{email}</dd></div><div><dt>Turma</dt><dd>{user.cohort}</dd></div></dl>
           {profileError && <p className="form-error" role="alert">{profileError}</p>}
           <div className="account-form-actions"><button type="submit" className="button button-dark">{savingProfile && <Icon name="loader" size={17} className="spinner"/>}{savingProfile ? "Salvando..." : "Salvar alterações"}</button></div>

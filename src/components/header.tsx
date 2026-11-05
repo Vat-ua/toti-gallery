@@ -41,10 +41,16 @@ function HeaderContent({ user, pathname }: { user: HeaderUser | null; pathname: 
     trigger={<button type="button" className="user-trigger" aria-label="Abrir menu da conta"><Avatar person={user} size={34}/><span>{user.name.split(" ")[0]}</span><Icon name="chevron-down" size={15}/></button>}>
     <DropdownLabel className="account-menu-heading"><strong>{user.name}</strong></DropdownLabel>
     {user.role && isStaff(user.role) && <DropdownItem asChild><Link className="dropdown-item" href="/admin/turmas"><Icon name="grid" size={18}/>Administração</Link></DropdownItem>}
-    <DropdownItem asChild><Link className="dropdown-item" href={`/pessoas/${user.id}`}><Icon name="users" size={18}/>Meu perfil</Link></DropdownItem>
+    <DropdownItem asChild><Link className="dropdown-item" href={`/pessoas/${user.slug}`}><Icon name="users" size={18}/>Meu perfil</Link></DropdownItem>
     <DropdownItem asChild><Link className="dropdown-item" href="/meus-projetos"><Icon name="grid" size={18}/>Meus projetos</Link></DropdownItem>
     <DropdownItem asChild disabled={loggingOut} onSelect={event => { event.preventDefault(); void logout(); }}><button type="button" className="dropdown-item" disabled={loggingOut}><Icon name="logout" size={18}/>{loggingOut ? "Saindo..." : "Sair da conta"}</button></DropdownItem>
-    </DropdownMenu></div> : <Link href="/entrar" className="login-link" aria-label="Entrar" title="Entrar"><Icon name="user" size={20}/></Link>}{!adminArea && <Link href="/meus-projetos/novo" className="button button-dark header-publish" aria-label="Publicar projeto" title="Publicar projeto"><Icon name="plus" size={21}/></Link>}<button className="mobile-menu-button" aria-label={menu ? "Fechar menu" : "Abrir menu"} aria-expanded={menu} onClick={() => setMenu(!menu)}><Icon name={menu ? "x" : "menu"} size={22}/></button></div></div>{menu && <nav className="mobile-nav" aria-label="Navegação no celular">{user?.role && isStaff(user.role) && <Link href="/admin/turmas">Administração</Link>}<Link href="/">Explorar</Link><Link href="/comunidade">Comunidade</Link><Link href="/meus-projetos">Meus projetos</Link><Link className="mobile-publish" href="/meus-projetos/novo">Publicar projeto <Icon name="plus" size={18}/></Link></nav>}</header>;
+    </DropdownMenu></div> : <Link href="/entrar" className="login-link" aria-label="Entrar" title="Entrar"><Icon name="user" size={20}/></Link>}{!adminArea && <Link href="/meus-projetos/novo" className="button button-dark header-publish" aria-label="Publicar projeto" title="Publicar projeto"><Icon name="plus" size={21}/></Link>}<button className="mobile-menu-button" aria-label={menu ? "Fechar menu" : "Abrir menu"} aria-expanded={menu} onClick={() => setMenu(!menu)}><Icon name={menu ? "x" : "menu"} size={22}/></button></div></div>{menu && <nav className="mobile-nav" aria-label="Navegação no celular">
+    {user?.role && isStaff(user.role) && <Link href="/admin/turmas"><Icon name="grid" size={18}/>Administração</Link>}
+    <Link href="/"><Icon name="search" size={18}/>Explorar</Link>
+    <Link href="/comunidade"><Icon name="users" size={18}/>Comunidade</Link>
+    <Link href="/meus-projetos"><Icon name="grid" size={18}/>Meus projetos</Link>
+    <Link className="mobile-publish" href="/meus-projetos/novo"><Icon name="plus" size={18}/>Publicar projeto</Link>
+  </nav>}</header>;
 }
 
 export function Footer({ user }: { user: Person | null }) {

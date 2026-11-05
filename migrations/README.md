@@ -67,3 +67,22 @@ changing existing images or rows. Verify it on a test copy, then use the same
 guarded runner with `--framing` for development. Null preserves the original
 top-center placement at 100% zoom. Applied to development and production after
 isolated verification and approval.
+
+`20261104_public_profiles.sql` adds stable unique public-profile slugs and an
+optional primary turma. Existing profiles receive readable slugs; IDs, original
+columns, accounts, memberships, projects, credits and likes are preserved. Null
+primary turma means the highest-numbered current membership. New application
+provisioning allocates a name-based slug; the database default is a unique fallback
+for direct inserts. Existing ID URLs are not supported by the new profile route.
+Verify it on an isolated development copy, then run
+`node scripts/migrate-public-profiles.cjs --env-file=.env.local` for development.
+The runner refuses production and checks data preservation inside the transaction.
+Applied to development after isolated verification. Production has not received
+this migration; apply it with release approval before deploying the updated code.
+
+`20261104_profile_linkedin.sql` adds an optional LinkedIn URL without changing
+existing records. Verify it on an isolated copy, then use
+`node scripts/migrate-public-profiles.cjs --linkedin --env-file=.env.local` for
+development. The same target and data-preservation checks apply. Applied to
+development after isolated verification. Production has not received this
+migration; it must receive this and the public-profile migration before release.

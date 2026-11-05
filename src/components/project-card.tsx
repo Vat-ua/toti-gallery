@@ -20,7 +20,7 @@ export function ProjectCard({ project, isCoauthor = false, href = `/projetos/${p
           {project.authors.length > 1 ? <Link href={`${href}#autores`} className="project-author" aria-label={`Ver os ${project.authors.length} autores de ${project.title}${isCoauthor ? ". Você é coautor." : ""}`}>
             <span className="avatar-stack">{project.authors.slice(0, 3).map(author => <Avatar key={author.id} person={author} size={26}/>)}</span>
             <span className="author-name">{project.authors.length} autores{isCoauthor && <span className="coauthor-label"> (coautor)</span>}</span>
-          </Link> : <Link href={`/pessoas/${project.author.id}`} className="project-author"><Avatar person={project.author} size={26}/><span className="author-name">{project.author.name}</span></Link>}
+          </Link> : <Link href={`/pessoas/${project.author.slug}`} className="project-author"><Avatar person={project.author} size={26}/><span className="author-name">{project.author.name}</span></Link>}
         </div>
         {readOnly ? <ProjectLikeCount likes={project.likes}/> : <LikeButton id={project.id} initialLiked={project.liked} initialLikes={project.likes}/>}
       </div>

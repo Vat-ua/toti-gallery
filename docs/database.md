@@ -62,6 +62,8 @@ memberships, or sign-in methods change.
 | Field | Meaning |
 | --- | --- |
 | `id` | Primary key: permanent person identifier. |
+| `slug` | Required unique public address, such as `ana-souza`. Generated once and preserved when the name changes. |
+| `primary_turma_id` | Optional public-display turma, selected from this person's memberships. Null uses the highest-numbered membership. Removing that membership clears the choice. |
 | `name` | Required display name. |
 | `email` | Required unique email. Uniqueness also ignores case and surrounding spaces. |
 | `email_verified` | Boolean; defaults to `false`. Records email verification. |
@@ -69,6 +71,7 @@ memberships, or sign-in methods change.
 | `avatar_metadata` | Nullable metadata for a managed photo: object key, dimensions, bytes and format. Legacy photos keep null. |
 | `bio` | Profile description; defaults to empty text. |
 | `github` | Nullable GitHub profile link. |
+| `linkedin` | Nullable LinkedIn link, edited by the profile owner. The application requires HTTPS and a LinkedIn hostname. |
 | `role` | `user`, `admin`, or `owner`; defaults to `user`. |
 | `status` | `pending`, `active`, or `suspended`; defaults to `pending`. |
 | `is_demo` | Boolean; defaults to `false`. Marks demonstration profiles. |

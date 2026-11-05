@@ -17,11 +17,11 @@ async function hydrate(tx: Transaction, rows: Row[]): Promise<AdminProject[]> {
   const ids = rows.map(row => row.project.id);
   const credits = await tx.select().from(projectAuthors).where(inArray(projectAuthors.projectId, ids));
   const userIds = [...new Set([...rows.flatMap(row => [row.project.authorId, ...(row.project.moderatedBy ? [row.project.moderatedBy] : [])]), ...credits.map(credit => credit.userId)])];
-  const people = await tx.select({ id: users.id, name: users.name, bio: users.bio, avatar: users.image, github: users.github }).from(users).where(inArray(users.id, userIds));
+  const people = await tx.select({ id: users.id, slug: users.slug, name: users.name, bio: users.bio, avatar: users.image, github: users.github, linkedin: users.linkedin }).from(users).where(inArray(users.id, userIds));
   const totals = await tx.select({ id: likes.projectId, total: count() }).from(likes).where(inArray(likes.projectId, ids)).groupBy(likes.projectId);
   const byId = new Map(people.map(person => [person.id, person]));
   return rows.map(({ project, turmaName, year }) => {
-    const person = (id: string): Person => ({ ...byId.get(id)!, cohort: turmaName, turmaId: project.turmaId, year: year || 0 });
+    const person = (id: string): Person => ({ ...byId.get(id)!, cohort: turmaName, cohorts: [turmaName], courseName: null, turmaId: project.turmaId, year: year || 0 });
     const author = person(project.authorId);
     return {
       id: project.id, slug: project.slug, title: project.title, description: project.description,

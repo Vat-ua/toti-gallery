@@ -2,12 +2,16 @@ import type { CoverFraming } from "./cover-framing";
 
 export type Person = {
   id: string;
+  slug: string;
   name: string;
   cohort: string;
+  cohorts: string[];
+  courseName: string | null;
   year: number;
   bio: string;
   avatar: string | null;
   github: string | null;
+  linkedin: string | null;
   turmaId: string | null;
 };
 

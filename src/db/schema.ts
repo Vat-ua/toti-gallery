@@ -10,6 +10,8 @@ import { bigint, boolean, check, index, integer, jsonb, pgTable, primaryKey, tex
 
 export const users = pgTable("gallery_users", {
   id: text("id").primaryKey(),
+  slug: text("slug").notNull().default(sql`('pessoa-' || replace(gen_random_uuid()::text, '-', ''))`),
+  primaryTurmaId: text("primary_turma_id").references(() => turmas.id, { onDelete: "set null" }),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
@@ -17,6 +19,7 @@ export const users = pgTable("gallery_users", {
   imageMetadata: jsonb("avatar_metadata").$type<ImageMetadata>(),
   bio: text("bio").notNull().default(""),
   github: text("github"),
+  linkedin: text("linkedin"),
   role: text("role").$type<Role>().notNull().default("user"),
   status: text("status").$type<"pending" | "active" | "suspended">().notNull().default("pending"),
   isDemo: boolean("is_demo").notNull().default(false),
@@ -27,6 +30,9 @@ export const users = pgTable("gallery_users", {
   cohort: text("cohort"),
   year: integer("year"),
 }, table => [
+  uniqueIndex("gallery_users_slug_idx").on(table.slug),
+  check("gallery_users_slug_check", sql`${table.slug} ~ '^[a-z0-9]+(-[a-z0-9]+)*$' and length(${table.slug}) <= 120`),
+  index("gallery_users_primary_turma_idx").on(table.primaryTurmaId),
   uniqueIndex("gallery_users_email_normalized_idx").on(sql`lower(btrim(${table.email}))`),
   check("gallery_users_role_check", sql`${table.role} in ('user', 'admin', 'owner')`),
   uniqueIndex("gallery_users_single_owner_idx").on(table.role).where(sql`${table.role} = 'owner'`),

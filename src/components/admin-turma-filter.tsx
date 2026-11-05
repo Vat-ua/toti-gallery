@@ -23,7 +23,7 @@ export function AdminTurmaFilter({ value, onChange, turmas, includeWithoutTurma 
   const selected = options.find(option => option.value === value) || options[0];
 
   return <div className="sort-field admin-filter-field">
-    <Popover open={expanded} onOpenChange={setOpen} id={panelId} className="people-filter-panel admin-turma-panel"
+    <Popover open={expanded} onOpenChange={setOpen} id={panelId} className="people-filter-panel"
       label="Filtrar por turma" initialFocus='[aria-pressed="true"]' scrollInitialFocus
       trigger={<button type="button" className="sort-trigger"
         aria-label={`Filtrar por turma: ${selected.label}`} disabled={disabled}>
