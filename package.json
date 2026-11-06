@@ -6,7 +6,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "dev:auth-test": "node scripts/run-auth-test.cjs dev",
     "build:auth-test": "node scripts/run-auth-test.cjs build",
     "start:auth-test": "node scripts/run-auth-test.cjs start",

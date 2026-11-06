@@ -21,6 +21,10 @@ npm run build:smoke
 npm run test:smoke
 ```
 
+`typecheck` generates Next.js types before running TypeScript. This makes image
+imports and route types available in a clean checkout, without starting the
+development server or running a full build. Generated files remain ignored.
+
 `test:unit` explicitly selects the existing tests that do not write to a cloud
 service. Database integration suites (`test:projects`, `test:account`, `test:admin`,
 `test:likes`, `test:auth`) retain their separate verified-test-target requirements;
@@ -81,5 +85,5 @@ this through the service lifecycle. Browser fixtures in `tmp/smoke/`, reports an
 traces are ignored by Git. Failure artifacts in GitHub expire after seven days and
 contain only synthetic test interactions. Do not run these tests with real users.
 
-CI configuration can be checked locally, but the actual GitHub Actions run remains
-unverified until an authorized push makes the workflow available to GitHub.
+Before merging, check the GitHub Actions result for the PR's latest commit;
+successful local checks do not establish that the remote CI run passed.
