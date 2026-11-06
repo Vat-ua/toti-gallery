@@ -7,12 +7,13 @@ import { ProfileSummary } from "@/components/profile-summary";
 import { Icon } from "@/components/icon";
 import { BrandSymbol } from "@/components/brand-symbol";
 import { ProjectCard } from "@/components/project-card";
+import { sharingMetadata } from "@/lib/metadata";
 
 type Props = { params: Promise<{ slug: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const person = await getPersonBySlug(slug);
-  return { title: person?.name || "Perfil não encontrado", description: person?.bio };
+  return sharingMetadata({ title: person?.name || "Perfil não encontrado", description: person?.bio, path: `/pessoas/${encodeURIComponent(slug)}` });
 }
 export default async function ProfilePage({ params }: Props) {
   const { slug } = await params;

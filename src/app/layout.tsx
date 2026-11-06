@@ -5,11 +5,13 @@ import { cookies } from "next/headers";
 import { getCurrentUser } from "@/lib/auth";
 import { DEMO_MODE_COOKIE } from "@/lib/demo-mode";
 import { SiteChrome } from "@/components/site-chrome";
+import { sharingMetadata, siteTitle } from "@/lib/metadata";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "Toti Gallery — projetos da comunidade Toti", template: "%s · Toti Gallery" },
-  description: "Exercícios, experimentos e aplicações completas publicados por estudantes e pessoas formadas nas turmas da Toti.",
+  ...sharingMetadata(),
+  metadataBase: new URL(process.env.BETTER_AUTH_URL || "http://localhost:3000"),
+  title: { default: siteTitle, template: "%s · Toti Gallery" },
   icons: { icon: "/favicon.svg" },
 };
 export const viewport: Viewport = { themeColor: [{ media: "(prefers-color-scheme: light)", color: "#f4f0e6" }, { media: "(prefers-color-scheme: dark)", color: "#12110f" }] };

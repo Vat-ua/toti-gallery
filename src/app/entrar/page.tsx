@@ -3,8 +3,9 @@ import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { authSettings, safeNextPath } from "@/lib/auth-settings";
+import { sharingMetadata } from "@/lib/metadata";
 
-export const metadata: Metadata = { title: "Entre para a comunidade" };
+export const metadata: Metadata = sharingMetadata({ title: "Entre para a comunidade", description: "Entre com o email cadastrado pela administração ou experimente a demonstração da Toti Gallery.", path: "/entrar" });
 export default async function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const params = await searchParams;
   const nextPath = safeNextPath(params.next);

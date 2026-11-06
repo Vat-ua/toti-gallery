@@ -3,12 +3,13 @@ import type { Metadata } from "next";
 import { getProjects } from "@/lib/queries";
 import { getCurrentUser } from "@/lib/auth";
 import { ProjectDetails } from "@/components/project-details";
+import { sharingMetadata } from "@/lib/metadata";
 
 type Props = { params: Promise<{ slug: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const project = (await getProjects()).find(p => p.slug === slug);
-  return { title: project?.title || "Projeto não encontrado", description: project?.description.replace(/\s+/g, " ").trim().slice(0, 160) };
+  return sharingMetadata({ title: project?.title || "Projeto não encontrado", description: project?.description, path: `/projetos/${encodeURIComponent(slug)}` });
 }
 export default async function ProjectPage({ params }: Props) {
   const { slug } = await params;

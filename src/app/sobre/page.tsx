@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
+import { sharingMetadata } from "@/lib/metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = sharingMetadata({
   title: "Sobre",
   description: "Conheça a Toti Gallery, uma iniciativa independente de estudantes para compartilhar projetos e aprender em comunidade.",
-};
+  path: "/sobre",
+});
 
 export default async function AboutPage() {
   const user = await getCurrentUser();
