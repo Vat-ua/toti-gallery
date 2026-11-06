@@ -2,12 +2,16 @@ import type { CoverFraming } from "./cover-framing";
 
 export type Person = {
   id: string;
+  slug: string;
   name: string;
   cohort: string;
+  cohorts: string[];
+  courseName: string | null;
   year: number;
   bio: string;
   avatar: string | null;
   github: string | null;
+  linkedin: string | null;
   turmaId: string | null;
 };
 
@@ -15,6 +19,7 @@ export type PublicationTurma = { id: string; name: string; number: number; cours
 
 export type Project = {
   id: string;
+  version: number;
   slug: string;
   title: string;
   description: string;

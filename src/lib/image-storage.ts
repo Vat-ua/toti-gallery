@@ -7,10 +7,13 @@ import { assertDatabaseTarget, PRODUCTION } from "./database-target.cjs";
 import { imageKey, type ImageKind, type ImageMetadata } from "./image-policy";
 import { processImage } from "./image-processing";
 import { storageSettings } from "./image-storage-settings";
+import { PublicError } from "./errors";
+import { logServerError } from "./server-log";
 
 function storage() {
   const settings = storageSettings();
   return { bucket: settings.bucket, client: new S3Client({ ...settings, forcePathStyle: true,
+    maxAttempts: 2, requestHandler: { connectionTimeout: 10_000, requestTimeout: 20_000, throwOnRequestTimeout: true },
     requestChecksumCalculation: "WHEN_REQUIRED", responseChecksumValidation: "WHEN_REQUIRED" }) };
 }
 
@@ -22,10 +25,12 @@ async function verifyWriteTarget() {
 }
 
 export async function saveImage(file: File, kind: ImageKind) {
-  let connection: ReturnType<typeof storage>;
+  let connection: ReturnType<typeof storage> | undefined;
   try { connection = storage(); await verifyWriteTarget(); }
-  catch { throw new Error("O envio de imagens está indisponível. Tente novamente mais tarde."); }
-  const processed = await processImage(file, kind);
+  catch (cause) { connection?.client.destroy(); throw new PublicError("O envio de imagens está indisponível. Tente novamente mais tarde.", 503, { cause }); }
+  let processed: Awaited<ReturnType<typeof processImage>>;
+  try { processed = await processImage(file, kind); }
+  catch (error) { connection.client.destroy(); throw error; }
   const id = randomUUID(), key = kind === "avatar" ? `avatars/${id}.webp` : `covers/${id}/image.webp`;
   const metadata: ImageMetadata = { key, width: processed.image.width, height: processed.image.height, bytes: processed.image.data.length, format: "webp" };
   const objects = [{ key, data: processed.image.data }];
@@ -37,10 +42,10 @@ export async function saveImage(file: File, kind: ImageKind) {
     for (const object of objects) await connection.client.send(new PutObjectCommand({ Bucket: connection.bucket, Key: object.key, Body: object.data,
       ContentType: "image/webp", CacheControl: "public, max-age=31536000, immutable" }));
     return { url: `/media/${key}`, metadata };
-  } catch {
+  } catch (cause) {
     // Includes the attempted key: a timed-out PUT may still have succeeded.
     await deleteImage(metadata);
-    throw new Error("Não foi possível enviar a imagem. Tente novamente.");
+    throw new PublicError("Não foi possível enviar a imagem. Tente novamente.", 503, { cause });
   } finally { connection.client.destroy(); }
 }
 
@@ -55,7 +60,7 @@ export async function deleteImage(metadata: ImageMetadata | null | undefined) {
       if (!imageKey(`/media/${key}`)) throw new Error("Invalid image key");
       await client.send(new DeleteObjectCommand({ Bucket: connection.bucket, Key: key }));
     }
-  } catch { console.error("Não foi possível remover uma imagem substituída do armazenamento."); }
+  } catch (error) { logServerError("image.delete.failed", error); }
   finally { client?.destroy(); }
 }
 
@@ -68,7 +73,10 @@ export async function retireImage(metadata: ImageMetadata | null | undefined) {
       db.select({ id: projects.id }).from(projects).where(eq(projects.imageUrl, url)).limit(1),
     ]);
     if (!people.length && !publications.length) await deleteImage(metadata);
-  } catch { console.error("Não foi possível verificar a remoção da imagem anterior."); }
+  } catch (error) {
+    // Never infer rollback from a connection error. An unverified object stays intact.
+    logServerError("image.retirement.deferred", error);
+  }
 }
 
 export async function getImage(key: string) {
@@ -84,7 +92,7 @@ export async function getImage(key: string) {
           const { done, value } = await reader.read();
           if (done) { controller.close(); client.destroy(); }
           else controller.enqueue(value);
-        } catch (error) { controller.error(error); client.destroy(); }
+        } catch (error) { logServerError("image.stream.failed", error); controller.error(error); client.destroy(); }
       },
       async cancel() { try { await reader.cancel(); } finally { client.destroy(); } },
     });

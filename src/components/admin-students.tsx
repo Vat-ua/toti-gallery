@@ -1,15 +1,19 @@
 "use client";
 
+import { FormValidationError, identityErrors } from "@/lib/form-validation";
+import { focusFirstError } from "./form-feedback";
+
 import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { AdminTurma, ManagedStudent, StudentListPage } from "@/lib/admin-types";
-import { formatAccessExpiry } from "@/lib/access-message";
 import { studentListHref, type StudentListParams } from "@/lib/student-list-params";
 import { SelectMenu } from "./select-menu";
 import { AdminTurmaFilter } from "./admin-turma-filter";
 import { Icon } from "./icon";
 import { Avatar, useToast } from "./ui";
-import { AccessLinkBox, AddStudent, Dialog, ErrorText, ImportStudents, Search, message, request, statusText } from "./admin-turmas";
+import { AccessLinkBox, AccessLinkStatus, Dialog, ErrorText, Search } from "./admin-ui";
+import { AddStudent, ImportStudents } from "./admin-student-forms";
+import { message, studentsApi, statusText } from "@/lib/admin-client";
 
 function StatusBadge({ student }: { student: ManagedStudent }) {
   return <span className={`admin-badge ${student.isDemo ? "is-muted" : `is-${student.status}`}`}>{student.isDemo ? "Perfil de exemplo" : statusText[student.status]}</span>;
@@ -52,7 +56,7 @@ export function StudentsList({ result, turmas, owner }: { result: StudentListPag
     <div className="admin-pagination">
       <p>{total ? `${(filters.page - 1) * filters.pageSize + 1}–${Math.min(filters.page * filters.pageSize, total)} de ${total}` : "0 estudantes"}</p>
       <label className="admin-page-size">Por página<select className="admin-select" value={filters.pageSize} disabled={refreshing} onChange={event => navigate({ pageSize: event.target.value === "50" ? 50 : 25 })}><option value="25">25</option><option value="50">50</option></select></label>
-      <nav aria-label="Paginação de estudantes"><button className="button button-outline admin-small-button" type="button" disabled={refreshing || filters.page <= 1} onClick={() => navigate({ page: filters.page - 1 })}><Icon name="arrow-left" size={16}/>Anterior</button><span aria-live="polite">Página {filters.page} de {pages}</span><button className="button button-outline admin-small-button" type="button" disabled={refreshing || filters.page >= pages} onClick={() => navigate({ page: filters.page + 1 })}>Próxima<Icon name="arrow-right" size={16}/></button></nav>
+      <nav aria-label="Paginação de estudantes"><button className="button button-outline admin-small-button" type="button" disabled={refreshing || filters.page <= 1} onClick={() => navigate({ page: filters.page - 1 })}><Icon name="arrow-left" size={16}/>Anterior</button><span aria-live="polite">{filters.page} de {pages}</span><button className="button button-outline admin-small-button" type="button" disabled={refreshing || filters.page >= pages} onClick={() => navigate({ page: filters.page + 1 })}>Próxima<Icon name="arrow-right" size={16}/></button></nav>
     </div>
     {modal === "add" && <AddStudent turmas={turmas} close={() => setModal(null)} saved={() => refresh("Estudante adicionado à turma.")}/>}
     {modal === "import" && <ImportStudents turmas={turmas} close={() => setModal(null)} saved={refresh}/>}
@@ -62,6 +66,9 @@ export function StudentsList({ result, turmas, owner }: { result: StudentListPag
 
 function StudentPanel({ student, turmas, refreshing, close, saved }: { student: ManagedStudent; turmas: AdminTurma[]; refreshing: boolean; close: () => void; saved: (text: string) => void }) {
   const [selectedTurmas, setSelectedTurmas] = useState(student.turmaIds);
+  const [primaryTurmaId, setPrimaryTurmaId] = useState(student.primaryTurmaId);
+  const [membershipSnapshot, setMembershipSnapshot] = useState({ turmaIds: student.turmaIds, primaryTurmaId: student.primaryTurmaId });
+  const [membershipError, setMembershipError] = useState("");
   const [identity, setIdentity] = useState({ name: student.name, email: student.email });
   const [profileError, setProfileError] = useState(""), [deleteError, setDeleteError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{ name?: string; email?: string }>({});
@@ -72,49 +79,60 @@ function StudentPanel({ student, turmas, refreshing, close, saved }: { student: 
   const canDelete = canEditEmail && student.role === "user";
   const emailChanged = identity.email.trim().toLowerCase() !== student.email;
   const identityChanged = identity.name.trim() !== student.name || emailChanged;
-  const membershipsChanged = selectedTurmas.length !== student.turmaIds.length || selectedTurmas.some(id => !student.turmaIds.includes(id));
+  const membershipsChanged = selectedTurmas.length !== membershipSnapshot.turmaIds.length || selectedTurmas.some(id => !membershipSnapshot.turmaIds.includes(id));
+  const primaryChanged = primaryTurmaId !== membershipSnapshot.primaryTurmaId;
+  const primaryOptions = turmas.filter(turma => selectedTurmas.includes(turma.id)).toSorted((a, b) => b.number - a.number);
   const suspended = student.status === "suspended";
   const turmaOptions = turmas.toSorted((a, b) => Number(student.turmaIds.includes(b.id)) - Number(student.turmaIds.includes(a.id)) || Number(a.archived) - Number(b.archived) || b.number - a.number);
-  async function mutate(body: Record<string, unknown>, text: string) {
+  async function mutate<T>(operation: () => Promise<T>, text: string) {
     setPending(true); setError("");
-    try { const result = await request(`/api/admin/estudantes/${student.id}`, body); saved(text); return result; }
+    try { const result = await operation(); saved(text); return result; }
     catch (error) { setError(message(error)); return null; }
     finally { setPending(false); }
   }
   async function generate() {
     setPending(true); setError("");
-    try { const next = await request(`/api/admin/estudantes/${student.id}`, { action: "access", purpose: student.status === "pending" ? "activation" : "password_reset" }); setGrant(next); saved("Link preparado para envio manual."); }
+    try { const next = await studentsApi.access(student.id, student.status === "pending" ? "activation" : "password_reset"); setGrant(next); saved("Link preparado para envio manual."); }
     catch (error) { setError(message(error)); } finally { setPending(false); }
   }
+  async function saveTurmas() {
+    if (busy) return;
+    setPending(true); setMembershipError(""); setError("");
+    try {
+      const snapshot = await studentsApi.memberships(student.id, { turmaIds: selectedTurmas, primaryTurmaId }, membershipSnapshot);
+      setMembershipSnapshot(snapshot);
+      saved("Participação em turmas atualizada.");
+    } catch (error) { setMembershipError(message(error)); }
+    finally { setPending(false); }
+  }
   async function toggleStatus() {
-    const result = await mutate({ action: "suspend", suspended: !suspended }, suspended ? "Acesso restaurado. O estudante precisa entrar novamente." : "Acesso suspenso. Sessões e links anteriores foram revogados.");
+    const result = await mutate(() => studentsApi.suspend(student.id, !suspended), suspended ? "Acesso restaurado. O estudante precisa entrar novamente." : "Acesso suspenso. Sessões e links anteriores foram revogados.");
     if (result) { setConfirmStatus(false); setGrant(null); }
   }
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setProfileError("");
+    event.preventDefault(); if (pending) return; const form = event.currentTarget; setProfileError("");
     const name = identity.name.trim(), email = identity.email.trim().toLowerCase();
-    const errors = {
-      name: name.length < 2 || name.length > 70 ? "Informe um nome de 2 a 70 caracteres." : undefined,
-      email: email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? "Informe um email válido." : undefined,
-    };
+    const errors = identityErrors(name, email);
     setFieldErrors(errors);
     if (errors.name || errors.email) { (event.currentTarget.elements.namedItem(errors.name ? "name" : "email") as HTMLInputElement).focus(); return; }
     setPending(true);
     try {
-      const result = await request(`/api/admin/estudantes/${student.id}`, { action: "profile", name, email });
+      const result = await studentsApi.profile(student.id, name, email);
       setIdentity({ name: result.name, email: result.email }); setGrant(null);
       saved(result.emailChanged ? "Email atualizado. Os links anteriores foram revogados; gere um novo link de ativação." : "Dados do estudante atualizados.");
-    } catch (error) { setProfileError(message(error)); }
+    } catch (error) {
+      if (error instanceof FormValidationError) { setFieldErrors(error.fieldErrors); focusFirstError(form, error.fieldErrors); }
+      else setProfileError(message(error));
+    }
     finally { setPending(false); }
   }
   async function deleteProfile() {
     setPending(true); setDeleteError("");
-    try { await request(`/api/admin/estudantes/${student.id}`, { action: "delete" }); close(); saved("Cadastro excluído."); }
+    try { await studentsApi.remove(student.id); close(); saved("Cadastro excluído."); }
     catch (error) { setDeleteError(message(error)); }
     finally { setPending(false); }
   }
   const link = student.accessLink;
-  const linkState = { valid: "Há um link válido", expired: "O último link expirou", used: "O último link já foi utilizado", revoked: "O último link foi revogado" };
   return <Dialog title={student.name} description={student.email} close={close} busy={busy} drawer>
     <dl className="admin-student-details"><div><dt>Acesso</dt><dd><StatusBadge student={student}/></dd></div><div><dt>Turmas</dt><dd>{student.turmaNames.join(", ") || "Sem turma"}</dd></div></dl>
     <section className="admin-student-profile"><h3>Dados do estudante</h3>
@@ -124,8 +142,35 @@ function StudentPanel({ student, turmas, refreshing, close, saved }: { student: 
         <ErrorText text={profileError}/><button className="button button-dark" type="submit" disabled={!identityChanged}>Salvar alterações</button>
       </fieldset></form>
     </section>
-    {!student.isDemo && !suspended && <section className="admin-access admin-student-section"><h3>{student.status === "pending" ? "Ativação da conta" : "Definir senha"}</h3><p>{student.status === "pending" ? "O estudante pode usar seu Google cadastrado ou criar uma senha pelo link de ativação." : "O link permite definir uma senha. Quando utilizado, encerra as sessões existentes."}</p>{emailChanged ? <p className="admin-help">Salve o novo email antes de gerar outro link.</p> : link && !grant && <p className="admin-link-state">{linkState[link.state]}{link.state === "valid" ? ` até ${formatAccessExpiry(link.expiresAt)} (horário de Brasília).` : "."}</p>}<div className="admin-inline-actions"><button type="button" className="button button-outline" disabled={busy || emailChanged} onClick={generate}><Icon name="link" size={17}/>{pending ? "Preparando..." : link?.state === "valid" || grant ? "Gerar novo link" : student.status === "pending" ? "Gerar link de ativação" : "Gerar link para definir senha"}</button>{link?.state === "valid" && <button type="button" className="button button-outline" disabled={busy} onClick={async () => { if (await mutate({ action: "revoke-link", grantId: link.id }, "Link revogado.")) setGrant(null); }}>Revogar link</button>}</div>{grant && !emailChanged && <AccessLinkBox grant={grant} name={student.name} activation={student.status === "pending"}/>}</section>}
-    <section className="admin-student-section"><h3>Turmas</h3><p>Selecione as turmas de que esta pessoa participa. Alterar a participação preserva o perfil e a autoria dos projetos.</p><fieldset className="account-fieldset" disabled={busy}><legend className="sr-only">Participação em turmas</legend><div className="admin-candidates admin-turma-options">{turmaOptions.length ? turmaOptions.map(turma => <label key={turma.id} className="admin-candidate"><input type="checkbox" checked={selectedTurmas.includes(turma.id)} onChange={event => setSelectedTurmas(current => event.target.checked ? [...current, turma.id] : current.filter(id => id !== turma.id))}/><span><strong>{turma.name}{turma.archived ? " · Arquivada" : ""}</strong><small>{[turma.courseName, turma.startYear].filter(Boolean).join(" · ")}</small></span></label>) : <p className="admin-help">Crie uma turma para adicionar esta pessoa.</p>}</div>{!selectedTurmas.length && <p className="admin-help">Sem turma, a conta mantém o acesso, mas não pode publicar novos projetos.</p>}<button type="button" className="button button-dark" disabled={!membershipsChanged} onClick={() => mutate({ action: "turmas", turmaIds: selectedTurmas }, "Participação em turmas atualizada.")}>Salvar turmas</button></fieldset></section>
+    {!student.isDemo && !suspended && <section className="admin-access admin-student-section"><h3>{student.status === "pending" ? "Ativação da conta" : "Definir senha"}</h3><p>{student.status === "pending" ? "O estudante pode usar seu Google cadastrado ou criar uma senha pelo link de ativação." : "O link permite definir uma senha. Quando utilizado, encerra as sessões existentes."}</p>{emailChanged ? <p className="admin-help">Salve o novo email antes de gerar outro link.</p> : link && !grant && <AccessLinkStatus link={link}/>}<div className="admin-inline-actions"><button type="button" className="button button-outline" disabled={busy || emailChanged} onClick={generate}><Icon name="link" size={17}/>{pending ? "Preparando..." : link?.state === "valid" || grant ? "Gerar novo link" : student.status === "pending" ? "Gerar link de ativação" : "Gerar link para definir senha"}</button>{link?.state === "valid" && <button type="button" className="button button-outline" disabled={busy} onClick={async () => { if (await mutate(() => studentsApi.revoke(student.id, link.id), "Link revogado.")) setGrant(null); }}>Revogar link</button>}</div>{grant && !emailChanged && <AccessLinkBox grant={grant} name={student.name} activation={student.status === "pending"}/>}</section>}
+    <section className="admin-student-section">
+      <h3>Turmas</h3>
+      <p>Selecione as turmas de que esta pessoa participa. Alterar a participação preserva o perfil e a autoria dos projetos.</p>
+      <fieldset className="account-fieldset" disabled={busy}>
+        <legend className="sr-only">Participação em turmas</legend>
+        <div className="admin-candidates admin-turma-options">
+          {turmaOptions.length ? turmaOptions.map(turma => <label key={turma.id} className="admin-candidate">
+            <input type="checkbox" checked={selectedTurmas.includes(turma.id)} onChange={event => {
+              const checked = event.target.checked;
+              setSelectedTurmas(current => checked ? [...current, turma.id] : current.filter(id => id !== turma.id));
+              if (!checked && primaryTurmaId === turma.id) setPrimaryTurmaId(null);
+            }}/>
+            <span><strong>{turma.name}{turma.archived ? " · Arquivada" : ""}</strong><small>{[turma.courseName, turma.startYear].filter(Boolean).join(" · ")}</small></span>
+          </label>) : <p className="admin-help">Crie uma turma para adicionar esta pessoa.</p>}
+        </div>
+        {primaryOptions.length > 1 && <div className="form-field">
+          <label htmlFor="student-primary-turma">Turma principal</label>
+          <select id="student-primary-turma" value={primaryTurmaId || ""} onChange={event => setPrimaryTurmaId(event.target.value || null)} aria-describedby="student-primary-turma-help">
+            <option value="">Automática — {primaryOptions[0].name}</option>
+            {primaryOptions.map(turma => <option key={turma.id} value={turma.id}>{turma.name}</option>)}
+          </select>
+          <small id="student-primary-turma-help">Exibida no perfil público. Na opção automática, usamos a turma de maior número.</small>
+        </div>}
+        {!selectedTurmas.length && <p className="admin-help">Sem turma, a conta mantém o acesso, mas não pode publicar novos projetos.</p>}
+        <button type="button" className="button button-dark" disabled={!membershipsChanged && !primaryChanged} onClick={saveTurmas}>Salvar turmas</button>
+        <ErrorText text={membershipError}/>
+      </fieldset>
+    </section>
     {!student.isDemo && student.role === "user" && <section className="admin-student-section"><h3>Acesso à conta</h3><p>{suspended ? "O acesso está suspenso. Restaurar permite entrar novamente; uma conta ainda não ativada continuará pendente." : "Suspender bloqueia o acesso e revoga sessões e links. Perfil, turmas, projetos e créditos são mantidos."}</p>{confirmStatus ? <><p className="admin-status-confirm">{suspended ? "Restaurar o acesso desta pessoa?" : "Suspender o acesso desta pessoa?"}</p><div className="admin-inline-actions"><button type="button" className="button button-outline" disabled={busy} onClick={() => setConfirmStatus(false)}>Cancelar</button><button type="button" className={`button ${suspended ? "button-dark" : "button-outline admin-danger"}`} disabled={busy} onClick={toggleStatus}>{pending ? "Salvando..." : suspended ? "Confirmar restauração" : "Confirmar suspensão"}</button></div></> : <button type="button" className={`button button-outline ${suspended ? "" : "admin-danger"}`} disabled={busy} onClick={() => setConfirmStatus(true)}>{suspended ? "Restaurar acesso" : "Suspender acesso"}</button>}</section>}
     {canDelete && <section className="admin-student-section"><h3>Excluir cadastro</h3>{confirmDelete ? <><p>Excluir o cadastro de <strong>{student.name}</strong> ({student.email})? A participação em todas as turmas e os links de ativação serão removidos. Esta ação não pode ser desfeita.</p><div className="admin-inline-actions"><button type="button" className="button button-outline" disabled={busy} onClick={() => { setConfirmDelete(false); setDeleteError(""); }}>Cancelar</button><button type="button" className="button button-outline admin-danger" disabled={busy} onClick={deleteProfile}>{pending ? "Excluindo..." : "Confirmar exclusão"}</button></div></> : <><p>Remova um cadastro incorreto antes da ativação da conta.</p><button type="button" className="button button-outline admin-danger" disabled={busy} onClick={() => setConfirmDelete(true)}><Icon name="trash" size={17}/>Excluir cadastro</button></>}<ErrorText text={deleteError}/></section>}
     <ErrorText text={error}/>

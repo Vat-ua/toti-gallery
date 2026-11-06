@@ -1,10 +1,13 @@
 import sharp from "sharp";
 import { validateImageFile, type ImageKind } from "./image-policy";
+import { FormValidationError } from "./form-validation";
 
 const MAX_PIXELS = 25_000_000;
 
 export async function processImage(file: File, kind: ImageKind) {
-  validateImageFile(file);
+  const field = kind === "avatar" ? "avatar" : "imageUrl";
+  try { validateImageFile(file); }
+  catch (error) { throw new FormValidationError({ [field]: error instanceof Error ? error.message : "Use uma imagem JPG, PNG ou WebP." }); }
   const bytes = Buffer.from(await file.arrayBuffer());
   try {
     const source = sharp(bytes, { limitInputPixels: MAX_PIXELS, failOn: "warning" });
@@ -22,6 +25,6 @@ export async function processImage(file: File, kind: ImageKind) {
       .webp({ quality: 82 }).toBuffer({ resolveWithObject: true }) : null;
     return { image, thumbnail: thumbnail ? { data: thumbnail.data, width: thumbnail.info.width, height: thumbnail.info.height } : null };
   } catch {
-    throw new Error("Não foi possível ler a imagem. Use um JPG, PNG ou WebP estático de até 25 megapixels.");
+    throw new FormValidationError({ [field]: "Não foi possível ler a imagem. Use um JPG, PNG ou WebP estático de até 25 megapixels." });
   }
 }

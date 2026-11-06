@@ -24,7 +24,7 @@ async function fixture(role = "user", status = "active") {
   return id;
 }
 before(async () => {
-  config({ path: ".env.admin-test", override: true, quiet: true });
+  config({ path: process.env.GALLERY_ADMIN_TEST_ENV_FILE || ".env.admin-test", override: true, quiet: true });
   delete process.env.VERCEL_ENV; delete process.env.GALLERY_ALLOW_PRODUCTION_DATABASE;
   assertRuntimeTarget(process.env.DATABASE_URL!);
   ({ pool } = await import("../src/db"));

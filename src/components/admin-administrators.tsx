@@ -1,15 +1,16 @@
 "use client";
 
+import { FormValidationError, identityErrors } from "@/lib/form-validation";
+import { focusFirstError } from "./form-feedback";
+
 import { useEffect, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { AdministratorCandidate, ManagedAdministrator } from "@/lib/admin-types";
-import { formatAccessExpiry } from "@/lib/access-message";
 import { Avatar, useToast } from "./ui";
 import { Icon } from "./icon";
-import { AccessLinkBox, Dialog, ErrorText, Search, message, normalize, request, statusText } from "./admin-turmas";
+import { AccessLinkBox, AccessLinkStatus, Dialog, ErrorText, Search } from "./admin-ui";
+import { message, normalize, administratorsApi, statusText, type Grant, type AddedAdministrator } from "@/lib/admin-client";
 
-type Grant = { url: string; expiresAt: string };
-type AddedAdministrator = { id: string; name: string; email: string; grant: Grant | null };
 
 function StatusBadge({ status }: { status: ManagedAdministrator["status"] }) {
   return <span className={`admin-badge is-${status}`}>{statusText[status]}</span>;
@@ -53,31 +54,29 @@ function AddAdministrator({ close, saved }: { close: () => void; saved: (text: s
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const response = await fetch(`/api/admin/administradores?q=${encodeURIComponent(search)}`, { signal: controller.signal });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Não foi possível buscar os perfis.");
-        if (!controller.signal.aborted) { setCandidates({ query: search, people: data.candidates }); setLookupError(""); }
+        const people = await administratorsApi.candidates(search, controller.signal);
+        if (!controller.signal.aborted) { setCandidates({ query: search, people }); setLookupError(""); }
       } catch (error) { if (!controller.signal.aborted) setLookupError(message(error)); }
     }, 300);
     return () => { clearTimeout(timer); controller.abort(); };
   }, [mode, added, search, attempt]);
   function changeMode(value: "existing" | "new") { setMode(value); setError(""); setFieldErrors({}); }
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setError("");
+    event.preventDefault(); if (pending) return; const form = event.currentTarget; setError("");
     if (mode === "new") {
-      const errors = {
-        name: name.trim().length < 2 || name.trim().length > 70 ? "Informe um nome de 2 a 70 caracteres." : undefined,
-        email: email.trim().length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ? "Informe um email válido." : undefined,
-      };
+      const errors = identityErrors(name, email);
       setFieldErrors(errors);
       if (errors.email || errors.name) { (event.currentTarget.elements.namedItem(errors.email ? "email" : "name") as HTMLInputElement).focus(); return; }
     } else if (!chosen) return;
     setPending(true);
     try {
-      const result: AddedAdministrator = await request("/api/admin/administradores", mode === "new" ? { action: "create", name, email } : { action: "promote", userId: chosen!.id });
+      const result: AddedAdministrator = await (mode === "new" ? administratorsApi.create(name, email) : administratorsApi.promote(chosen!.id));
       saved(result.grant ? "Administrador adicionado. Compartilhe o link de ativação." : "Acesso administrativo concedido. A pessoa precisa entrar novamente.");
       if (result.grant) setAdded(result); else close();
-    } catch (error) { setError(message(error)); }
+    } catch (error) {
+      if (error instanceof FormValidationError) { setFieldErrors(error.fieldErrors); focusFirstError(form, error.fieldErrors); }
+      else setError(message(error));
+    }
     finally { setPending(false); }
   }
   return <Dialog title={added ? "Ativação da conta" : "Adicionar administrador"} description={added ? `${added.name} · ${added.email}` : undefined} close={close} busy={pending} drawer>
@@ -110,27 +109,26 @@ function AdministratorPanel({ person, refreshing, close, saved }: { person: Mana
   const [confirmRemove, setConfirmRemove] = useState(false), [grant, setGrant] = useState<Grant | null>(null);
   const busy = pending || refreshing, link = person.accessLink;
   const activation = person.status === "pending";
-  const linkState = { valid: "Há um link válido", expired: "O último link expirou", used: "O último link já foi utilizado", revoked: "O último link foi revogado" };
-  async function mutate(body: Record<string, unknown>, text: string) {
+  async function mutate<T>(operation: () => Promise<T>, text: string) {
     setPending(true); setError("");
-    try { const result = await request(`/api/admin/administradores/${person.id}`, body); saved(text); return result; }
+    try { const result = await operation(); saved(text); return result; }
     catch (error) { setError(message(error)); return null; }
     finally { setPending(false); }
   }
   async function generate() {
-    const result = await mutate({ action: "access", purpose: activation ? "activation" : "password_reset" }, "Link preparado para envio manual.");
+    const result = await mutate(() => administratorsApi.access(person.id, activation ? "activation" : "password_reset"), "Link preparado para envio manual.");
     if (result) setGrant(result);
   }
   async function remove() {
-    if (await mutate({ action: "remove" }, "Acesso administrativo removido. Perfil e projetos preservados.")) close();
+    if (await mutate(() => administratorsApi.remove(person.id), "Acesso administrativo removido. Perfil e projetos preservados.")) close();
   }
   return <Dialog title={person.name} description={person.email} close={close} busy={busy} drawer>
     <dl className="admin-student-details"><div><dt>Permissão</dt><dd>Administrador</dd></div><div><dt>Acesso</dt><dd><StatusBadge status={person.status}/></dd></div></dl>
     {person.status !== "suspended" && <section className="admin-access">
       <h3>{activation ? "Ativação da conta" : "Definir senha"}</h3>
       <p>{activation ? "A pessoa pode entrar com seu Google cadastrado ou criar uma senha pelo link de ativação." : "O link permite definir uma senha e encerra as sessões existentes quando utilizado."}</p>
-      {link && !grant && <p className="admin-link-state">{linkState[link.state]}{link.state === "valid" ? ` até ${formatAccessExpiry(link.expiresAt)} (horário de Brasília).` : "."}</p>}
-      <div className="admin-inline-actions"><button type="button" className="button button-outline" disabled={busy} onClick={generate}><Icon name="link" size={17}/>{link?.state === "valid" || grant ? "Gerar novo link" : activation ? "Gerar link de ativação" : "Gerar link para definir senha"}</button>{link?.state === "valid" && <button type="button" className="button button-outline" disabled={busy} onClick={async () => { if (await mutate({ action: "revoke-link", grantId: link.id }, "Link revogado.")) setGrant(null); }}>Revogar link</button>}</div>
+      {link && !grant && <AccessLinkStatus link={link}/>}
+      <div className="admin-inline-actions"><button type="button" className="button button-outline" disabled={busy} onClick={generate}><Icon name="link" size={17}/>{link?.state === "valid" || grant ? "Gerar novo link" : activation ? "Gerar link de ativação" : "Gerar link para definir senha"}</button>{link?.state === "valid" && <button type="button" className="button button-outline" disabled={busy} onClick={async () => { if (await mutate(() => administratorsApi.revoke(person.id, link.id), "Link revogado.")) setGrant(null); }}>Revogar link</button>}</div>
       {grant && <AccessLinkBox grant={grant} name={person.name} activation={activation}/>}
     </section>}
     <section className="admin-student-section"><h3>Acesso administrativo</h3>

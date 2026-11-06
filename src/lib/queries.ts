@@ -1,26 +1,53 @@
 import { db } from "@/db";
 import { users, projects, likes, projectAuthors, turmaMembers, turmas } from "@/db/schema";
-import { and, eq, desc, count, or, inArray } from "drizzle-orm";
+import { and, eq, desc, count, or, inArray, type SQL } from "drizzle-orm";
 import { cookies } from "next/headers";
 import type { Project, Person } from "./types";
 
+const personFields = { id: users.id, slug: users.slug, name: users.name, bio: users.bio, avatar: users.image, github: users.github, linkedin: users.linkedin, primaryTurmaId: users.primaryTurmaId };
+type ProfileRow = Omit<Person, "turmaId" | "cohort" | "cohorts" | "courseName" | "year"> & { primaryTurmaId: string | null };
+type ProfileTurma = { id: string; name: string; courseName: string | null; startYear: number | null };
+
+function publicPerson({ primaryTurmaId, ...person }: ProfileRow, groups: ProfileTurma[]): Person {
+  const primary = groups.find(group => group.id === primaryTurmaId) || groups[0];
+  return { ...person, turmaId: primary?.id || null, cohort: primary?.name || "Sem turma",
+    cohorts: groups.map(group => group.name), courseName: primary?.courseName || null, year: primary?.startYear || 0 };
+}
+
 async function peopleRows(includePending = false): Promise<Person[]> {
-  const rows = await db.select({ id: users.id, name: users.name, bio: users.bio, avatar: users.image, github: users.github,
-    turmaId: turmas.id, cohort: turmas.name, year: turmas.graduationYear })
-    .from(users).leftJoin(turmaMembers, eq(turmaMembers.userId, users.id)).leftJoin(turmas, eq(turmas.id, turmaMembers.turmaId))
-    .where(includePending ? undefined : or(eq(users.emailVerified, true), eq(users.isDemo, true)))
-    .orderBy(users.name, turmaMembers.joinedAt, turmas.id);
-  const result = new Map<string, Person>();
-  // A primary display turma keeps existing UI coherent until the stage 3 multi-turma UI.
-  for (const row of rows) if (!result.has(row.id)) result.set(row.id, { ...row, cohort: row.cohort || "Sem turma", year: row.year || 0 });
-  return [...result.values()];
+  const [rows, memberships] = await Promise.all([
+    db.select(personFields)
+      .from(users).where(includePending ? undefined : or(eq(users.emailVerified, true), eq(users.isDemo, true))).orderBy(users.name, users.id),
+    db.select({ userId: turmaMembers.userId, id: turmas.id, name: turmas.name, number: turmas.number, courseName: turmas.courseName, startYear: turmas.startYear })
+      .from(turmaMembers).innerJoin(turmas, eq(turmas.id, turmaMembers.turmaId)).orderBy(desc(turmas.number)),
+  ]);
+  const byUser = new Map<string, typeof memberships>();
+  for (const membership of memberships) {
+    const groups = byUser.get(membership.userId) || [];
+    groups.push(membership); byUser.set(membership.userId, groups);
+  }
+  return rows.map(person => publicPerson(person, byUser.get(person.id) || []));
+}
+
+async function findPerson(where: SQL, connection: Pick<typeof db, "select">): Promise<Person | null> {
+  // Fetch only this person's memberships in one round trip, including no-turma profiles.
+  const rows = await connection.select({ person: personFields, turma: {
+    id: turmas.id, name: turmas.name, courseName: turmas.courseName, startYear: turmas.startYear,
+  } }).from(users)
+    .leftJoin(turmaMembers, eq(turmaMembers.userId, users.id))
+    .leftJoin(turmas, eq(turmas.id, turmaMembers.turmaId))
+    .where(and(where, or(eq(users.emailVerified, true), eq(users.isDemo, true))))
+    .orderBy(desc(turmas.number));
+  if (!rows.length) return null;
+  return publicPerson(rows[0].person, rows.flatMap(row => row.turma ? [row.turma] : []));
 }
 
 export async function getPeople() { return peopleRows(); }
 export async function getCommunityPeople() {
   return (await getPeople()).filter(person => person.turmaId !== null);
 }
-export async function getPerson(id: string) { return (await peopleRows()).find(person => person.id === id) || null; }
+export async function getPerson(id: string, connection: Pick<typeof db, "select"> = db) { return findPerson(eq(users.id, id), connection); }
+export async function getPersonBySlug(slug: string, connection: Pick<typeof db, "select"> = db) { return findPerson(eq(users.slug, slug), connection); }
 
 export async function getPublicationTurmas(userId: string) {
   return db.select({ id: turmas.id, name: turmas.name, number: turmas.number, courseName: turmas.courseName })
@@ -31,11 +58,11 @@ export async function getPublicationTurmas(userId: string) {
 export async function getCoauthorCandidates(turmaId: string | string[]) {
   const ids = typeof turmaId === "string" ? [turmaId] : turmaId;
   if (!ids.length) return [];
-  return db.select({ id: users.id, name: users.name, bio: users.bio, avatar: users.image, github: users.github,
-    turmaId: turmas.id, cohort: turmas.name, year: turmas.graduationYear })
+  return db.select({ id: users.id, slug: users.slug, name: users.name, bio: users.bio, avatar: users.image, github: users.github, linkedin: users.linkedin,
+    turmaId: turmas.id, cohort: turmas.name, courseName: turmas.courseName, year: turmas.startYear })
     .from(turmaMembers).innerJoin(users, eq(users.id, turmaMembers.userId)).innerJoin(turmas, eq(turmas.id, turmaMembers.turmaId))
     .where(and(inArray(turmaMembers.turmaId, ids), eq(users.status, "active"), eq(users.emailVerified, true), eq(users.isDemo, false))).orderBy(users.name)
-    .then(rows => rows.map(row => ({ ...row, year: row.year || 0 })));
+    .then(rows => rows.map(row => ({ ...row, cohorts: [row.cohort], year: row.year || 0 })));
 }
 
 export async function getProjects(options: { participantId?: string } = {}): Promise<Project[]> {
@@ -60,7 +87,7 @@ export async function getProjects(options: { participantId?: string } = {}): Pro
     const author = { ...personById.get(project.authorId)!, cohort };
     // Deliberate public projection: moderation actor/reason and email stay private.
     return {
-      id: project.id, slug: project.slug, title: project.title, description: project.description,
+      id: project.id, version: project.version, slug: project.slug, title: project.title, description: project.description,
       technologies: project.technologies, coverStyle: project.coverStyle, imageUrl: project.imageUrl, coverFraming: project.coverFraming,
       githubUrl: project.githubUrl, liveUrl: project.liveUrl, featured: project.featured,
       isFinal: project.isFinal, turmaId: project.turmaId, author,

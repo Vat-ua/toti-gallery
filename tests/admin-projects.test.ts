@@ -19,7 +19,7 @@ async function snapshot() {
   return result;
 }
 before(async () => {
-  config({ path: ".env.admin-test", override: true, quiet: true });
+  config({ path: process.env.GALLERY_ADMIN_TEST_ENV_FILE || ".env.admin-test", override: true, quiet: true });
   delete process.env.VERCEL_ENV; delete process.env.GALLERY_ALLOW_PRODUCTION_DATABASE;
   ({ pool } = await import("../src/db"));
   await assertDatabaseTarget(pool, process.env, "test");

@@ -36,7 +36,7 @@ for initial access.
 ```sh
 npm run typecheck
 npm run lint
-npm run test:database-target
+npm run test:unit
 ```
 
 These checks do not require a database connection. Authentication and admin
@@ -44,3 +44,6 @@ tests write fixtures and require an isolated `test/*` database. Follow the
 [auth test setup](docs/authentication.md#development-and-isolated-tests) before
 `npm run test:auth`, and the [admin test setup](docs/administration.md#checks)
 before `npm run test:admin`.
+
+See [regression checks and browser smoke tests](docs/testing.md) for CI and local
+smoke setup.

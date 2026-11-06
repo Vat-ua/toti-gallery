@@ -43,15 +43,16 @@ not additional production migrations.
 
 `20261027_stage3_owner.sql` adds the `owner` role and enforces a single owner.
 Existing-account promotion uses an explicitly selected active administrator ID;
-see [Administration](../docs/administration.md). It is currently applied only to
-development and its isolated test copy, not production.
+see [Administration](../docs/administration.md). Applied to development and
+production after isolated verification. Production received only the schema
+changes; existing administrator roles were preserved.
 
 `20261027_turma_details.sql` adds unique turma numbers, course names and start
 years. Only numbers are backfilled from existing labels; unknown course/start-year
 values remain null, and historical graduation years are retained. New group saves
 require all three fields. The guarded development/test runner snapshots all
 original rows and verifies that they are preserved. Applied to development and
-its isolated test copy only; see [Administration](../docs/administration.md).
+production after isolated verification; see [Administration](../docs/administration.md).
 
 `20261028_image_storage.sql` adds nullable JSON metadata to profile photos and
 project covers. Existing URLs, profiles and projects remain unchanged. Test it
@@ -59,8 +60,41 @@ on a temporary branch before applying it with
 `node scripts/migrate-image-storage.cjs --env-file=.env.local`. The guarded runner
 refuses production, saves an ignored snapshot, and verifies all original rows
 inside the migration transaction. See [Image storage](../docs/image-storage.md).
+Applied to development and production after isolated verification.
 
 `20261028_cover_framing.sql` adds nullable project display settings without
 changing existing images or rows. Verify it on a test copy, then use the same
 guarded runner with `--framing` for development. Null preserves the original
-top-center placement at 100% zoom; production remains a separately approved step.
+top-center placement at 100% zoom. Applied to development and production after
+isolated verification and approval.
+
+`20261104_public_profiles.sql` adds stable unique public-profile slugs and an
+optional primary turma. Existing profiles receive readable slugs; IDs, original
+columns, accounts, memberships, projects, credits and likes are preserved. Null
+primary turma means the highest-numbered current membership. New application
+provisioning allocates a name-based slug; the database default is a unique fallback
+for direct inserts. Existing ID URLs are not supported by the new profile route.
+Verify it on an isolated development copy, then run
+`node scripts/migrate-public-profiles.cjs --env-file=.env.local` for development.
+The runner refuses production and checks data preservation inside the transaction.
+Applied to development and production after isolated verification. Production
+received this migration on 2026-11-06; publishing the updated code is a separate
+release step.
+
+`20261104_profile_linkedin.sql` adds an optional LinkedIn URL without changing
+existing records. Verify it on an isolated copy, then use
+`node scripts/migrate-public-profiles.cjs --linkedin --env-file=.env.local` for
+development. The same target and data-preservation checks apply. Applied to
+development and production after isolated verification. Production received this
+and the public-profile migration on 2026-11-06 without deploying new code.
+
+`20261105_project_save_guards.sql` adds a positive project `version` (existing
+projects start at 1) and durable owner-scoped creation receipts. It preserves all
+existing columns, rows and relationships. Receipts deliberately retain publication
+IDs after deletion, preventing old creation requests from recreating projects.
+Test with `node scripts/migrate-project-save-guards.cjs --env-file=PATH_TO_TEST_ENV`,
+then use the same guarded runner with `.env.local` for development. Production is
+rejected by the runner. Applied to production on 2026-11-06 after isolated
+verification and a verified database/image backup. All three release migrations
+committed together, preserving existing data; the dependent code is published
+separately.

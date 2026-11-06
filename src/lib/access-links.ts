@@ -5,8 +5,9 @@ import { db } from "@/db";
 import { accounts, authSessions, invitations, users } from "@/db/schema";
 import { authSettings } from "./auth-settings";
 import { canManageAccount, isStaff } from "./permissions";
+import { PublicError } from "./errors";
 
-export class AccessError extends Error {
+export class AccessError extends PublicError {
   constructor(message = "Este link é inválido, expirou ou já foi usado.") { super(message); }
 }
 export type AccessPurpose = "activation" | "password_reset";
@@ -37,9 +38,9 @@ export async function issueGrant(tx: Transaction, actorId: string, userId: strin
 export async function createAccessLink(actorId: string, userId: string, purpose: AccessPurpose) {
   if (!["activation", "password_reset"].includes(purpose)) throw new AccessError("Finalidade inválida.");
   return db.transaction(async tx => {
-    const [actor] = await tx.select().from(users).where(eq(users.id, actorId)).for("share").limit(1);
+    const [actor] = await tx.select().from(users).where(eq(users.id, actorId)).for(actorId === userId ? "update" : "share").limit(1);
     if (!actor || !isStaff(actor.role) || actor.isDemo || actor.status !== "active") throw new AccessError("Acesso restrito à administração.");
-    const [user] = await tx.select().from(users).where(eq(users.id, userId)).for("update").limit(1);
+    const [user] = await tx.select().from(users).where(and(eq(users.id, userId), actor.role === "owner" ? undefined : eq(users.role, "user"))).for("update").limit(1);
     if (!user || !canManageAccount(actor, user) || !eligible(user) || (purpose === "activation" ? user.status !== "pending" : user.status !== "active")) throw new AccessError("Não é possível criar este link para a conta selecionada.");
     return issueGrant(tx, actorId, userId, purpose);
   });

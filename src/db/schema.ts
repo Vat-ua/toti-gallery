@@ -10,6 +10,8 @@ import { bigint, boolean, check, index, integer, jsonb, pgTable, primaryKey, tex
 
 export const users = pgTable("gallery_users", {
   id: text("id").primaryKey(),
+  slug: text("slug").notNull().default(sql`('pessoa-' || replace(gen_random_uuid()::text, '-', ''))`),
+  primaryTurmaId: text("primary_turma_id").references(() => turmas.id, { onDelete: "set null" }),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
@@ -17,6 +19,7 @@ export const users = pgTable("gallery_users", {
   imageMetadata: jsonb("avatar_metadata").$type<ImageMetadata>(),
   bio: text("bio").notNull().default(""),
   github: text("github"),
+  linkedin: text("linkedin"),
   role: text("role").$type<Role>().notNull().default("user"),
   status: text("status").$type<"pending" | "active" | "suspended">().notNull().default("pending"),
   isDemo: boolean("is_demo").notNull().default(false),
@@ -27,6 +30,9 @@ export const users = pgTable("gallery_users", {
   cohort: text("cohort"),
   year: integer("year"),
 }, table => [
+  uniqueIndex("gallery_users_slug_idx").on(table.slug),
+  check("gallery_users_slug_check", sql`${table.slug} ~ '^[a-z0-9]+(-[a-z0-9]+)*$' and length(${table.slug}) <= 120`),
+  index("gallery_users_primary_turma_idx").on(table.primaryTurmaId),
   uniqueIndex("gallery_users_email_normalized_idx").on(sql`lower(btrim(${table.email}))`),
   check("gallery_users_role_check", sql`${table.role} in ('user', 'admin', 'owner')`),
   uniqueIndex("gallery_users_single_owner_idx").on(table.role).where(sql`${table.role} = 'owner'`),
@@ -131,6 +137,7 @@ export const invitations = pgTable("gallery_invitations", {
 
 export const projects = pgTable("gallery_projects", {
   id: text("id").primaryKey(),
+  version: integer("version").notNull().default(1),
   slug: text("slug").notNull().unique(),
   title: text("title").notNull(),
   description: text("description").notNull(),
@@ -154,9 +161,24 @@ export const projects = pgTable("gallery_projects", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, table => [
+  check("gallery_projects_version_check", sql`${table.version} > 0`),
   index("gallery_projects_turma_id_idx").on(table.turmaId),
   check("gallery_projects_visibility_check", sql`${table.visibility} in ('published', 'hidden')`),
   check("gallery_projects_hidden_reason_check", sql`${table.visibility} <> 'hidden' or (length(btrim(coalesce(${table.moderationReason}, ''))) > 0 and ${table.moderatedBy} is not null and ${table.moderatedAt} is not null)`),
+]);
+
+// Durable creation receipts, retained after project deletion to prevent replay.
+// projectId intentionally has no FK: a deleted publication must not erase its receipt.
+export const projectCreations = pgTable("gallery_project_creations", {
+  authorId: text("author_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+  requestId: text("request_id").notNull(),
+  fingerprint: text("fingerprint").notNull(),
+  projectId: text("project_id").notNull(),
+  slug: text("slug").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, table => [
+  primaryKey({ columns: [table.authorId, table.requestId] }),
+  check("gallery_project_creations_fingerprint_check", sql`${table.fingerprint} ~ '^[0-9a-f]{64}$'`),
 ]);
 
 export const projectAuthors = pgTable("gallery_project_authors", {

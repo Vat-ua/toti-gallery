@@ -1,10 +1,11 @@
 "use client";
 
+import { useDemoMode } from "./demo-mode";
+
 import Link from "next/link";
 import {
   useDeferredValue,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -12,11 +13,11 @@ import {
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { Project } from "@/lib/types";
 import { Icon } from "./icon";
+import { BrandSymbol } from "./brand-symbol";
 import { ProjectCard } from "./project-card";
 import { SortMenu } from "./sort-menu";
-import { galleryFilterParams } from "@/lib/gallery-filters";
 import { useGalleryFilters } from "./use-gallery-filters";
-import { useDropdownPosition } from "./use-dropdown-position";
+import { Popover } from "./popover";
 
 const normalize = (value: string) =>
   value
@@ -31,6 +32,7 @@ const filterGroups = [
 ] as const;
 
 export function Gallery({ projects }: { projects: Project[] }) {
+  const demo = useDemoMode().active;
   const cohorts = useMemo(() => {
     return [
       ...new Set(
@@ -59,28 +61,20 @@ export function Gallery({ projects }: { projects: Project[] }) {
     }),
     [cohorts, techOptions],
   );
-  const { filters, updateFilters, changeQuery, flushQuery } =
+  const { filters, updateFilters, changeQuery, flushQuery, changePage } =
     useGalleryFilters(filterOptions);
-  const { query, cohort, techs, sort, featured, finalOnly } = filters;
+  const { query, cohort, techs, sort, finalOnly, page } = filters;
   const search = useDeferredValue(query);
-  const filterKey = galleryFilterParams(filters).toString();
-  const [page, setPage] = useState({ key: filterKey, visible: PAGE_SIZE });
-  const visible = page.key === filterKey ? page.visible : PAGE_SIZE;
-  if (page.key !== filterKey) setPage({ key: filterKey, visible: PAGE_SIZE });
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filterGroup, setFilterGroup] = useState<"cohort" | "technology">(
     "cohort",
   );
   const searchRef = useRef<HTMLInputElement>(null);
-  const filtersButtonRef = useRef<HTMLButtonElement>(null);
   const filterTabsRef = useRef<HTMLDivElement>(null);
-  const filterPanelRef = useRef<HTMLDivElement>(null);
-  useDropdownPosition(filtersOpen, filtersButtonRef, filterPanelRef);
   const hasFilters = !!(
     query ||
     cohort ||
     techs.length ||
-    featured ||
     finalOnly
   );
   const activeFilterCount =
@@ -102,42 +96,6 @@ export function Gallery({ projects }: { projects: Project[] }) {
     return () => document.removeEventListener("keydown", shortcut);
   }, []);
 
-  useLayoutEffect(() => {
-    if (!filtersOpen) return;
-    filterTabsRef.current
-      ?.querySelector<HTMLButtonElement>('[aria-selected="true"]')
-      ?.focus({ preventScroll: true });
-  }, [filtersOpen]);
-
-  useEffect(() => {
-    if (!filtersOpen) return;
-    function outside(event: Event) {
-      const target = event.target;
-      if (
-        target instanceof Node &&
-        !filterPanelRef.current?.contains(target) &&
-        !filtersButtonRef.current?.contains(target)
-      ) {
-        setFiltersOpen(false);
-      }
-    }
-    function escape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setFiltersOpen(false);
-        filtersButtonRef.current?.focus();
-      }
-    }
-    document.addEventListener("pointerdown", outside);
-    document.addEventListener("focusin", outside);
-    document.addEventListener("keydown", escape);
-    return () => {
-      document.removeEventListener("pointerdown", outside);
-      document.removeEventListener("focusin", outside);
-      document.removeEventListener("keydown", escape);
-    };
-  }, [filtersOpen]);
-
   const filtered = useMemo(
     () =>
       projects
@@ -149,7 +107,6 @@ export function Gallery({ projects }: { projects: Project[] }) {
             (!search || text.includes(normalize(search))) &&
             (!cohort ||
               project.authors.some((author) => author.cohort === cohort)) &&
-            (!featured || project.featured) &&
             (!finalOnly || project.isFinal) &&
             techs.every((tech) => project.technologies.includes(tech))
           );
@@ -162,17 +119,16 @@ export function Gallery({ projects }: { projects: Project[] }) {
               : new Date(b.createdAt).getTime() -
                 new Date(a.createdAt).getTime(),
         ),
-    [projects, search, cohort, featured, finalOnly, techs, sort],
+    [projects, search, cohort, finalOnly, techs, sort],
   );
-
-  const featuredCount = projects.filter((project) => project.featured).length;
+  const loadedPage = Math.min(page, Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)));
+  const visible = loadedPage * PAGE_SIZE;
 
   function clear() {
     updateFilters({
       query: "",
       cohort: "",
       techs: [],
-      featured: false,
       finalOnly: false,
     });
   }
@@ -208,12 +164,18 @@ export function Gallery({ projects }: { projects: Project[] }) {
       <section className="hero container" aria-labelledby="hero-title">
         <div className="hero-copy">
           <h1 id="hero-title">
-            Projetos de quem <em>aprende fazendo</em>.
+            Projetos de quem <em>aprende fazendo</em><span className="hero-title-dot">.</span>
           </h1>
+        </div>
+        <div className="hero-summary">
           <p className="hero-lead">
             Explore exercícios, experimentos e aplicações completas. Inspire-se
             no trabalho de outras pessoas e compartilhe o seu.
           </p>
+          <Link href={demo ? "/demo/novo" : "/meus-projetos/novo"} className="button hero-publish">
+            <Icon name="plus" size={18}/>
+            Publicar projeto
+          </Link>
         </div>
       </section>
 
@@ -222,34 +184,32 @@ export function Gallery({ projects }: { projects: Project[] }) {
         id="projetos"
         aria-labelledby="gallery-title"
       >
-        <div className="gallery-head">
-          <h2 id="gallery-title">
-            Projetos<span className="gallery-title-dot">.</span>
-          </h2>
-          <div
-            className="view-tabs"
-            role="group"
-            aria-label="Filtrar por destaque"
+        <h2 id="gallery-title" className="sr-only">Projetos</h2>
+        <div
+          className="view-tabs"
+          role="group"
+          aria-label="Filtrar projetos"
+        >
+          <button
+            type="button"
+            className={!finalOnly ? "view-tab is-active" : "view-tab"}
+            aria-pressed={!finalOnly}
+            onClick={() => {
+              updateFilters({ finalOnly: false });
+            }}
           >
-            <button
-              className={!featured ? "view-tab is-active" : "view-tab"}
-              aria-pressed={!featured}
-              onClick={() => {
-                updateFilters({ featured: false });
-              }}
-            >
-              Todos<span>{projects.length}</span>
-            </button>
-            <button
-              className={featured ? "view-tab is-active" : "view-tab"}
-              aria-pressed={featured}
-              onClick={() => {
-                updateFilters({ featured: true });
-              }}
-            >
-              Destaques<span>{featuredCount}</span>
-            </button>
-          </div>
+            Todos
+          </button>
+          <button
+            type="button"
+            className={finalOnly ? "view-tab is-active" : "view-tab"}
+            aria-pressed={finalOnly}
+            onClick={() => {
+              updateFilters({ finalOnly: true });
+            }}
+          >
+            Projetos finais
+          </button>
         </div>
 
         <div className="gallery-toolbar">
@@ -260,7 +220,7 @@ export function Gallery({ projects }: { projects: Project[] }) {
                 <input
                   ref={searchRef}
                   aria-label="Buscar projetos"
-                  placeholder="Buscar por projeto, pessoa ou tecnologia"
+                  placeholder="Projeto, pessoa ou tecnologia"
                   value={query}
                   onBlur={flushQuery}
                   onKeyDown={(event) => {
@@ -283,14 +243,10 @@ export function Gallery({ projects }: { projects: Project[] }) {
                 )}
               </div>
               <div className="filter-dropdown">
-                <button
+                <Popover open={filtersOpen} onOpenChange={setFiltersOpen} className="filter-panel"
+                  id="project-filters" label="Filtros de projetos" initialFocus='[role="tab"][aria-selected="true"]' trigger={<button
                   type="button"
-                  ref={filtersButtonRef}
-                  className={`filters-toggle ${filtersOpen || activeFilterCount ? "is-active" : ""}`}
-                  aria-haspopup="dialog"
-                  aria-expanded={filtersOpen}
-                  aria-controls="project-filters"
-                  onClick={() => setFiltersOpen((open) => !open)}
+                  className="filters-toggle"
                 >
                   <Icon name="sliders" size={18} />
                   <span>Filtros</span>
@@ -309,15 +265,7 @@ export function Gallery({ projects }: { projects: Project[] }) {
                     size={16}
                     className={filtersOpen ? "is-open" : ""}
                   />
-                </button>
-                {filtersOpen && (
-                  <div
-                    className="dropdown-menu filter-panel"
-                    id="project-filters"
-                    ref={filterPanelRef}
-                    role="dialog"
-                    aria-label="Filtros de projetos"
-                  >
+                </button>}>
                     <div
                       className="filter-tabs"
                       role="tablist"
@@ -437,8 +385,7 @@ export function Gallery({ projects }: { projects: Project[] }) {
                         </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                </Popover>
               </div>
               <SortMenu
                 value={sort}
@@ -514,24 +461,17 @@ export function Gallery({ projects }: { projects: Project[] }) {
             <div className="load-more-area">
               {visible < filtered.length ? (
                 <button
+                  type="button"
                   className="button button-outline load-more"
-                  onClick={() =>
-                    setPage({ key: filterKey, visible: visible + PAGE_SIZE })
-                  }
+                  onClick={() => changePage(loadedPage + 1)}
                 >
                   Carregar mais projetos
                   <Icon name="arrow-down" size={18} />
                 </button>
               ) : (
-                <>
-                  <p className="end-of-gallery">
-                    Você chegou ao fim da galeria.
-                  </p>
-                  <Link href="/meus-projetos/novo" className="end-link">
-                    Publicar um projeto
-                    <Icon name="arrow-up-right" size={16} />
-                  </Link>
-                </>
+                <p className="end-of-gallery">
+                  Você chegou ao fim da galeria.
+                </p>
               )}
               <p className="load-count">
                 Mostrando {Math.min(visible, filtered.length)} de{" "}
@@ -560,16 +500,15 @@ export function Gallery({ projects }: { projects: Project[] }) {
             <span className="eyebrow">Sua vez</span>
             <h2 id="publish-title">Publique o que você está aprendendo.</h2>
             <p>
-              Pode ser um exercício simples, um experimento ou até uma aplicação
-              completa.
+              Mostre o resultado, conte o que praticou e dê crédito a quem criou com você.
             </p>
           </div>
-          <Link href="/meus-projetos/novo" className="button button-invert">
+          <Link href={demo ? "/demo/novo" : "/meus-projetos/novo"} className="button button-invert">
             Publicar projeto
             <Icon name="arrow-up-right" size={18} />
           </Link>
           <span className="publish-band-mark" aria-hidden="true">
-            ✳
+            <BrandSymbol/>
           </span>
         </section>
       </div>

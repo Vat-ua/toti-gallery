@@ -1,28 +1,19 @@
 import { IMAGE_MAX_BYTES, validateImageFile } from "./image-policy";
+import { FormValidationError } from "./form-validation";
+import { BodyLimitError, readLimitedBody } from "./request-body";
+import { PublicError } from "./errors";
 
-export class ImageFormError extends Error {
-  constructor(message: string, public status = 400) { super(message); }
-}
+export class ImageFormError extends PublicError {}
 
 /** Bound the stream before parsing; Content-Length alone is not trustworthy. */
-export async function readImageForm(request: Request) {
+export async function readImageForm(request: Request, imageField: "imageUrl" | "avatar" = "imageUrl") {
   const limit = IMAGE_MAX_BYTES + 64 * 1024;
-  if (Number(request.headers.get("content-length")) > limit) throw new ImageFormError("Os dados excedem o limite de 3 MB para a imagem.", 413);
-  const reader = request.body?.getReader();
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  if (reader) {
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        size += value.byteLength;
-        if (size > limit) { await reader.cancel(); throw new ImageFormError("Os dados excedem o limite de 3 MB para a imagem.", 413); }
-        chunks.push(value);
-      }
-    } finally { reader.releaseLock(); }
+  let buffer: Awaited<ReturnType<typeof readLimitedBody>>;
+  try { buffer = await readLimitedBody(request, limit); }
+  catch (error) {
+    if (error instanceof BodyLimitError) throw new ImageFormError("Os dados excedem o limite de 3 MB para a imagem.", 413);
+    throw error;
   }
-  const buffer = Buffer.concat(chunks);
   const type = request.headers.get("content-type") || "";
   let body: unknown, file: File | null = null;
   try {
@@ -37,6 +28,9 @@ export async function readImageForm(request: Request) {
     else throw new Error();
     if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error();
   } catch { throw new ImageFormError("Os dados do formulário são inválidos. Revise e tente novamente."); }
-  if (file) validateImageFile(file);
+  if (file) {
+    try { validateImageFile(file); }
+    catch (error) { throw new FormValidationError({ [imageField]: error instanceof Error ? error.message : "Use uma imagem JPG, PNG ou WebP." }); }
+  }
   return { body: body as Record<string, unknown>, file };
 }

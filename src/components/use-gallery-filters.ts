@@ -61,8 +61,12 @@ export function useGalleryFilters(options: GalleryFilterOptions) {
 
   function updateFilters(update: FilterUpdate) {
     cancelSearch();
-    const current = { ...readGalleryFilters(new URLSearchParams(window.location.search), options), query };
+    const persisted = readGalleryFilters(new URLSearchParams(window.location.search), options);
+    const current = { ...persisted, query };
     const next = typeof update === "function" ? update(current) : { ...current, ...update };
+    const changed = galleryFilterParams({ ...next, page: 1 }).toString()
+      !== galleryFilterParams({ ...persisted, page: 1 }).toString();
+    next.page = changed ? 1 : persisted.page;
     setDraft((value) => ({ ...value, value: next.query }));
     startTransition(() => {
       setOptimisticFilters(next);
@@ -73,7 +77,7 @@ export function useGalleryFilters(options: GalleryFilterOptions) {
   function commitQuery(value: string) {
     cancelSearch();
     const current = readGalleryFilters(new URLSearchParams(window.location.search), options);
-    writeUrl({ ...current, query: value }, "replace");
+    writeUrl({ ...current, query: value, page: value === current.query ? current.page : 1 }, "replace");
   }
 
   function changeQuery(value: string) {
@@ -87,5 +91,19 @@ export function useGalleryFilters(options: GalleryFilterOptions) {
     if (timerRef.current) commitQuery(query);
   }
 
-  return { filters: { ...optimisticFilters, query }, updateFilters, changeQuery, flushQuery };
+  function changePage(page: number) {
+    cancelSearch();
+    const current = readGalleryFilters(new URLSearchParams(window.location.search), options);
+    const next = { ...current, query, page };
+    startTransition(() => {
+      setOptimisticFilters(next);
+      // Loading more extends the current result set without adding a Back step.
+      writeUrl(next, "replace");
+    });
+  }
+
+  return {
+    filters: { ...optimisticFilters, query, page: query === optimisticFilters.query ? optimisticFilters.page : 1 },
+    updateFilters, changeQuery, flushQuery, changePage,
+  };
 }

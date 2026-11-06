@@ -1,7 +1,7 @@
 # Database guide
 
 Toti Gallery uses PostgreSQL on Neon and Drizzle ORM. This guide explains the
-11 application tables, their fields, and the relationships behind everyday
+12 application tables, their fields, and the relationships behind everyday
 features. It describes the model in [src/db/schema.ts](../src/db/schema.ts), not
 a live database inspection. Each environment must receive the relevant
 [migrations](../migrations/README.md) before its structure matches this model.
@@ -37,6 +37,7 @@ erDiagram
     gallery_turmas ||--o{ gallery_turma_members : includes
     gallery_turmas ||--o{ gallery_projects : groups
     gallery_users ||--o{ gallery_projects : owns
+    gallery_users ||--o{ gallery_project_creations : saves_with
     gallery_users ||--o{ gallery_project_authors : contributes
     gallery_projects ||--o{ gallery_project_authors : credits
     gallery_projects ||--o{ gallery_likes : receives
@@ -62,6 +63,8 @@ memberships, or sign-in methods change.
 | Field | Meaning |
 | --- | --- |
 | `id` | Primary key: permanent person identifier. |
+| `slug` | Required unique public address, such as `ana-souza`. Generated once and preserved when the name changes. |
+| `primary_turma_id` | Optional public-display turma, selected from this person's memberships. Null uses the highest-numbered membership. Removing that membership clears the choice. |
 | `name` | Required display name. |
 | `email` | Required unique email. Uniqueness also ignores case and surrounding spaces. |
 | `email_verified` | Boolean; defaults to `false`. Records email verification. |
@@ -69,6 +72,7 @@ memberships, or sign-in methods change.
 | `avatar_metadata` | Nullable metadata for a managed photo: object key, dimensions, bytes and format. Legacy photos keep null. |
 | `bio` | Profile description; defaults to empty text. |
 | `github` | Nullable GitHub profile link. |
+| `linkedin` | Nullable LinkedIn link, edited by the profile owner. The application requires HTTPS and a LinkedIn hostname. |
 | `role` | `user`, `admin`, or `owner`; defaults to `user`. |
 | `status` | `pending`, `active`, or `suspended`; defaults to `pending`. |
 | `is_demo` | Boolean; defaults to `false`. Marks demonstration profiles. |
@@ -113,6 +117,7 @@ find a person's groups.
 | Field | Meaning |
 | --- | --- |
 | `id` | Primary key. |
+| `version` | Required positive integer, initially 1; detects stale editor submissions. |
 | `slug` | Required unique identifier used in the public project URL. |
 | `title` | Required project name. |
 | `description` | Required project description. |
@@ -263,6 +268,23 @@ Raw tokens, complete links, and delivery status are not stored here. Grant
 creation is independent of delivery: links are currently sent manually, and a
 future email service can deliver the same kind of grant. See
 [Authentication](authentication.md) for issuance and redemption behavior.
+
+## Publication save protection
+
+### 12. `gallery_project_creations` — repeat-safe publication attempts
+
+| Field | Meaning |
+| --- | --- |
+| `author_id`, `request_id` | Combined primary key: the publication owner and a browser-generated UUID for one creation attempt. Owner references `gallery_users`. |
+| `fingerprint` | SHA-256 of the submitted content, including cover bytes and framing; prevents reusing an attempt for different content. |
+| `project_id`, `slug` | Result of that creation attempt. Retained after publication deletion, so replay cannot recreate it. |
+| `created_at` | Receipt creation time. |
+
+The receipt and the publication are committed together. `project_id` deliberately
+has no foreign key: deleting the publication must preserve its receipt. This
+table stores neither a draft nor an image. Project content edits and coauthor
+departure increment `gallery_projects.version`; an editor must submit the version
+it originally opened. Stale versions receive a conflict instead of overwriting.
 
 ## What happens when records change or are deleted?
 

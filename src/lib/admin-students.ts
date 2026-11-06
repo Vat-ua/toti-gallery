@@ -1,7 +1,8 @@
+import { identityErrors, rejectFields } from "./form-validation";
 import { and, count, desc, eq, inArray, isNull, ne, notInArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { accounts, authSessions, invitations, projectAuthors, projects, turmaMembers, turmas, users } from "@/db/schema";
-import { AdminError, staff } from "./admin-turmas";
+import { AdminError, staff } from "./admin-server";
 import { canManageAccount } from "./permissions";
 import { issueGrant } from "./access-links";
 import { provisionIdentity } from "./admin-provision";
@@ -11,8 +12,11 @@ import { studentSearch } from "./student-search";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 async function targetStudent(tx: Transaction, actor: Awaited<ReturnType<typeof staff>>, id: string) {
-  const [person] = await tx.select().from(users).where(eq(users.id, id)).for("update").limit(1);
-  if (!person) throw new AdminError("Estudante não encontrado.", 404);
+  const [person] = await tx.select().from(users).where(and(eq(users.id, id), actor.role === "owner" ? undefined : eq(users.role, "user"))).for("update").limit(1);
+  if (!person) {
+    const [existing] = await tx.select({ id: users.id }).from(users).where(eq(users.id, id)).limit(1);
+    throw new AdminError(existing ? "Você não pode gerenciar esta conta." : "Estudante não encontrado.", existing ? 403 : 404);
+  }
   if (!canManageAccount(actor, person)) throw new AdminError("Você não pode gerenciar esta conta.", 403);
   if (person.role !== "user") {
     const [membership] = await tx.select().from(turmaMembers).where(eq(turmaMembers.userId, id)).limit(1);
@@ -34,7 +38,7 @@ export async function listStudents(actorId: string, options: Partial<StudentList
     );
     const [{ total }] = await tx.select({ total: count() }).from(users).where(where);
     const page = Math.min(filters.page, Math.max(1, Math.ceil(total / filters.pageSize)));
-    const people = await tx.select({ id: users.id, name: users.name, email: users.email, emailVerified: users.emailVerified, avatar: users.image, status: users.status, role: users.role, isDemo: users.isDemo }).from(users).where(where).orderBy(users.name, users.id).limit(filters.pageSize).offset((page - 1) * filters.pageSize);
+    const people = await tx.select({ id: users.id, name: users.name, email: users.email, emailVerified: users.emailVerified, avatar: users.image, status: users.status, role: users.role, isDemo: users.isDemo, primaryTurmaId: users.primaryTurmaId }).from(users).where(where).orderBy(users.name, users.id).limit(filters.pageSize).offset((page - 1) * filters.pageSize);
     const ids = people.map(person => person.id);
     if (!ids.length) return { students: [], total, filters: { ...filters, page } };
     const memberships = await tx.select({ userId: turmaMembers.userId, turmaId: turmas.id, name: turmas.name }).from(turmaMembers).innerJoin(turmas, eq(turmaMembers.turmaId, turmas.id)).where(inArray(turmaMembers.userId, ids)).orderBy(desc(turmas.number));
@@ -54,13 +58,11 @@ export async function listStudents(actorId: string, options: Partial<StudentList
 }
 
 export async function updateStudentProfile(actorId: string, id: string, name: unknown, email: unknown) {
-  if (typeof name !== "string" || typeof email !== "string") throw new AdminError("Informe um nome e email válidos.");
-  let identity: ReturnType<typeof provisionIdentity>;
-  try { identity = provisionIdentity(name, email); }
-  catch { throw new AdminError("Informe um nome de 2 a 70 caracteres e um email válido."); }
+  rejectFields(identityErrors(name, email));
+  const identity = provisionIdentity(name as string, email as string);
   try {
     return await db.transaction(async tx => {
-      const actor = await staff(tx, actorId);
+      const actor = await staff(tx, actorId, id);
       // Match provisioning's lock order before taking the user row lock.
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${identity.email}))`);
       const person = await targetStudent(tx, actor, id);
@@ -83,7 +85,7 @@ export async function updateStudentProfile(actorId: string, id: string, name: un
 
 export async function deletePendingStudent(actorId: string, id: string) {
   return db.transaction(async tx => {
-    const actor = await staff(tx, actorId), person = await targetStudent(tx, actor, id);
+    const actor = await staff(tx, actorId, id), person = await targetStudent(tx, actor, id);
     if (person.role !== "user" || person.isDemo || person.status !== "pending" || person.emailVerified) throw new AdminError("Só é possível excluir cadastros de estudantes que ainda não ativaram a conta.", 409);
     // A pending profile normally has no account or history. Protect inconsistent
     // or historical rows as well, especially authorship's cascading foreign key.
@@ -100,24 +102,38 @@ export async function deletePendingStudent(actorId: string, id: string) {
   });
 }
 
-export async function updateStudentTurmas(actorId: string, id: string, turmaIds: unknown) {
+export async function updateStudentTurmas(actorId: string, id: string, turmaIds: unknown, primaryTurmaId?: unknown, expected?: unknown) {
   if (!Array.isArray(turmaIds) || turmaIds.length > 100 || turmaIds.some(value => typeof value !== "string" || !value) || new Set(turmaIds).size !== turmaIds.length) throw new AdminError("Confira as turmas selecionadas.");
   const selected = turmaIds as string[];
+  if (primaryTurmaId !== undefined && primaryTurmaId !== null && (typeof primaryTurmaId !== "string" || !selected.includes(primaryTurmaId))) throw new AdminError("Escolha uma turma principal entre as participações selecionadas.");
+  let previous: { turmaIds: string[]; primaryTurmaId: string | null } | undefined;
+  if (expected !== undefined) {
+    if (!expected || typeof expected !== "object" || Array.isArray(expected)) throw new AdminError("Confira o estado inicial das turmas.");
+    const value = expected as Record<string, unknown>;
+    if (!Array.isArray(value.turmaIds) || value.turmaIds.length > 100 || value.turmaIds.some(id => typeof id !== "string" || !id) || new Set(value.turmaIds).size !== value.turmaIds.length || (value.primaryTurmaId !== null && (typeof value.primaryTurmaId !== "string" || !value.turmaIds.includes(value.primaryTurmaId)))) throw new AdminError("Confira o estado inicial das turmas.");
+    previous = { turmaIds: value.turmaIds as string[], primaryTurmaId: value.primaryTurmaId as string | null };
+  }
   return db.transaction(async tx => {
-    const actor = await staff(tx, actorId); await targetStudent(tx, actor, id);
+    const actor = await staff(tx, actorId, id), person = await targetStudent(tx, actor, id);
+    if (previous) {
+      const current = await tx.select({ id: turmaMembers.turmaId }).from(turmaMembers).where(eq(turmaMembers.userId, id));
+      if (person.primaryTurmaId !== previous.primaryTurmaId || current.length !== previous.turmaIds.length || current.some(group => !previous.turmaIds.includes(group.id))) throw new AdminError("A participação em turmas mudou. Feche e abra novamente este painel antes de salvar.", 409);
+    }
+    const nextPrimary = primaryTurmaId === undefined ? (selected.includes(person.primaryTurmaId || "") ? person.primaryTurmaId : null) : primaryTurmaId as string | null;
     if (selected.length) {
       const groups = await tx.select({ id: turmas.id }).from(turmas).where(inArray(turmas.id, selected)).for("share");
       if (groups.length !== selected.length) throw new AdminError("Uma das turmas não está disponível. Atualize a página.");
       await tx.insert(turmaMembers).values(selected.map(turmaId => ({ turmaId, userId: id }))).onConflictDoNothing();
     }
+    if (nextPrimary !== person.primaryTurmaId) await tx.update(users).set({ primaryTurmaId: nextPrimary, updatedAt: new Date() }).where(eq(users.id, id));
     await tx.delete(turmaMembers).where(selected.length ? and(eq(turmaMembers.userId, id), notInArray(turmaMembers.turmaId, selected)) : eq(turmaMembers.userId, id));
-    return { turmaIds: selected };
+    return { turmaIds: selected, primaryTurmaId: nextPrimary };
   });
 }
 
 export async function setStudentSuspended(actorId: string, id: string, suspended: boolean) {
   return db.transaction(async tx => {
-    const actor = await staff(tx, actorId), person = await targetStudent(tx, actor, id);
+    const actor = await staff(tx, actorId, id), person = await targetStudent(tx, actor, id);
     if (person.role !== "user" || person.isDemo) throw new AdminError("Esta ação está disponível apenas para contas de estudantes reais.", 403);
     if (suspended === (person.status === "suspended")) return { status: person.status };
     const status = suspended ? "suspended" : person.emailVerified ? "active" : "pending";
@@ -133,7 +149,7 @@ export async function setStudentSuspended(actorId: string, id: string, suspended
 export async function studentAccessLink(actorId: string, id: string, purpose: unknown) {
   if (purpose !== "activation" && purpose !== "password_reset") throw new AdminError("Escolha uma finalidade válida.");
   return db.transaction(async tx => {
-    const actor = await staff(tx, actorId), person = await targetStudent(tx, actor, id);
+    const actor = await staff(tx, actorId, id), person = await targetStudent(tx, actor, id);
     if (person.isDemo || person.status !== (purpose === "activation" ? "pending" : "active")) throw new AdminError("Não é possível criar este link para a conta selecionada.");
     const grant = await issueGrant(tx, actorId, id, purpose);
     return { url: grant.url, expiresAt: grant.expiresAt.toISOString() };
@@ -143,7 +159,7 @@ export async function studentAccessLink(actorId: string, id: string, purpose: un
 export async function revokeStudentLink(actorId: string, id: string, grantId: unknown) {
   if (typeof grantId !== "string" || !grantId) throw new AdminError("Escolha um link válido.");
   return db.transaction(async tx => {
-    const actor = await staff(tx, actorId); await targetStudent(tx, actor, id);
+    const actor = await staff(tx, actorId, id); await targetStudent(tx, actor, id);
     const [grant] = await tx.select().from(invitations).where(and(eq(invitations.id, grantId), eq(invitations.userId, id))).limit(1);
     if (!grant) throw new AdminError("Link não encontrado.", 404);
     if (!grant.consumedAt && !grant.revokedAt) await tx.update(invitations).set({ revokedAt: new Date() }).where(eq(invitations.id, grant.id));
@@ -155,7 +171,7 @@ export async function createStudentInvitations(actorId: string, ids: unknown): P
   const selected = (ids as string[]).toSorted();
   return db.transaction(async tx => {
     await staff(tx, actorId);
-    const people = await tx.select().from(users).where(inArray(users.id, selected)).orderBy(users.id).for("update");
+    const people = await tx.select().from(users).where(and(inArray(users.id, selected), eq(users.role, "user"), eq(users.isDemo, false), eq(users.status, "pending"))).orderBy(users.id).for("update");
     if (people.length !== selected.length || people.some(p => p.role !== "user" || p.isDemo || p.status !== "pending")) throw new AdminError("A lista mudou. Atualize a página e selecione apenas estudantes pendentes.");
     const result: StudentInvitation[] = [];
     for (const person of people) {

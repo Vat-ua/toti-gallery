@@ -9,6 +9,7 @@ import { PRODUCTION } from "../src/lib/database-target.cjs";
 import { validateProfile } from "../src/lib/account";
 import { validateProject } from "../src/lib/validation";
 import { DEFAULT_COVER_FRAMING, moveCoverFraming, validateCoverFraming } from "../src/lib/cover-framing";
+import { FormValidationError } from "../src/lib/form-validation";
 
 const origin = "http://localhost:3000";
 async function image(width: number, height: number, channels: 3 | 4 = 3) {
@@ -57,6 +58,14 @@ test("bounded multipart accepts one image, rejects duplicate parts and oversized
   form.append("image", file(await image(10, 10)));
   await assert.rejects(() => readImageForm(new Request(origin, { method: "POST", body: form })), /inválidos/);
   await assert.rejects(() => readImageForm(new Request(origin, { method: "POST", headers: { "Content-Type": "application/json" }, body: " ".repeat(IMAGE_MAX_BYTES + 65 * 1024) })), /limite/);
+});
+
+test("file validation and decoding identify the cover or avatar field", async () => {
+  for (const field of ["imageUrl", "avatar"] as const) {
+    const form = new FormData(); form.set("data", "{}"); form.set("image", file(Buffer.from("svg"), "image/svg+xml"));
+    await assert.rejects(() => readImageForm(new Request(origin, { method: "POST", body: form }), field), error => error instanceof FormValidationError && !!error.fieldErrors[field]);
+    await assert.rejects(() => processImage(file(Buffer.from("not a real PNG")), field === "avatar" ? "avatar" : "cover"), error => error instanceof FormValidationError && !!error.fieldErrors[field]);
+  }
 });
 
 test("legacy images may be retained, but new base64 uploads and someone else's keys cannot be adopted", () => {

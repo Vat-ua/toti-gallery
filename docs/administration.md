@@ -30,6 +30,11 @@ index. It promotes an existing active, non-demo administrator only when the call
 explicitly sets `gallery.owner_user_id`; an invalid ID rolls back the migration.
 No credentials, memberships, credits, sessions or profile values are rewritten.
 Fresh demo-only auth fixtures apply the DDL without selecting an owner.
+Production initially received the schema changes without selecting an owner.
+Its first administrator was subsequently promoted explicitly to `owner`,
+preserving the existing ID and all other account data. Administradores is
+restricted to that owner; regular administrators access Turmas, Estudantes
+and Projetos.
 
 The guarded runner supports **development and isolated test environments only**:
 
@@ -44,7 +49,9 @@ node scripts/migrate-admin-foundation.cjs --env-file=.env.local \
 It verifies the actual Neon target, uses a direct connection, saves a private
 before-snapshot under ignored `tmp/admin-review`, and compares every table after
 the migration, allowing only the selected user's role to differ. Apply once; do
-not overwrite a prior backup to rerun it. Production has not received this migration.
+not overwrite a prior backup to rerun it. Production received this migration
+through a separately approved operation after isolated verification, with all
+existing roles preserved.
 Follow [Environments](environments.md) before any future production operation.
 
 ## Groups and imports
@@ -69,7 +76,8 @@ years. New saves require all three fields. The guarded
 `scripts/migrate-turma-details.cjs --env-file=...` runner accepts development/test
 targets, snapshots original rows privately and verifies preservation after applying
 the migration once. It has been checked on an isolated copy and applied to
-development; production is unchanged.
+development and production. The production operation preserved all existing
+records and derived turma numbers only from their existing names.
 
 Archiving is organizational: students keep access and can publish in archived
 turmas. Removing membership affects only that turma/user relationship; project
@@ -267,6 +275,21 @@ serialize on the target user row and reject stale actions.
 No schema migration is required. This section is implemented for development
 review; production and Vercel are unchanged.
 
+## Public profiles and primary turma
+
+In Estudantes → Gerenciar → Turmas, people with several selected memberships
+have a **Turma principal** selector. Choose a membership explicitly or leave
+**Automática** to display the highest-numbered group, including archived groups.
+Removing a chosen membership restores automatic selection. This affects public
+presentation only: other memberships, publication eligibility and author credits
+are retained. The community filter considers all memberships.
+
+Profiles show the primary turma's number, course and start year. Public addresses
+use a unique slug generated at creation; editing a name preserves the address.
+Existing internal-ID URLs are not supported. Apply
+`20261104_public_profiles.sql` before running the updated app; see the
+[migration notes](../migrations/README.md).
+
 ## Checks
 
 ```sh
@@ -278,6 +301,8 @@ The integration suite requires an ignored `.env.admin-test` on an isolated
 `test/*` branch containing the current schema and an owner. It verifies the actual
 Neon target before writing and deletes only its own fixtures. It also compares
 all original rows after cleanup. It cannot run against production or development.
+The suite also covers unique/stable profile slugs, primary-turma permissions and
+fallback, all-membership community filtering, and credit/like preservation.
 Administrator tests additionally cover owner-only access, protected ownership,
 new-account activation, identity/content preservation on role changes, grant
 revocation, and concurrent promotion/demotion.
