@@ -83,4 +83,21 @@ test("administrator can open Turmas, Estudantes and Projetos; owner-only access 
     await expect(page.locator(".admin-role")).toHaveText("Administrador");
   }
   expect((await page.request.get("/api/admin/administradores")).status()).toBe(403);
+  await page.goto("/admin/estudantes");
+  await page.getByRole("row").filter({ hasText: "Estudante smoke" }).getByRole("button", { name: /Gerenciar/ }).click();
+  const panel = page.getByRole("dialog");
+  await panel.getByLabel("Nome", { exact: true }).fill("Estudante smoke atualizado");
+  await panel.getByRole("button", { name: "Salvar alterações", exact: true }).click();
+  await expect(panel.locator(".toast")).toHaveText(/Dados do estudante atualizados\./);
+  // A click proves the toast is above the native backdrop and is not inert.
+  await panel.getByRole("button", { name: "Fechar aviso", exact: true }).click();
+  await expect(panel.locator(".toast")).toHaveCount(0);
+  await expect(panel).toBeVisible();
+  await panel.getByLabel("Nome", { exact: true }).fill("Estudante smoke");
+  await panel.getByRole("button", { name: "Salvar alterações", exact: true }).click();
+  await expect(panel.locator(".toast")).toContainText("Dados do estudante atualizados.");
+  await panel.getByRole("button", { name: "Fechar", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".toast-region")).toHaveCount(1);
+  await expect(page.locator(".toast")).toContainText("Dados do estudante atualizados.");
 });

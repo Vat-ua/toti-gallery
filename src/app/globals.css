@@ -718,7 +718,8 @@ html[data-theme="dark"] .theme-icon-moon {
   }
 
   .theme-toggle,
-  .login-link {
+  .login-link,
+  .mobile-menu-button {
     width: 42px;
     height: 42px;
   }
@@ -730,6 +731,10 @@ html[data-theme="dark"] .theme-icon-moon {
   .user-trigger {
     padding: var(--space-0-5);
     border-color: transparent;
+  }
+
+  .user-trigger .avatar {
+    --avatar-size: 42px;
   }
 
   .header-actions {
@@ -762,10 +767,14 @@ html[data-theme="dark"] .theme-icon-moon {
 /* ---------- Avatars, likes, toast ---------- */
 
 .avatar {
+  --avatar-size: var(--avatar-default-size, 28px);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  width: var(--avatar-size);
+  height: var(--avatar-size);
+  font-size: calc(var(--avatar-size) * .33);
   background: var(--lilac);
   color: #2b1a45;
   border-radius: 50%;
@@ -1861,8 +1870,8 @@ html[data-theme="dark"] .theme-icon-moon {
   }
 
   .project-author .avatar {
-    width: 22px !important;
-    height: 22px !important;
+    width: 22px;
+    height: 22px;
   }
 
   .technology-tag {
@@ -3310,9 +3319,9 @@ html[data-theme="dark"] .theme-icon-moon {
 .profile-summary>.avatar {
   border: 5px solid var(--bg);
   box-shadow: var(--shadow-soft);
-  width: 116px !important;
-  height: 116px !important;
-  font-size: 2.375rem !important;
+  width: 116px;
+  height: 116px;
+  font-size: 2.375rem;
 }
 
 .profile-info {
@@ -3402,8 +3411,8 @@ html[data-theme="dark"] .theme-icon-moon {
   }
 
   .profile-summary>.avatar {
-    width: 96px !important;
-    height: 96px !important;
+    width: 96px;
+    height: 96px;
   }
 
   .profile-info {
@@ -3439,8 +3448,8 @@ html[data-theme="dark"] .theme-icon-moon {
   .profile-summary>.avatar {
     align-self: flex-start;
     margin-left: var(--space-3);
-    width: 82px !important;
-    height: 82px !important;
+    width: 82px;
+    height: 82px;
     border-width: 4px;
   }
 
@@ -5438,6 +5447,14 @@ html[data-theme="dark"] .theme-icon-moon {
   max-height: 100dvh;
   border-radius: 18px 0 0 18px;
   padding: var(--space-8);
+}
+
+.admin-drawer .toast-region {
+  left: auto;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  transform: none;
+  max-width: calc(min(34rem, 100vw) - var(--space-8));
 }
 
 .admin-drawer[open] {

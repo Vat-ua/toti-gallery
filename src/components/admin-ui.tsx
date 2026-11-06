@@ -5,11 +5,13 @@ import { createPortal } from "react-dom";
 import { Icon } from "./icon";
 import { accessMessage, formatAccessExpiry } from "@/lib/access-message";
 import type { StudentAccessLink } from "@/lib/admin-types";
+import { useToastContainer } from "./ui";
 
 export function Dialog({ title, context, description, children, close, busy = false, drawer = false }: { title: string; context?: string; description?: string; children: ReactNode; close: () => void; busy?: boolean; drawer?: boolean }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
-  useEffect(() => { const dialog = ref.current!; const previous = document.body.style.overflow; document.body.style.overflow = "hidden"; dialog.showModal(); return () => { dialog.close(); document.body.style.overflow = previous; }; }, []);
+  const registerToastContainer = useToastContainer();
+  useEffect(() => { const dialog = ref.current!; const previous = document.body.style.overflow; document.body.style.overflow = "hidden"; dialog.showModal(); const unregister = registerToastContainer(dialog); return () => { unregister(); dialog.close(); document.body.style.overflow = previous; }; }, [registerToastContainer]);
   return createPortal(<dialog ref={ref} className={`admin-dialog ${drawer ? "admin-drawer" : ""}`} aria-labelledby={titleId} onCancel={event => { event.preventDefault(); if (!busy) close(); }} onClick={event => {
     if (event.target !== event.currentTarget || busy) return;
     const box = event.currentTarget.getBoundingClientRect();
