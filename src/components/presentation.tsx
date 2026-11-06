@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import galleryScreenshot from "../../public/presentation/galeria.webp";
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
 import { Icon } from "./icon";
@@ -37,7 +38,7 @@ export function Presentation({ authenticated }: { authenticated: boolean }) {
   function screen(image: PresentationImage, alt: string, priority = false) {
     return <figure className="presentation-screen">
       <button type="button" onClick={() => setExpanded({ image, alt })} aria-label={`Ampliar imagem: ${alt}`}>
-        <Image src={`/presentation/${image}.webp`} alt={alt} {...presentationImages[image]} sizes="(max-width: 1000px) 100vw, 900px" preload={priority}/>
+        <Image src={image === "galeria" ? galleryScreenshot : `/presentation/${image}.webp`} alt={alt} {...presentationImages[image]} sizes="(max-width: 1000px) 100vw, 900px" preload={priority}/>
         <span className="presentation-zoom"><Icon name="external" size={15}/>Ampliar</span>
       </button>
       <figcaption>Interface da plataforma com dados fictícios.</figcaption>
@@ -64,6 +65,7 @@ export function Presentation({ authenticated }: { authenticated: boolean }) {
         <article><span>03</span><h3>Manter a comunidade organizada</h3><p>Turmas, acesso e moderação têm uma área própria, separada da experiência pública.</p></article>
       </div>
       <p className="presentation-note">Uma iniciativa de estudantes, veja <Link href="/sobre">Sobre a plataforma<Icon name="arrow-right" size={14}/></Link></p>
+      <details className="presentation-follow-up"><summary>O que ainda está em evolução</summary><p>A ativação de contas e a recuperação de senha usam links enviados manualmente pela administração. A recuperação automática por email e o envio de convites em lote ficam para uma evolução futura, conforme a necessidade de uso. A interface continua sendo aprimorada com testes e feedback.</p></details>
     </section>
 
     <section className="presentation-panel" id="presentation-panel-pratica" role="tabpanel" aria-labelledby="presentation-tab-pratica" hidden={active !== "pratica"} tabIndex={0}>
@@ -92,12 +94,11 @@ export function Presentation({ authenticated }: { authenticated: boolean }) {
       </div>
       <DataModel/>
       <div className="presentation-engineering"><article><h3>Proteção contra erros reais</h3><p>Versões detectam edições concorrentes. Recibos evitam publicações duplicadas em tentativas repetidas. Curtidas usam o estado desejado, em vez de alternar cegamente.</p></article><article><h3>Verificações durante o desenvolvimento</h3><p>Testes unitários e de integração cobrem operações críticas. Playwright verifica fluxos no navegador; o CI executa um conjunto isolado de regressão em desktop e mobile.</p></article><article><h3>Demonstração sem dados reais</h3><p>O estudante fictício usa IndexedDB no navegador. Seus projetos, imagens e curtidas ficam locais; o modo demo não concede uma sessão autenticada.</p></article></div>
-      <details className="presentation-follow-up"><summary>O que ainda está em evolução</summary><p>O protótipo já gera links de ativação e recuperação, compartilhados manualmente. O envio automático de emails é uma próxima etapa. A evolução da interface continua a partir de testes e feedback de uso.</p></details>
     </section>
 
     <dialog ref={dialog} className="presentation-lightbox" aria-labelledby="presentation-image-title" onCancel={() => setExpanded(null)} onClick={event => { if (event.target === event.currentTarget) setExpanded(null); }}>
       <div className="presentation-lightbox-heading"><h2 id="presentation-image-title">{expanded?.alt}</h2><button type="button" className="button button-outline" onClick={() => setExpanded(null)} aria-label="Fechar imagem"><Icon name="x" size={20}/></button></div>
-      {expanded && <div className="presentation-lightbox-image" tabIndex={0} role="region" aria-label="Imagem ampliada; use a rolagem para ver os detalhes"><Image src={`/presentation/${expanded.image}.webp`} alt={expanded.alt} {...presentationImages[expanded.image]} sizes="(max-width: 1280px) 1280px, 95vw"/></div>}
+      {expanded && <div className="presentation-lightbox-image" tabIndex={0} role="region" aria-label="Imagem ampliada; use a rolagem para ver os detalhes"><Image src={expanded.image === "galeria" ? galleryScreenshot : `/presentation/${expanded.image}.webp`} alt={expanded.alt} {...presentationImages[expanded.image]} sizes="(max-width: 1280px) 1280px, 95vw"/></div>}
     </dialog>
   </main>;
 }
