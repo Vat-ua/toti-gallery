@@ -74,7 +74,6 @@ export function Presentation({ authenticated }: { authenticated: boolean }) {
         <div className="presentation-copy"><div className="presentation-steps" aria-label="Etapas de publicação">{studentSteps.map((item, index) => <button type="button" key={item.title} aria-pressed={studentStep === index} onClick={() => setStudentStep(index)}><span>0{index + 1}</span><strong>{item.title}</strong></button>)}</div><p>{step.text}</p><Link href={authenticated ? "/meus-projetos" : "/demo"} className="button button-dark">{authenticated ? "Meus projetos" : "Experimentar demonstração"}<Icon name="arrow-right" size={17}/></Link></div>
         {screen(step.image, step.alt)}
       </div>
-      <div className="presentation-authorship" aria-label="Exemplo de projeto colaborativo"><div><strong>1</strong><span>publicação na galeria</span></div><Icon name="arrow-right" size={24}/><div><strong>6</strong><span>autores reconhecidos</span></div><Icon name="arrow-right" size={24}/><div><strong>6</strong><span>perfis com o mesmo projeto</span></div><p>Exemplo de uma equipe. A autoria permanece mesmo quando alguém muda de turma.</p></div>
     </section>
 
     <section className="presentation-panel" id="presentation-panel-administracao" role="tabpanel" aria-labelledby="presentation-tab-administracao" hidden={active !== "administracao"} tabIndex={0}>

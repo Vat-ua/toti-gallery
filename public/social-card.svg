@@ -9,7 +9,7 @@
     <text x="149" y="39" font-family="Instrument Serif" font-size="46" font-style="italic" fill="#cd3411">gallery</text>
   </g>
   <text x="66" y="282" font-family="Instrument Sans" font-size="88" font-weight="700" letter-spacing="-4" fill="#17140f">Projetos de quem</text>
-  <text x="66" y="391" font-family="Instrument Serif" font-size="112" font-style="italic" fill="#17140f">aprende fazendo<tspan fill="#cd3411" font-style="normal">.</tspan></text>
+  <text x="66" y="391" font-family="Instrument Serif" font-size="112" font-style="italic" fill="#17140f">aprende fazendo<tspan fill="#17140f" font-style="normal">.</tspan></text>
   <text x="70" y="539" font-family="Instrument Sans" font-size="28" fill="#56504a">Exercícios, experimentos e aplicações completas.</text>
   <rect y="616" width="1200" height="14" fill="#d9f24b"/>
 </svg>
