@@ -7,9 +7,11 @@ import { Icon } from "./icon";
 import { Avatar, LikeButton } from "./ui";
 import { ProjectDescription } from "./project-description";
 
-export function ProjectDetails({ project, related = [], canEdit = false, readOnly = false, embedded = false, backHref = "/", backLabel = "Projetos", notice }: {
+import { studentProjectLinks, type ProjectLinks } from "@/lib/project-links";
+
+export function ProjectDetails({ project, related = [], canEdit = false, readOnly = false, embedded = false, backHref = "/", backLabel = "Projetos", notice, hideLikes = false, links = studentProjectLinks }: {
   project: Project; related?: Project[]; canEdit?: boolean; readOnly?: boolean; embedded?: boolean;
-  backHref?: string; backLabel?: string; notice?: ReactNode;
+  backHref?: string; backLabel?: string; notice?: ReactNode; hideLikes?: boolean; links?: ProjectLinks;
 }) {
   const Wrapper = embedded ? "section" : "main";
   return <Wrapper {...(embedded ? {} : { id: "conteudo" })} className={embedded ? "admin-project-preview" : "container inner-page"}>
@@ -22,15 +24,15 @@ export function ProjectDetails({ project, related = [], canEdit = false, readOnl
           {project.authors.length > 1 ? <a href="#autores" className="detail-author-link">
             <span className="avatar-stack">{project.authors.slice(0, 3).map(author => <Avatar key={author.id} person={author} size={32}/>)}</span>
             <span>{project.authors.length} autores</span>
-          </a> : <Link href={`/pessoas/${project.author.slug}`} className="detail-author-link">
+          </a> : <Link href={links.profile(project.author.slug)} className="detail-author-link">
             <Avatar person={project.author} size={32}/><strong>{project.author.name}</strong>
           </Link>}
           {project.isFinal && <span className="project-final-badge">Projeto final</span>}
         </div>
       </div>
       <div className="detail-actions">
-        {canEdit && <Link className="button button-dark" href={`/meus-projetos/${project.id}/editar`}><Icon name="edit" size={16}/>Editar projeto</Link>}
-        {readOnly ? <ProjectLikeCount likes={project.likes}/> : <LikeButton id={project.id} initialLiked={project.liked} initialLikes={project.likes} full/>}
+        {canEdit && <Link className="button button-dark" href={links.edit(project.id)}><Icon name="edit" size={16}/>Editar projeto</Link>}
+        {!hideLikes && (readOnly ? <ProjectLikeCount likes={project.likes}/> : <LikeButton id={project.id} initialLiked={project.liked} initialLikes={project.likes} full/>)}
       </div>
     </div>
     <div className="detail-layout">
@@ -53,7 +55,7 @@ export function ProjectDetails({ project, related = [], canEdit = false, readOnl
         <div className="sidebar-block" id="autores">
           <h3>{project.authors.length > 1 ? "Autores" : "Autor"}</h3>
           <div className="sidebar-authors">
-            {project.authors.map(author => <Link key={author.id} className="sidebar-author" href={`/pessoas/${author.slug}`}><Avatar person={author} size={42}/><span>{author.name}</span></Link>)}
+            {project.authors.map(author => <Link key={author.id} className="sidebar-author" href={links.profile(author.slug)}><Avatar person={author} size={42}/><span>{author.name}</span></Link>)}
           </div>
         </div>
         <div className="sidebar-block">
@@ -64,8 +66,8 @@ export function ProjectDetails({ project, related = [], canEdit = false, readOnl
       </aside>
     </div>
     {related.length > 0 && <section className="related-projects">
-      <div className="section-title"><h2>Outros projetos</h2><Link href="/">Projetos<Icon name="arrow-right" size={16}/></Link></div>
-      <div className="project-grid">{related.map(p => <ProjectCard project={p} key={p.id}/>)}</div>
+      <div className="section-title"><h2>Outros projetos</h2><Link href={backHref}>Projetos<Icon name="arrow-right" size={16}/></Link></div>
+      <div className="project-grid">{related.map(p => <ProjectCard project={p} key={p.id} href={links.view(p)} links={links} hideLikes={hideLikes} readOnly={readOnly}/>)}</div>
     </section>}
   </Wrapper>;
 }

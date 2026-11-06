@@ -19,6 +19,10 @@ import { createProject, updateProject, CreationConflictError, type ProjectFormVa
 import { HttpError } from "@/lib/http-client";
 import { creationAttempt, finishCreationAttempt } from "@/lib/project-creation-attempt";
 import { useUnsavedChanges } from "./use-unsaved-changes";
+import { studentProjectLinks, type ProjectLinks } from "@/lib/project-links";
+
+export type ProjectEditorActions = { create: typeof createProject; update: typeof updateProject };
+const apiActions: ProjectEditorActions = { create: createProject, update: updateProject };
 
 const styles = [
   { name: "Tipografia", color: "#f2e6d2", ink: "#17130f" },
@@ -29,7 +33,10 @@ const styles = [
   { name: "Duo", color: "#ff7a4d", ink: "#17130f" },
   { name: "Código", color: "#1d1b26", ink: "#fffdf6" },
 ];
-export function ProjectEditor({ user, project, people, turmas = [] }: { user: Person; project?: Project; people: Person[]; turmas?: PublicationTurma[] }) {
+export function ProjectEditor({ user, project, people, turmas = [], actions = apiActions, links = studentProjectLinks, showCoauthors = true, successMessage }: {
+  user: Person; project?: Project; people: Person[]; turmas?: PublicationTurma[];
+  actions?: ProjectEditorActions; links?: ProjectLinks; showCoauthors?: boolean; successMessage?: string;
+}) {
   const router = useRouter();
   const notify = useToast();
   const [title, setTitle] = useState(project?.title || "");
@@ -59,7 +66,7 @@ export function ProjectEditor({ user, project, people, turmas = [] }: { user: Pe
   const [initial] = useState(() => JSON.stringify(value));
   const { markSaved } = useUnsavedChanges(!!imageFile || JSON.stringify(value) !== initial);
   const fileRef = useRef<HTMLInputElement>(null);
-  useEffect(() => () => { if (imageUrl.startsWith("blob:")) URL.revokeObjectURL(imageUrl); }, [imageUrl]);
+  useEffect(() => () => { if (imageFile && imageUrl.startsWith("blob:")) URL.revokeObjectURL(imageUrl); }, [imageUrl, imageFile]);
   function changeImage(value: string) { feedback.clear("imageUrl"); feedback.clear("coverFraming"); setImageFile(null); setImageUrl(value); setCoverFraming(null); }
   function changeTurma(value: string) {
     feedback.clear("turmaId"); feedback.clear("coauthorIds");
@@ -96,25 +103,25 @@ export function ProjectEditor({ user, project, people, turmas = [] }: { user: Pe
     setPending(true);
     try {
       if (!project && !requestId.current) requestId.current = creationAttempt(user.id, crypto.randomUUID());
-      const data = project ? await updateProject(project.id, value, expectedVersion, imageFile) : await createProject(value, requestId.current, imageFile);
+      const data = project ? await actions.update(project.id, value, expectedVersion, imageFile) : await actions.create(value, requestId.current, imageFile);
       if (!project) finishCreationAttempt(user.id, requestId.current);
       markSaved();
-      notify(project ? "Projeto atualizado." : "Projeto publicado.");
-      router.push(project?.visibility === "hidden" ? `/meus-projetos/${project.id}` : `/projetos/${data.slug}`); router.refresh();
+      notify(successMessage || (project ? "Projeto atualizado." : "Projeto publicado."));
+      router.push(links.view({ id: project?.id || ("id" in data ? data.id : ""), slug: data.slug, visibility: project?.visibility })); router.refresh();
     } catch (err) {
       if (err instanceof CreationConflictError) {
         // This receipt is confirmed. Keep this form bound to it, but let a fresh
         // publication form start a new attempt instead of inheriting a stale key.
         finishCreationAttempt(user.id, requestId.current);
-        setConflictLink(`/meus-projetos/${encodeURIComponent(err.projectId)}`);
+        setConflictLink(links.inspect(err.projectId));
       }
       else if (!project && err instanceof HttpError && err.status === 410) finishCreationAttempt(user.id, requestId.current);
-      else if (project && err instanceof HttpError && err.status === 409) setConflictLink(`/meus-projetos/${encodeURIComponent(project.id)}`);
+      else if (project && err instanceof HttpError && err.status === 409) setConflictLink(links.inspect(project.id));
       setDescriptionPreview(false); feedback.report(err, formElement); setPending(false); submitting.current = false;
     }
   }
   return <main id="conteudo" className="container inner-page">
-    <Link href="/meus-projetos" className="back-link"><Icon name="arrow-left" size={16}/>Meus projetos</Link>
+    <Link href={links.list} className="back-link"><Icon name="arrow-left" size={16}/>Meus projetos</Link>
     <div className="editor-heading"><h1>{project ? "Editar projeto" : "Publicar projeto"}</h1></div>
     {project?.visibility === "hidden" && <div className="admin-notice project-moderation-note"><strong>Oculto pela administração</strong><p>{project.moderationReason}</p><p>Você pode editar o projeto. A publicação só poderá ser restaurada pela administração.</p></div>}
     <div className="editor-layout">
@@ -137,7 +144,7 @@ export function ProjectEditor({ user, project, people, turmas = [] }: { user: Pe
           <FieldError id="project-technologies-error" text={fields.technologies}/>
           <section className="editor-form-section">
             <h2>Autores</h2>
-            <p>Responsável pela publicação: <strong>{user.name}</strong>. Adicione colegas da mesma turma que participaram do projeto.</p>
+            <p>Responsável pela publicação: <strong>{user.name}</strong>. {showCoauthors && "Adicione colegas da mesma turma que participaram do projeto."}</p>
             {!project && turmas.length > 1 && <div className="form-field">
               <label htmlFor="project-turma">Turma</label>
               <select name="turmaId" id="project-turma" value={turmaId} aria-invalid={!!fields.turmaId} aria-describedby={fields.turmaId ? "project-turma-error" : undefined} onChange={event => changeTurma(event.target.value)}>
@@ -149,7 +156,7 @@ export function ProjectEditor({ user, project, people, turmas = [] }: { user: Pe
               <FieldError id="project-turma-error" text={fields.turmaId}/>
               {!project && !turmas.length && !fields.turmaId && <small>Peça à administração para associar sua conta a uma turma antes de publicar.</small>}
             </div>}
-            <CoauthorPicker key={turmaId} people={people.filter(person => person.turmaId === turmaId)} ownerId={user.id} selected={coauthorIds} onChange={ids => { setCoauthorIds(ids); feedback.clear("coauthorIds"); }} selectedPeople={project?.authors} error={fields.coauthorIds} turmaName={coauthorTurmaName}/>
+            {showCoauthors && <CoauthorPicker key={turmaId} people={people.filter(person => person.turmaId === turmaId)} ownerId={user.id} selected={coauthorIds} onChange={ids => { setCoauthorIds(ids); feedback.clear("coauthorIds"); }} selectedPeople={project?.authors} error={fields.coauthorIds} turmaName={coauthorTurmaName}/>}
           </section>
           <section className="editor-form-section">
             <h2>Capa</h2>
@@ -185,7 +192,7 @@ export function ProjectEditor({ user, project, people, turmas = [] }: { user: Pe
           {(error || fields.coverFraming) && <div className="form-error" role="alert"><Icon name="x" size={16}/>{error || fields.coverFraming}</div>}
           {conflictLink && <p><Link className="editor-conflict-link" href={conflictLink} target="_blank" rel="noopener noreferrer">Conferir projeto salvo <Icon name="arrow-up-right" size={16}/></Link></p>}
           <div className="editor-submit">
-            <Link href="/meus-projetos" className="button button-outline" aria-disabled={pending} onClick={event => { if (pending) event.preventDefault(); }}>Cancelar</Link>
+            <Link href={links.list} className="button button-outline" aria-disabled={pending} onClick={event => { if (pending) event.preventDefault(); }}>Cancelar</Link>
             <button className="button button-dark" type="submit" disabled={pending || (!project && !turmaId)}>{pending ? <><Icon name="loader" size={17} className="spinner"/>Salvando...</> : <>{project ? "Salvar alterações" : "Publicar projeto"}<Icon name="arrow-up-right" size={17}/></>}</button>
           </div>
         </fieldset>

@@ -1,5 +1,7 @@
 "use client";
 
+import { useDemoMode } from "./demo-mode";
+
 import Link from "next/link";
 import {
   useDeferredValue,
@@ -30,6 +32,7 @@ const filterGroups = [
 ] as const;
 
 export function Gallery({ projects }: { projects: Project[] }) {
+  const demo = useDemoMode().active;
   const cohorts = useMemo(() => {
     return [
       ...new Set(
@@ -499,7 +502,7 @@ export function Gallery({ projects }: { projects: Project[] }) {
               completa.
             </p>
           </div>
-          <Link href="/meus-projetos/novo" className="button button-invert">
+          <Link href={demo ? "/demo/novo" : "/meus-projetos/novo"} className="button button-invert">
             Publicar projeto
             <Icon name="arrow-up-right" size={18} />
           </Link>

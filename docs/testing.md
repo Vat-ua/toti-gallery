@@ -29,6 +29,11 @@ list rather than globbing every test into CI.
 
 ## Browser smoke tests
 
+The demo scenarios also exercise local IndexedDB CRUD, image/framing persistence,
+reset and storage failures on both widths. They reject real CRUD API calls during
+local demo actions, verify authenticated visitors are redirected to their actual
+projects, and exercise public navigation with the unchanged browser-based likes.
+
 Playwright starts the real built Next.js application on `127.0.0.1:3102`, with
 `reuseExistingServer: false`. Setup requires an **empty, disposable** database named
 `gallery_test_*`; it creates the current schema using the installed Drizzle API

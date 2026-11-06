@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { Header, Footer } from "@/components/header";
 import { ToastProvider } from "@/components/ui";
+import { cookies } from "next/headers";
 import { getCurrentUser } from "@/lib/auth";
+import { DEMO_MODE_COOKIE } from "@/lib/demo-mode";
+import { SiteChrome } from "@/components/site-chrome";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -16,5 +18,6 @@ const themeScript = `(function(){try{var d=document.documentElement;var stored=n
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const user = await getCurrentUser();
-  return <html lang="pt-BR" data-theme="light" data-scroll-behavior="smooth" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{ __html: themeScript }}/></head><body><ToastProvider><a href="#conteudo" className="skip-link">Pular para o conteúdo</a><Header user={user}/>{children}<Footer user={user}/></ToastProvider></body></html>;
+  const initialDemo = !user && (await cookies()).get(DEMO_MODE_COOKIE)?.value === "1";
+  return <html lang="pt-BR" data-theme="light" data-scroll-behavior="smooth" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{ __html: themeScript }}/></head><body><ToastProvider><a href="#conteudo" className="skip-link">Pular para o conteúdo</a><SiteChrome user={user} initialDemo={initialDemo}>{children}</SiteChrome></ToastProvider></body></html>;
 }

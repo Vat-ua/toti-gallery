@@ -3078,7 +3078,7 @@ html[data-theme="dark"] .theme-icon-moon {
   display: grid;
   grid-template-columns: minmax(0, 1.02fr) minmax(0, .98fr);
   gap: clamp(var(--space-8), 5vw, var(--space-16));
-  align-items: center;
+  align-items: start;
   min-height: calc(100vh - 300px);
   padding-block: clamp(var(--space-8), 5vw, var(--space-16));
 }
@@ -3425,6 +3425,26 @@ html[data-theme="dark"] .theme-icon-moon {
 
 .auth-help p {
   margin-top: var(--space-2);
+}
+
+.auth-demo-section {
+  margin-top: var(--space-8);
+}
+
+.auth-demo {
+  width: 100%;
+  min-height: 52px;
+}
+
+.auth-demo:hover {
+  background: var(--surface-3);
+}
+
+.auth-demo-section>p {
+  margin-top: var(--space-3);
+  color: var(--ink-2);
+  font-size: var(--text-secondary);
+  line-height: var(--leading-body);
 }
 
 .access-page {
@@ -5474,5 +5494,87 @@ html[data-theme="dark"] .theme-icon-moon {
 
   .admin-import-preview small {
     font-size: var(--text-label);
+  }
+}
+
+/* ---------- Local demonstration ---------- */
+
+.demo-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.demo-banner {
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: var(--text-label);
+  line-height: var(--leading-ui);
+}
+
+.demo-banner-inner,
+.demo-banner-copy,
+.demo-banner-actions,
+.demo-banner-actions > * {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.demo-banner-inner {
+  justify-content: space-between;
+  padding-block: var(--space-2);
+}
+
+.demo-banner-copy strong {
+  color: var(--ink);
+  font-weight: var(--weight-semibold);
+}
+
+.demo-banner-actions > * {
+  gap: var(--space-1-5);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--space-1);
+  white-space: nowrap;
+}
+
+.demo-banner-actions > *:hover {
+  color: var(--ink);
+  background: var(--surface-3);
+}
+
+.demo-banner-actions button:disabled {
+  opacity: .5;
+  cursor: wait;
+}
+
+.demo-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--ink-2);
+}
+
+@media (max-width: 720px) {
+  .demo-banner-inner,
+  .demo-banner-actions {
+    gap: var(--space-2);
+  }
+
+  .demo-banner-copy {
+    display: block;
+  }
+
+  .demo-banner-copy span {
+    display: block;
+  }
+
+  .demo-banner-actions > * {
+    padding: var(--space-2);
+  }
+
+  .demo-banner-actions button span {
+    display: none;
   }
 }
