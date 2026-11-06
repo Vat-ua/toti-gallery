@@ -39,10 +39,6 @@ export function ProjectDetails({ project, related = [], canEdit = false, readOnl
     <div className="detail-layout">
       <div className="detail-main">
         <ProjectCover title={project.title} style={project.coverStyle} imageUrl={project.imageUrl} framing={project.coverFraming} fullSize/>
-        <section className="detail-description">
-          <h2>Sobre o projeto</h2>
-          <ProjectDescription>{project.description}</ProjectDescription>
-        </section>
       </div>
       <aside className="project-sidebar" aria-labelledby="project-details-title">
         <div className="project-sidebar-heading">
@@ -65,6 +61,10 @@ export function ProjectDetails({ project, related = [], canEdit = false, readOnl
         </div>
         <p className="project-date"><Icon name="clock" size={13}/>Publicado em {new Date(project.createdAt).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" })}</p>
       </aside>
+      <section className="detail-description">
+        <h2>Sobre o projeto</h2>
+        <ProjectDescription>{project.description}</ProjectDescription>
+      </section>
     </div>
     {related.length > 0 && <section className="related-projects">
       <div className="section-title"><h2>Outros projetos</h2><Link href={backHref}>Projetos<Icon name="arrow-right" size={16}/></Link></div>

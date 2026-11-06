@@ -164,12 +164,18 @@ export function Gallery({ projects }: { projects: Project[] }) {
       <section className="hero container" aria-labelledby="hero-title">
         <div className="hero-copy">
           <h1 id="hero-title">
-            Projetos de quem <em>aprende fazendo</em>.
+            Projetos de quem <em>aprende fazendo</em><span className="hero-title-dot">.</span>
           </h1>
+        </div>
+        <div className="hero-summary">
           <p className="hero-lead">
             Explore exercícios, experimentos e aplicações completas. Inspire-se
             no trabalho de outras pessoas e compartilhe o seu.
           </p>
+          <Link href={demo ? "/demo/novo" : "/meus-projetos/novo"} className="button hero-publish">
+            <Icon name="plus" size={18}/>
+            Publicar projeto
+          </Link>
         </div>
       </section>
 
@@ -178,36 +184,32 @@ export function Gallery({ projects }: { projects: Project[] }) {
         id="projetos"
         aria-labelledby="gallery-title"
       >
-        <div className="gallery-head">
-          <h2 id="gallery-title">
-            Explorar<span className="gallery-title-dot">.</span>
-          </h2>
-          <div
-            className="view-tabs"
-            role="group"
-            aria-label="Filtrar projetos"
+        <h2 id="gallery-title" className="sr-only">Projetos</h2>
+        <div
+          className="view-tabs"
+          role="group"
+          aria-label="Filtrar projetos"
+        >
+          <button
+            type="button"
+            className={!finalOnly ? "view-tab is-active" : "view-tab"}
+            aria-pressed={!finalOnly}
+            onClick={() => {
+              updateFilters({ finalOnly: false });
+            }}
           >
-            <button
-              type="button"
-              className={!finalOnly ? "view-tab is-active" : "view-tab"}
-              aria-pressed={!finalOnly}
-              onClick={() => {
-                updateFilters({ finalOnly: false });
-              }}
-            >
-              Todos
-            </button>
-            <button
-              type="button"
-              className={finalOnly ? "view-tab is-active" : "view-tab"}
-              aria-pressed={finalOnly}
-              onClick={() => {
-                updateFilters({ finalOnly: true });
-              }}
-            >
-              Projetos finais
-            </button>
-          </div>
+            Todos
+          </button>
+          <button
+            type="button"
+            className={finalOnly ? "view-tab is-active" : "view-tab"}
+            aria-pressed={finalOnly}
+            onClick={() => {
+              updateFilters({ finalOnly: true });
+            }}
+          >
+            Projetos finais
+          </button>
         </div>
 
         <div className="gallery-toolbar">
@@ -218,7 +220,7 @@ export function Gallery({ projects }: { projects: Project[] }) {
                 <input
                   ref={searchRef}
                   aria-label="Buscar projetos"
-                  placeholder="Buscar por projeto, pessoa ou tecnologia"
+                  placeholder="Projeto, pessoa ou tecnologia"
                   value={query}
                   onBlur={flushQuery}
                   onKeyDown={(event) => {
