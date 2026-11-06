@@ -10,6 +10,7 @@ import {
   ChevronDown,
   Clock,
   CodeXml,
+  Database,
   ExternalLink,
   Eye,
   EyeOff,
@@ -43,7 +44,7 @@ import {
   X,
 } from "lucide-react";
 
-export type IconName = "arrow-up-right" | "arrow-right" | "arrow-left" | "arrow-down" | "plus" | "search" | "chevron-down" | "heart" | "star" | "grid" | "x" | "menu" | "github" | "linkedin" | "external" | "logout" | "edit" | "trash" | "check" | "filter" | "code" | "user" | "users" | "eye" | "eye-off" | "restore" | "clock" | "link" | "mail" | "loader" | "upload" | "leaf" | "globe" | "sun" | "moon" | "book" | "spark" | "sliders" | "bold" | "italic" | "heading" | "list" | "list-ordered" | "quote";
+export type IconName = "arrow-up-right" | "arrow-right" | "arrow-left" | "arrow-down" | "plus" | "search" | "chevron-down" | "heart" | "star" | "grid" | "x" | "menu" | "github" | "linkedin" | "external" | "logout" | "edit" | "trash" | "check" | "filter" | "code" | "database" | "user" | "users" | "eye" | "eye-off" | "restore" | "clock" | "link" | "mail" | "loader" | "upload" | "leaf" | "globe" | "sun" | "moon" | "book" | "spark" | "sliders" | "bold" | "italic" | "heading" | "list" | "list-ordered" | "quote";
 
 const icons = {
   "arrow-up-right": ArrowUpRight,
@@ -65,6 +66,7 @@ const icons = {
   "check": Check,
   "filter": SlidersHorizontal,
   "code": CodeXml,
+  "database": Database,
   "user": User,
   "users": Users,
   "eye": Eye,

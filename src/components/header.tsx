@@ -53,7 +53,7 @@ function HeaderContent({ user, pathname, demo, onDemoExit }: { user: HeaderUser 
   </nav>}</header>;
 }
 
-export function Footer({ user, demo = false }: { user: Person | null; demo?: boolean }) {
+export function Footer({ user, demo = false, presentationEnabled }: { user: Person | null; demo?: boolean; presentationEnabled: boolean }) {
   return (
     <footer className="site-footer">
       <div className="container footer-inner">
@@ -65,6 +65,7 @@ export function Footer({ user, demo = false }: { user: Person | null; demo?: boo
           <div>
             <span>Conhecer</span>
             <Link href="/">Projetos</Link><Link href="/comunidade">Comunidade</Link><Link href="/sobre">Sobre</Link>
+            {presentationEnabled && <Link href="/apresentacao">Apresentação</Link>}
           </div>
           <div>
             <span>Participar</span>

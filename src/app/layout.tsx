@@ -19,5 +19,6 @@ const themeScript = `(function(){try{var d=document.documentElement;var stored=n
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const user = await getCurrentUser();
   const initialDemo = !user && (await cookies()).get(DEMO_MODE_COOKIE)?.value === "1";
-  return <html lang="pt-BR" data-theme="light" data-scroll-behavior="smooth" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{ __html: themeScript }}/></head><body><ToastProvider><a href="#conteudo" className="skip-link">Pular para o conteúdo</a><SiteChrome user={user} initialDemo={initialDemo}>{children}</SiteChrome></ToastProvider></body></html>;
+  const presentationEnabled = process.env.GALLERY_PRESENTATION_ENABLED !== "false";
+  return <html lang="pt-BR" data-theme="light" data-scroll-behavior="smooth" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{ __html: themeScript }}/></head><body><ToastProvider><a href="#conteudo" className="skip-link">Pular para o conteúdo</a><SiteChrome user={user} initialDemo={initialDemo} presentationEnabled={presentationEnabled}>{children}</SiteChrome></ToastProvider></body></html>;
 }

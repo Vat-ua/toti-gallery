@@ -12,10 +12,10 @@ import { DemoBanner } from "./demo-banner";
 import { Header, Footer } from "./header";
 
 type User = (Person & { role?: Role }) | null;
-export function SiteChrome({ user, initialDemo, children }: { user: User; initialDemo: boolean; children: ReactNode }) {
-  return <DemoModeProvider initialActive={initialDemo} authenticated={!!user}><Chrome user={user}>{children}</Chrome></DemoModeProvider>;
+export function SiteChrome({ user, initialDemo, presentationEnabled, children }: { user: User; initialDemo: boolean; presentationEnabled: boolean; children: ReactNode }) {
+  return <DemoModeProvider initialActive={initialDemo} authenticated={!!user}><Chrome user={user} presentationEnabled={presentationEnabled}>{children}</Chrome></DemoModeProvider>;
 }
-function Chrome({ user, children }: { user: User; children: ReactNode }) {
+function Chrome({ user, presentationEnabled, children }: { user: User; presentationEnabled: boolean; children: ReactNode }) {
   const mode = useDemoMode();
   const pathname = usePathname();
   const blocked = !!user && isDemoPath(pathname);
@@ -24,7 +24,7 @@ function Chrome({ user, children }: { user: User; children: ReactNode }) {
     <Header user={displayedUser} demo={mode.active} onDemoExit={mode.exit}/>
     {mode.active && <DemoBanner/>}
     {blocked ? <AuthenticatedDemoRedirect/> : children}
-    <Footer user={displayedUser} demo={mode.active}/>
+    <Footer user={displayedUser} demo={mode.active} presentationEnabled={presentationEnabled}/>
   </>;
 }
 function AuthenticatedDemoRedirect() {
