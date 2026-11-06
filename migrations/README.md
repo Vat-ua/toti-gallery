@@ -77,15 +77,16 @@ for direct inserts. Existing ID URLs are not supported by the new profile route.
 Verify it on an isolated development copy, then run
 `node scripts/migrate-public-profiles.cjs --env-file=.env.local` for development.
 The runner refuses production and checks data preservation inside the transaction.
-Applied to development after isolated verification. Production has not received
-this migration; apply it with release approval before deploying the updated code.
+Applied to development and production after isolated verification. Production
+received this migration on 2026-11-06; publishing the updated code is a separate
+release step.
 
 `20261104_profile_linkedin.sql` adds an optional LinkedIn URL without changing
 existing records. Verify it on an isolated copy, then use
 `node scripts/migrate-public-profiles.cjs --linkedin --env-file=.env.local` for
 development. The same target and data-preservation checks apply. Applied to
-development after isolated verification. Production has not received this
-migration; it must receive this and the public-profile migration before release.
+development and production after isolated verification. Production received this
+and the public-profile migration on 2026-11-06 without deploying new code.
 
 `20261105_project_save_guards.sql` adds a positive project `version` (existing
 projects start at 1) and durable owner-scoped creation receipts. It preserves all
@@ -93,5 +94,7 @@ existing columns, rows and relationships. Receipts deliberately retain publicati
 IDs after deletion, preventing old creation requests from recreating projects.
 Test with `node scripts/migrate-project-save-guards.cjs --env-file=PATH_TO_TEST_ENV`,
 then use the same guarded runner with `.env.local` for development. Production is
-rejected by the runner. Production has not received this migration; apply it under
-the existing approval/recovery process before releasing dependent code.
+rejected by the runner. Applied to production on 2026-11-06 after isolated
+verification and a verified database/image backup. All three release migrations
+committed together, preserving existing data; the dependent code is published
+separately.
