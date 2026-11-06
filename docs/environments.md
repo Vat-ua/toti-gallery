@@ -87,6 +87,8 @@ The existing Vercel project connects to `Vat-ua/toti-gallery` on GitHub, with
 code automatically: obtain deployment approval before that push/merge. Use feature
 branches for ongoing work. `vercel.json` disables deployments from other branches
 until Preview has its own database, storage credentials and trusted auth origin.
+The catch-all rule uses `"**": false` because `"*"` does not match branch names
+containing `/`. The explicit `"main": true` rule permits Production deployments.
 Never copy Production secrets or its database connection into Preview.
 
 Database migrations are separate from the build. Verify them on an isolated
