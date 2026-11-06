@@ -500,8 +500,7 @@ export function Gallery({ projects }: { projects: Project[] }) {
             <span className="eyebrow">Sua vez</span>
             <h2 id="publish-title">Publique o que você está aprendendo.</h2>
             <p>
-              Pode ser um exercício simples, um experimento ou até uma aplicação
-              completa.
+              Mostre o resultado, conte o que praticou e dê crédito a quem criou com você.
             </p>
           </div>
           <Link href={demo ? "/demo/novo" : "/meus-projetos/novo"} className="button button-invert">

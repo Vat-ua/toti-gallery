@@ -12,7 +12,7 @@ export function ProfileSummary({ person, isOwner, projectCount, totalLikes }: {
       <h1>{person.name}</h1>
       <div className="profile-cohort">
         <Icon name="users" size={14}/>
-        <span>{person.cohort}{person.courseName && <> — {person.courseName}</>}{person.year > 0 && <> · {person.year}</>}</span>
+        <span>{person.cohort}{person.courseName && <> · {person.courseName}</>}{person.year > 0 && <> · {person.year}</>}</span>
       </div>
       {person.bio && <p>{person.bio}</p>}
       <div className="profile-stats">
