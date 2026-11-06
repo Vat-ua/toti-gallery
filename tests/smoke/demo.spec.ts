@@ -53,7 +53,7 @@ test("local demo persists images and framing, supports CRUD, profile, empty stat
   page.on("pageerror", error => errors.push(error.message));
   await openDemo(page);
   await expect(page.getByText("Modo de demonstração", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Curtir projeto/i })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Curtir projeto/i })).toHaveCount(2);
   await expect(page.locator("body")).not.toContainText("Administração");
   expect(await page.locator(".demo-banner").evaluate(el => el.clientHeight)).toBeLessThan(80);
   await page.getByRole("button", { name: "Abrir menu da conta", exact: true }).click();
@@ -114,6 +114,82 @@ test("local demo persists images and framing, supports CRUD, profile, empty stat
   expect(await page.locator("body").evaluate(el => el.scrollWidth <= window.innerWidth)).toBe(true);
   expect(calls).toEqual([]);
   expect(errors).toEqual([]);
+});
+
+test("demo likes persist across cards, details and editing, and reset locally without API", async ({ page }, info) => {
+  test.setTimeout(120_000);
+  const calls = prohibitAPI(page);
+  await openDemo(page);
+  const card = page.locator(".management-card").filter({ has: page.getByRole("link", { name: "Ver projeto: Meu portfólio", exact: true }) });
+  const like = card.locator(".like-button");
+  await expect(like.locator(".like-count")).toHaveText("24");
+  await like.click();
+  await expect(like).toHaveAttribute("aria-busy", "false");
+  await expect(like).toHaveAttribute("aria-pressed", "true");
+  await expect(like.locator(".like-count")).toHaveText("25");
+  // An even number of rapid clicks must preserve the last intended state.
+  await like.evaluate(button => { for (let i = 0; i < 8; i++) (button as HTMLButtonElement).click(); });
+  await expect(like).toHaveAttribute("aria-busy", "false");
+  await expect(like).toHaveAttribute("aria-pressed", "true");
+  await card.getByRole("link", { name: "Ver projeto: Meu portfólio", exact: true }).click();
+  const detailLike = page.locator(".detail-actions .like-button");
+  await expect(detailLike.locator(".like-count")).toHaveText("25");
+  await page.reload();
+  await expect(detailLike).toHaveAttribute("aria-pressed", "true");
+  await expect(detailLike.locator(".like-count")).toHaveText("25");
+  await page.screenshot({ path: info.outputPath("demo-project-like.png"), fullPage: true });
+  await page.getByRole("link", { name: "Editar projeto", exact: true }).click();
+  await page.locator("#project-title").fill("Meu portfólio atualizado");
+  await page.getByRole("button", { name: "Salvar alterações", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Meu portfólio atualizado");
+  await expect(detailLike.locator(".like-count")).toHaveText("25");
+  await expect(detailLike).toHaveAttribute("aria-pressed", "true");
+  await page.goto("/demo/perfil");
+  await expect(page.locator(".profile-stats")).toContainText("37 curtidas recebidas");
+  await page.screenshot({ path: info.outputPath("demo-profile-likes.png"), fullPage: true });
+  await page.getByRole("button", { name: "Restaurar dados", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Restaurar dados", exact: true }).click();
+  await expect(card.getByRole("button", { name: /Curtir projeto/ }).locator(".like-count")).toHaveText("24");
+  await expect(card.getByRole("button", { name: /Curtir projeto/ })).toHaveAttribute("aria-pressed", "false");
+  expect(calls).toEqual([]);
+});
+
+test("parallel demo likes are idempotent and a failed local write restores the confirmed state", async ({ page, context }) => {
+  test.setTimeout(120_000);
+  const calls = prohibitAPI(page);
+  await page.goto("/demo/projetos/meu-portfolio");
+  const like = page.locator(".detail-actions .like-button");
+  await expect(like.locator(".like-count")).toHaveText("24");
+  const other = await context.newPage();
+  const otherCalls = prohibitAPI(other);
+  await other.goto("/demo/projetos/meu-portfolio");
+  const otherLike = other.locator(".detail-actions .like-button");
+  await expect(otherLike.locator(".like-count")).toHaveText("24");
+  await Promise.all([like.click(), otherLike.click()]);
+  await expect(like).toHaveAttribute("aria-busy", "false");
+  await expect(otherLike).toHaveAttribute("aria-busy", "false");
+  await expect(like.locator(".like-count")).toHaveText("25");
+  await expect(otherLike.locator(".like-count")).toHaveText("25");
+  await page.reload();
+  await expect(like.locator(".like-count")).toHaveText("25");
+  await page.evaluate(() => {
+    IDBObjectStore.prototype.put = function () { throw new DOMException("Full", "QuotaExceededError"); };
+  });
+  await like.click();
+  await expect(page.locator(".toast-error")).toContainText("armazenamento");
+  await expect(like).toHaveAttribute("aria-busy", "false");
+  await expect(like).toHaveAttribute("aria-pressed", "true");
+  await expect(like.locator(".like-count")).toHaveText("25");
+  await page.reload();
+  await expect(like).toHaveAttribute("aria-pressed", "true");
+  await like.click();
+  await expect(like).toHaveAttribute("aria-busy", "false");
+  await expect(like.locator(".like-count")).toHaveText("24");
+  await other.reload();
+  await expect(otherLike).toHaveAttribute("aria-pressed", "false");
+  await expect(otherLike.locator(".like-count")).toHaveText("24");
+  await other.close();
+  expect([...calls, ...otherCalls]).toEqual([]);
 });
 
 test("authenticated visitors cannot enter demo or activate it with its presentation cookie", async ({ page }) => {

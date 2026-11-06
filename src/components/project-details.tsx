@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Project } from "@/lib/types";
+import type { LikeAction } from "@/lib/likes-client";
 import { ProjectCover } from "./project-cover";
 import { ProjectCard, ProjectLikeCount } from "./project-card";
 import { Icon } from "./icon";
@@ -9,9 +10,9 @@ import { ProjectDescription } from "./project-description";
 
 import { studentProjectLinks, type ProjectLinks } from "@/lib/project-links";
 
-export function ProjectDetails({ project, related = [], canEdit = false, readOnly = false, embedded = false, backHref = "/", backLabel = "Projetos", notice, hideLikes = false, links = studentProjectLinks }: {
+export function ProjectDetails({ project, related = [], canEdit = false, readOnly = false, embedded = false, backHref = "/", backLabel = "Projetos", notice, likeAction, links = studentProjectLinks }: {
   project: Project; related?: Project[]; canEdit?: boolean; readOnly?: boolean; embedded?: boolean;
-  backHref?: string; backLabel?: string; notice?: ReactNode; hideLikes?: boolean; links?: ProjectLinks;
+  backHref?: string; backLabel?: string; notice?: ReactNode; likeAction?: LikeAction; links?: ProjectLinks;
 }) {
   const Wrapper = embedded ? "section" : "main";
   return <Wrapper {...(embedded ? {} : { id: "conteudo" })} className={embedded ? "admin-project-preview" : "container inner-page"}>
@@ -32,7 +33,7 @@ export function ProjectDetails({ project, related = [], canEdit = false, readOnl
       </div>
       <div className="detail-actions">
         {canEdit && <Link className="button button-dark" href={links.edit(project.id)}><Icon name="edit" size={16}/>Editar projeto</Link>}
-        {!hideLikes && (readOnly ? <ProjectLikeCount likes={project.likes}/> : <LikeButton id={project.id} initialLiked={project.liked} initialLikes={project.likes} full/>)}
+        {readOnly ? <ProjectLikeCount likes={project.likes}/> : <LikeButton id={project.id} initialLiked={project.liked} initialLikes={project.likes} full action={likeAction}/>}
       </div>
     </div>
     <div className="detail-layout">
@@ -67,7 +68,7 @@ export function ProjectDetails({ project, related = [], canEdit = false, readOnl
     </div>
     {related.length > 0 && <section className="related-projects">
       <div className="section-title"><h2>Outros projetos</h2><Link href={backHref}>Projetos<Icon name="arrow-right" size={16}/></Link></div>
-      <div className="project-grid">{related.map(p => <ProjectCard project={p} key={p.id} href={links.view(p)} links={links} hideLikes={hideLikes} readOnly={readOnly}/>)}</div>
+      <div className="project-grid">{related.map(p => <ProjectCard project={p} key={p.id} href={links.view(p)} links={links} likeAction={likeAction} readOnly={readOnly}/>)}</div>
     </section>}
   </Wrapper>;
 }

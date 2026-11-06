@@ -3,8 +3,8 @@ import type { Person } from "@/lib/types";
 import { Avatar } from "./ui";
 import { Icon } from "./icon";
 
-export function ProfileSummary({ person, isOwner, projectCount, totalLikes, hideLikes = false }: {
-  person: Person; isOwner: boolean; projectCount: number; totalLikes: number; hideLikes?: boolean;
+export function ProfileSummary({ person, isOwner, projectCount, totalLikes }: {
+  person: Person; isOwner: boolean; projectCount: number; totalLikes: number;
 }) {
   return <section className="profile-summary">
     <Avatar person={person} size={108}/>
@@ -17,7 +17,7 @@ export function ProfileSummary({ person, isOwner, projectCount, totalLikes, hide
       {person.bio && <p>{person.bio}</p>}
       <div className="profile-stats">
         <span><strong>{projectCount}</strong> {projectCount === 1 ? "projeto" : "projetos"}</span>
-        {!hideLikes && <span><strong>{totalLikes}</strong> curtidas recebidas</span>}
+        <span><strong>{totalLikes}</strong> curtidas recebidas</span>
       </div>
     </div>
     {(isOwner || person.github || person.linkedin) && <div className="profile-actions">

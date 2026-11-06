@@ -8,14 +8,15 @@ import { ProjectCard } from "./project-card";
 import { Icon } from "./icon";
 import { useToast } from "./ui";
 import { deleteProject, leaveProject } from "@/lib/projects-client";
+import type { LikeAction } from "@/lib/likes-client";
 
 import { studentProjectLinks, type ProjectLinks } from "@/lib/project-links";
 
-export type MyProjectsActions = { remove: typeof deleteProject; leave: typeof leaveProject };
+export type MyProjectsActions = { remove: typeof deleteProject; leave: typeof leaveProject; like?: LikeAction };
 const apiActions: MyProjectsActions = { remove: deleteProject, leave: leaveProject };
 
-export function MyProjects({ projects, user, actions = apiActions, links = studentProjectLinks, hideLikes = false, removalDescription, removalSuccessMessage = "Projeto excluído.", backHref = "/" }: {
-  projects: Project[]; user: Person; actions?: MyProjectsActions; links?: ProjectLinks; hideLikes?: boolean; removalDescription?: string; removalSuccessMessage?: string; backHref?: string | null;
+export function MyProjects({ projects, user, actions = apiActions, links = studentProjectLinks, removalDescription, removalSuccessMessage = "Projeto excluído.", backHref = "/" }: {
+  projects: Project[]; user: Person; actions?: MyProjectsActions; links?: ProjectLinks; removalDescription?: string; removalSuccessMessage?: string; backHref?: string | null;
 }) {
   const [list, setList] = useState({ source: projects, items: projects });
   const items = list.items;
@@ -54,7 +55,7 @@ export function MyProjects({ projects, user, actions = apiActions, links = stude
       const isOwner = project.author.id === user.id;
       const href = links.view(project);
       return <div key={project.id} className="management-card">
-        <ProjectCard project={project} isCoauthor={!isOwner} href={href} readOnly={project.visibility === "hidden"} hideLikes={hideLikes} links={links}/>
+        <ProjectCard project={project} isCoauthor={!isOwner} href={href} readOnly={project.visibility === "hidden"} likeAction={actions.like} links={links}/>
         {project.visibility === "hidden" && <div className="project-moderation-note"><strong>Oculto pela administração</strong>{isOwner && project.moderationReason && <p>{project.moderationReason}</p>}</div>}
         <div className="management-actions">
           {isOwner && <Link href={links.edit(project.id)}><Icon name="edit" size={15}/>Editar</Link>}

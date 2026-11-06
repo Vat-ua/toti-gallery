@@ -1,6 +1,7 @@
 import { ensureBrowserVisitor } from "./browser-visitor";
 import { HttpError, requestJson } from "./http-client";
 export type LikeState = { liked: boolean; likes: number };
+export type LikeAction = (id: string, liked: boolean) => Promise<LikeState>;
 const fallback = "Não foi possível curtir. Tente novamente.";
 function state(data: Record<string, unknown>): LikeState {
   if (typeof data.liked !== "boolean" || typeof data.likes !== "number" || !Number.isSafeInteger(data.likes) || data.likes < 0) throw new Error(fallback);

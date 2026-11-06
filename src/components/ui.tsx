@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { Icon } from "./icon";
 import { useProjectLike } from "./use-project-like";
 import type { Person } from "@/lib/types";
+import type { LikeAction } from "@/lib/likes-client";
 
 const ToastContext = createContext<(message: string, error?: boolean) => void>(() => {});
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -25,8 +26,8 @@ export function Avatar({ person, size = 28, className = "" }: { person: Pick<Per
   return <span className={`avatar ${className}`} style={{ width: size, height: size, fontSize: size * .33 }} role="img" aria-label={person.name}>{person.avatar && !failed ? <img src={person.avatar} alt="" width={size} height={size} onError={() => setFailed(true)}/> : initials}</span>;
 }
 
-export function LikeButton({ id, initialLikes, initialLiked, full = false }: { id: string; initialLikes: number; initialLiked: boolean; full?: boolean }) {
-  const { liked, likes, pending, error, toggle } = useProjectLike(id, initialLiked, initialLikes);
+export function LikeButton({ id, initialLikes, initialLiked, full = false, action }: { id: string; initialLikes: number; initialLiked: boolean; full?: boolean; action?: LikeAction }) {
+  const { liked, likes, pending, error, toggle } = useProjectLike(id, initialLiked, initialLikes, action);
   const notify = useToast();
   const reported = useRef<string | null>(null);
   useEffect(() => { if (error && reported.current !== error) notify(error, true); reported.current = error; }, [error, notify]);

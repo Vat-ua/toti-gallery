@@ -27,7 +27,7 @@ async function openDatabase(): Promise<IDBDatabase> {
 }
 
 /** One record/transaction keeps records and image Blobs atomic, including reset. */
-async function changeWorkspace(change: (current: DemoWorkspace | undefined) => DemoWorkspace): Promise<DemoWorkspace> {
+async function changeWorkspace(change: (current: DemoWorkspace | undefined) => DemoWorkspace, failureMessage = failedSave): Promise<DemoWorkspace> {
   const database = await openDatabase();
   try {
     return await new Promise((resolve, reject) => {
@@ -42,10 +42,10 @@ async function changeWorkspace(change: (current: DemoWorkspace | undefined) => D
           if (current && (current.schemaVersion !== 1 || !Array.isArray(current.projects) || typeof current.generation !== "string")) throw new Error("Os dados desta demonstração não são compatíveis. Use Restaurar dados para recomeçar.");
           result = change(current);
           if (result !== current) store.put(result, KEY);
-        } catch (error) { failure = error instanceof DOMException ? new Error(failedSave) : error; tx.abort(); }
+        } catch (error) { failure = error instanceof DOMException ? new Error(failureMessage) : error; tx.abort(); }
       };
       tx.oncomplete = () => resolve(result);
-      tx.onabort = () => reject(failure || new Error(failedSave));
+      tx.onabort = () => reject(failure || new Error(failureMessage));
       tx.onerror = () => { /* onabort reports the safe error after rollback. */ };
     });
   } finally { database.close(); }
@@ -87,7 +87,7 @@ export async function saveDemoProject(generation: string, id: string, values: Pr
       ...data, id, slug: id, version: (previous?.version ?? 0) + 1,
       turmaId: demoPerson.turmaId!, createdAt: previous?.createdAt ?? new Date().toISOString(),
       image: image ?? (values.imageUrl ? previous?.image ?? null : null),
-      featured: false, likes: 0, liked: false, visibility: "published",
+      featured: false, likes: previous?.likes ?? 0, liked: previous?.liked ?? false, visibility: "published",
     };
     return { ...workspace, projects: [project, ...workspace.projects.filter(item => item.id !== id)] };
   });
@@ -98,4 +98,15 @@ export function deleteDemoProject(generation: string, id: string) {
     const workspace = requireCurrent(current, generation);
     return { ...workspace, projects: workspace.projects.filter(project => project.id !== id) };
   });
+}
+
+export function setDemoLike(generation: string, id: string, liked: boolean) {
+  return changeWorkspace(current => {
+    const workspace = requireCurrent(current, generation);
+    const project = workspace.projects.find(item => item.id === id);
+    if (!project) throw new Error("Este projeto foi excluído. Volte aos seus projetos.");
+    if (project.liked === liked) return workspace;
+    const next = { ...project, liked, likes: Math.max(0, project.likes + Number(liked) - Number(project.liked)) };
+    return { ...workspace, projects: workspace.projects.map(item => item.id === id ? next : item) };
+  }, "Não foi possível salvar a curtida neste navegador. O armazenamento pode estar cheio ou indisponível. Tente novamente.");
 }
