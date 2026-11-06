@@ -2295,6 +2295,28 @@ html[data-theme="dark"] .theme-icon-moon {
   max-width: 62ch;
 }
 
+/* About */
+
+.about-section {
+  margin-top: clamp(var(--space-8), 4vw, var(--space-10));
+}
+
+.about-section h2 {
+  font-size: var(--text-title);
+  line-height: var(--leading-compact);
+}
+
+.about-content a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: var(--space-1);
+}
+
+.about-content a:hover {
+  text-decoration-color: currentColor;
+}
+
 .project-detail-heading {
   display: flex;
   align-items: flex-start;

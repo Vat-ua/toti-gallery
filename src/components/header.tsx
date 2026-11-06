@@ -64,7 +64,7 @@ export function Footer({ user, demo = false }: { user: Person | null; demo?: boo
         <nav className="footer-nav" aria-label="Links do rodapé">
           <div>
             <span>Conhecer</span>
-            <Link href="/">Projetos</Link><Link href="/comunidade">Comunidade</Link>
+            <Link href="/">Projetos</Link><Link href="/comunidade">Comunidade</Link><Link href="/sobre">Sobre</Link>
           </div>
           <div>
             <span>Participar</span>
