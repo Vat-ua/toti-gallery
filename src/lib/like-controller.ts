@@ -4,7 +4,7 @@ export type LikeSnapshot = LikeState & { pending: boolean; error: string | null 
 /** Coalesce rapid clicks to the latest intent; keep only one write in flight. */
 export function createLikeController(initial: LikeState, save: (liked: boolean) => Promise<LikeState>) {
   let confirmed = initial, desired = initial.liked, running = false, revision = 0;
-  let snapshot: LikeSnapshot = { ...initial, pending: false, error: null };
+  let snapshot: LikeSnapshot = { liked: initial.liked, likes: initial.likes, pending: false, error: null };
   const listeners = new Set<() => void>();
   function publish(error: string | null = null) {
     snapshot = { liked: desired, likes: confirmed.likes + Number(desired) - Number(confirmed.liked), pending: running, error };
@@ -30,6 +30,11 @@ export function createLikeController(initial: LikeState, save: (liked: boolean) 
     getSnapshot: () => snapshot,
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     toggle() { desired = !desired; revision++; publish(); if (!running) void drain(); },
-    refresh(value: LikeState) { if (!running && (value.liked !== confirmed.liked || value.likes !== confirmed.likes)) { confirmed = value; desired = value.liked; publish(); } },
+    refresh(value: LikeState) {
+      if (running || (confirmed.observedAt !== undefined && (value.observedAt === undefined || value.observedAt <= confirmed.observedAt))) return;
+      const changed = value.liked !== confirmed.liked || value.likes !== confirmed.likes;
+      confirmed = value; desired = value.liked;
+      if (changed) publish();
+    },
   };
 }

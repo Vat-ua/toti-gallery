@@ -38,8 +38,8 @@ export function Avatar({ person, size = 28, className = "" }: { person: Pick<Per
   return <span className={`avatar ${className}`} style={{ "--avatar-default-size": `${size}px` } as CSSProperties} role="img" aria-label={person.name}>{person.avatar && !failed ? <img src={person.avatar} alt="" width={size} height={size} onError={() => setFailed(true)}/> : initials}</span>;
 }
 
-export function LikeButton({ id, initialLikes, initialLiked, full = false, action }: { id: string; initialLikes: number; initialLiked: boolean; full?: boolean; action?: LikeAction }) {
-  const { liked, likes, pending, error, toggle } = useProjectLike(id, initialLiked, initialLikes, action);
+export function LikeButton({ id, initialLikes, initialLiked, full = false, action, observedAt }: { id: string; initialLikes: number; initialLiked: boolean; full?: boolean; action?: LikeAction; observedAt?: number }) {
+  const { liked, likes, pending, error, toggle } = useProjectLike(id, initialLiked, initialLikes, action, observedAt);
   const notify = useToast();
   const reported = useRef<string | null>(null);
   useEffect(() => { if (error && reported.current !== error) notify(error, true); reported.current = error; }, [error, notify]);

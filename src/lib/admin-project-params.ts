@@ -1,5 +1,7 @@
+import { COLLECTION_PAGE_SIZE } from "./collection-page";
+
 export type AdminProjectFilters = { query: string; turmaId: string; visibility: "all" | "published" | "hidden"; page: number };
-export const ADMIN_PROJECT_PAGE_SIZE = 9;
+export const ADMIN_PROJECT_PAGE_SIZE = COLLECTION_PAGE_SIZE;
 export function parseAdminProjectFilters(params: Record<string, unknown>): AdminProjectFilters {
   const page = typeof params.page === "number" ? params.page : typeof params.page === "string" && /^\d+$/.test(params.page) ? Number(params.page) : 1;
   return {

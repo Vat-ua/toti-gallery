@@ -1615,6 +1615,15 @@ html[data-theme="dark"] .theme-icon-moon {
   padding: var(--space-1) var(--space-2);
 }
 
+.collection-loading { min-height: 8rem; display: flex; align-items: center; justify-content: center; gap: var(--space-2); color: var(--ink-3); }
+.collection-feedback {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-block: var(--space-4);
+}
+
 .load-more-area {
   text-align: center;
   padding: var(--space-12) 0 var(--space-14);

@@ -3,13 +3,14 @@ import assert from "node:assert/strict";
 import { randomUUID, randomInt, createHash } from "node:crypto";
 import { config } from "dotenv";
 import { assertDatabaseTarget } from "../src/lib/database-target.cjs";
+import { COLLECTION_PAGE_SIZE as SIZE } from "../src/lib/collection-page";
 import { adminProjectHref, adminProjectReturn, parseAdminProjectFilters } from "../src/lib/admin-project-params";
 
 let pool: typeof import("../src/db").pool;
 let service: typeof import("../src/lib/admin-projects");
 const prefix = `moderation-${randomUUID()}`;
 const admin = randomUUID(), student = randomUUID(), coauthor = randomUUID(), suspended = randomUUID();
-const group = randomUUID(), otherGroup = randomUUID(), ids = Array.from({ length: 14 }, () => randomUUID());
+const group = randomUUID(), otherGroup = randomUUID(), ids = Array.from({ length: SIZE + 2 }, () => randomUUID());
 let baseline: Record<string, string>;
 async function snapshot() {
   const result: Record<string, string> = {};
@@ -31,7 +32,7 @@ before(async () => {
   const number = randomInt(1000000, 900000000);
   for (const [index, id] of [group, otherGroup].entries()) await pool.query("INSERT INTO gallery_turmas(id,name,number,course_name,start_year,archived_at) VALUES($1,$2,$3,'Fixture',2026,now())", [id, `Turma ${number + index}`, number + index]);
   for (const [index, id] of ids.entries()) {
-    await pool.query("INSERT INTO gallery_projects(id,slug,title,description,technologies,github_url,author_id,turma_id,base_likes,is_final,created_at) VALUES($1,$2,$3,'Keep this content','[\"React\"]','https://github.com',$4,$5,7,true,$6)", [id, `${prefix}-${index}`, `${prefix} ${index}`, student, index === 13 ? otherGroup : group, new Date(2026, 0, 1, 0, 0, index)]);
+    await pool.query("INSERT INTO gallery_projects(id,slug,title,description,technologies,github_url,author_id,turma_id,base_likes,is_final,created_at) VALUES($1,$2,$3,'Keep this content','[\"React\"]','https://github.com',$4,$5,7,true,$6)", [id, `${prefix}-${index}`, `${prefix} ${index}`, student, index === ids.length - 1 ? otherGroup : group, new Date(2026, 0, 1, 0, 0, index)]);
     await pool.query("INSERT INTO gallery_project_authors(project_id,user_id) VALUES($1,$2),($1,$3)", [id, student, coauthor]);
     await pool.query("INSERT INTO gallery_likes(project_id,visitor_key) VALUES($1,'fixture-like')", [id]);
   }
@@ -64,11 +65,11 @@ test("all reads and writes require active staff", async () => {
 test("incremental loading searches all coauthors, retains earlier cards and filters archived turmas", async () => {
   const filters = { query: `joao ${prefix}`, turmaId: group };
   const first = await service.listAdminProjects(admin, filters);
-  assert.equal(first.total, 13); assert.equal(first.projects.length, 9);
+  assert.equal(first.total, ids.length - 1); assert.equal(first.projects.length, SIZE);
   const second = await service.listAdminProjects(admin, { ...filters, page: 2 });
-  assert.equal(second.projects.length, 13);
-  assert.deepEqual(second.projects.slice(0, 9).map(project => project.id), first.projects.map(project => project.id));
-  assert.equal(new Set(second.projects.map(project => project.id)).size, 13);
+  assert.equal(second.projects.length, ids.length - 1);
+  assert.deepEqual(second.projects.slice(0, SIZE).map(project => project.id), first.projects.map(project => project.id));
+  assert.equal(new Set(second.projects.map(project => project.id)).size, ids.length - 1);
   const beyondInitial = await service.listAdminProjects(admin, { query: `${prefix} 0`, turmaId: group });
   assert.equal(beyondInitial.total, 1); assert.equal(beyondInitial.projects[0].id, ids[0]);
   assert.equal((await service.listAdminProjects(admin, { ...filters, page: 100 })).filters.page, 2);

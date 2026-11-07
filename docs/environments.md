@@ -85,11 +85,31 @@ sessions, project authorship and data; it does not require a new auth secret.
 The existing Vercel project connects to `Vat-ua/toti-gallery` on GitHub, with
 `main` as its Production branch. A push/merge to `main` publishes the committed
 code automatically: obtain deployment approval before that push/merge. Use feature
-branches for ongoing work. `vercel.json` disables deployments from other branches
-until Preview has its own database, storage credentials and trusted auth origin.
+branches for ongoing work. `vercel.json` disables automatic deployments from
+other branches. An explicitly approved manual Preview can be created from a
+reviewed feature commit after configuring its isolated environment.
 The catch-all rule uses `"**": false` because `"*"` does not match branch names
 containing `/`. The explicit `"main": true` rule permits Production deployments.
 Never copy Production secrets or its database connection into Preview.
+
+### Manual Preview
+
+Use the existing Vercel project and deploy the exact pushed feature commit as a
+Preview, never as Production. Keep automatic feature-branch deployments disabled.
+Scope Preview variables to that Git branch: the verified Neon development
+database and its matching storage credentials, database identity metadata, a
+separate generated Better Auth secret, and the exact HTTPS Preview branch origin.
+Do not upload local environment files. Email/password uses development accounts;
+Google stays disabled unless its separate callback has been explicitly configured.
+
+Preview writes affect development, including its images and likes; they never
+synchronize to Production. The existing Vercel deployment protection remains in
+place. Verify the deployed commit, target, origin and branch alias before testing,
+and confirm the Production deployment ID is unchanged. CI uses its disposable
+PostgreSQL service independently of this Preview database.
+
+After review and separate approval, merge into `main` through the normal release
+workflow. Preview success does not authorize that merge or a Production deployment.
 
 Database migrations are separate from the build. Verify them on an isolated
 production copy, prepare a recovery path, then apply approved migrations before

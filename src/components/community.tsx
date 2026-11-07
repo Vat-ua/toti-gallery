@@ -1,25 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { Person, Project } from "@/lib/types";
+import { useEffect, useRef, useState } from "react";
+import type { CommunityPerson } from "@/lib/types";
+import type { CollectionSnapshot } from "@/lib/collection-page";
+import type { GalleryFilterOptions } from "@/lib/gallery-filters";
+import { usePagedCollection } from "./use-paged-collection";
+import { CollectionFeedback } from "./collection-feedback";
+import { IntentLink } from "./intent-link";
 import { Avatar } from "./ui";
 import { Icon } from "./icon";
 import { useGalleryFilters } from "./use-gallery-filters";
 import { Popover } from "./popover";
 
-const PAGE_SIZE = 9;
-const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-
-export function Community({ people, projects }: { people: Person[]; projects: Project[] }) {
-  const filterOptions = useMemo(() => ({
-    cohorts: [...new Set(people.flatMap(person => person.cohorts))].sort((a, b) => b.localeCompare(a, "pt-BR", { numeric: true })),
-    technologies: [],
-  }), [people]);
-  const { filters: { query, cohort, page }, updateFilters, changeQuery, flushQuery, changePage } = useGalleryFilters(filterOptions);
-  const filtered = useMemo(() => people.filter(person => normalize(person.name).includes(normalize(query)) && (!cohort || person.cohorts.includes(cohort))), [people, query, cohort]);
-  const loadedPage = Math.min(page, Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)));
-  const visible = loadedPage * PAGE_SIZE;
+export function Community({ initialPage, filterOptions }: { initialPage: CollectionSnapshot<CommunityPerson>; filterOptions: GalleryFilterOptions }) {
+  const { filters: { query, cohort }, updateFilters, changeQuery, flushQuery, changePage } = useGalleryFilters("community");
+  const collection = usePagedCollection(initialPage, "/api/people", "community");
+  const { items, total, loadedPages: loadedPage } = collection.data;
   const [filtersOpen, setFiltersOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -65,17 +62,17 @@ export function Community({ people, projects }: { people: Person[]; projects: Pr
           </div>
         </div>
       </div>
-      <p className="results-count" aria-live="polite" aria-atomic="true"><strong>{filtered.length}</strong> {filtered.length === 1 ? "pessoa" : "pessoas"}</p>
+      <p className="results-count" aria-live="polite" aria-atomic="true"><strong>{total}</strong> {total === 1 ? "pessoa" : "pessoas"}</p>
     </div>
     {cohort && <div className="active-filters" aria-label="Filtros ativos">
       <button type="button" className="active-filter" aria-label={`Remover filtro ${cohort}`} onClick={() => updateFilters({ cohort: "" })}>{cohort}<Icon name="x" size={14}/></button>
       <button type="button" className="clear-filters" onClick={clear}>Limpar tudo</button>
     </div>}
-    {filtered.length ? <><div className="people-grid">{filtered.slice(0, visible).map(person => {
-      const authored = projects.filter(project => project.authors.some(author => author.id === person.id));
-      const count = authored.length;
-      const likes = authored.reduce((total, project) => total + project.likes, 0);
-      return <Link href={`/pessoas/${person.slug}`} key={person.id} className="person-card">
+    <CollectionFeedback error={collection.error} retry={collection.retry} pending={collection.pending} hasItems={items.length > 0}/>
+    {total ? <><div className="people-grid" aria-busy={collection.pending}>{items.map(person => {
+      const count = person.projectCount;
+      const likes = person.totalLikes;
+      return <IntentLink href={`/pessoas/${person.slug}`} key={person.id} className="person-card">
         <div className="person-card-top"><Avatar person={person} size={58}/><Icon name="arrow-up-right" size={23}/></div>
         <h2>{person.name}</h2>
         <div className="person-card-cohort">{person.cohort}</div>
@@ -84,17 +81,17 @@ export function Community({ people, projects }: { people: Person[]; projects: Pr
           <span className="person-card-projects"><Icon name="grid" size={13}/>{count} {count === 1 ? "projeto" : "projetos"}</span>
           {likes > 0 && <span className="person-card-likes">{likes} {likes === 1 ? "curtida" : "curtidas"}</span>}
         </div>
-      </Link>;
+      </IntentLink>;
     })}</div>
-      {visible < filtered.length && <div className="load-more-area">
-        <button type="button" className="button button-outline load-more" onClick={() => changePage(loadedPage + 1)}>Carregar mais pessoas<Icon name="arrow-down" size={18}/></button>
-        <p className="load-count">Mostrando {Math.min(visible, filtered.length)} de {filtered.length}</p>
+      {collection.data.hasMore && <div className="load-more-area">
+        <button type="button" className="button button-outline load-more" onClick={() => collection.error ? collection.retry() : changePage(loadedPage + 1)} disabled={!!collection.pending}>{collection.pending ? "Carregando..." : "Carregar mais pessoas"}<Icon name="arrow-down" size={18}/></button>
+        <p className="load-count">Mostrando {items.length} de {total}</p>
       </div>}
-    </> : <div className="empty-state">
+    </> : !collection.pending && !collection.error ? <div className="empty-state">
       <span className="empty-icon"><Icon name="users" size={30}/></span>
       <h2>Nenhuma pessoa encontrada.</h2>
       <p>Tente outro nome ou turma.</p>
       <button type="button" className="button button-outline" onClick={clear}>Limpar filtros<Icon name="arrow-right" size={16}/></button>
-    </div>}
+    </div> : null}
   </main>;
 }

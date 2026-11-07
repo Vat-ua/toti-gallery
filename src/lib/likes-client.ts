@@ -1,11 +1,12 @@
 import { ensureBrowserVisitor } from "./browser-visitor";
 import { HttpError, requestJson } from "./http-client";
-export type LikeState = { liked: boolean; likes: number };
+export type LikeState = { liked: boolean; likes: number; observedAt?: number };
 export type LikeAction = (id: string, liked: boolean) => Promise<LikeState>;
 const fallback = "Não foi possível curtir. Tente novamente.";
 function state(data: Record<string, unknown>): LikeState {
   if (typeof data.liked !== "boolean" || typeof data.likes !== "number" || !Number.isSafeInteger(data.likes) || data.likes < 0) throw new Error(fallback);
-  return { liked: data.liked, likes: data.likes };
+  if (data.observedAt !== undefined && (!Number.isSafeInteger(data.observedAt) || (data.observedAt as number) <= 0)) throw new Error(fallback);
+  return { liked: data.liked, likes: data.likes, ...(data.observedAt === undefined ? {} : { observedAt: data.observedAt as number }) };
 }
 export class LikeRequestError extends Error {
   constructor(message: string, public confirmed?: LikeState) { super(message); }

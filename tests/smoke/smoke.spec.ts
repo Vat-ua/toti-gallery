@@ -113,8 +113,8 @@ test("student signs in, recovers a lost publish response, edits and deletes one 
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
   const publishedURL = page.url();
   expect(await (await request.get("/sitemap.xml")).text()).toContain(`<loc>${publishedURL}</loc>`);
-  const publicResponse = await request.get("/api/projects");
-  expect((await publicResponse.json()).filter((project: { title: string }) => project.title === title)).toHaveLength(1);
+  const publicResponse = await request.get(`/api/projects?q=${encodeURIComponent(title)}`);
+  expect((await publicResponse.json()).items.filter((project: { title: string }) => project.title === title)).toHaveLength(1);
   await page.getByRole("link", { name: "Editar projeto", exact: true }).click();
   await page.locator("#project-title").fill(`${title} editada`);
   await page.getByRole("button", { name: "Salvar alterações" }).click();
@@ -124,8 +124,8 @@ test("student signs in, recovers a lost publish response, edits and deletes one 
   await page.getByRole("button", { name: `Excluir ${title} editada`, exact: true }).click();
   await page.getByRole("button", { name: "Sim, excluir", exact: true }).click();
   await expect(page.getByRole("button", { name: `Excluir ${title} editada`, exact: true })).toHaveCount(0);
-  const remaining = await (await request.get("/api/projects")).json();
-  expect(remaining.some((project: { slug: string }) => project.slug === new URL(publishedURL).pathname.split("/").pop())).toBe(false);
+  const remaining = await (await request.get(`/api/projects?q=${encodeURIComponent(title)}`)).json();
+  expect(remaining.items.some((project: { slug: string }) => project.slug === new URL(publishedURL).pathname.split("/").pop())).toBe(false);
   expect(await (await request.get("/sitemap.xml")).text()).not.toContain(`<loc>${publishedURL}</loc>`);
   // A streamed Next.js not-found response can legitimately retain HTTP 200.
   await page.goto(publishedURL);

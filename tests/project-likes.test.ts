@@ -34,21 +34,25 @@ after(async () => {
     assert.deepEqual(await snapshot(), baseline, "Original isolated rows changed");
   } } finally { await pool.end(); }
 });
+function businessState(value: { liked: boolean; likes: number; observedAt?: number }) {
+  assert(Number.isSafeInteger(value.observedAt) && value.observedAt! > 0);
+  return { liked: value.liked, likes: value.likes };
+}
 test("repeated desired states are idempotent and preserve the demo base count", async () => {
-  for (let i = 0; i < 3; i++) assert.deepEqual(await operations.setProjectLike(project, visitor, true), { liked: true, likes: 4 });
-  assert.deepEqual(await operations.readProjectLike(project, visitor), { liked: true, likes: 4 });
-  for (let i = 0; i < 3; i++) assert.deepEqual(await operations.setProjectLike(project, visitor, false), { liked: false, likes: 3 });
+  for (let i = 0; i < 3; i++) assert.deepEqual(businessState(await operations.setProjectLike(project, visitor, true)), { liked: true, likes: 4 });
+  assert.deepEqual(businessState(await operations.readProjectLike(project, visitor)), { liked: true, likes: 4 });
+  for (let i = 0; i < 3; i++) assert.deepEqual(businessState(await operations.setProjectLike(project, visitor, false)), { liked: false, likes: 3 });
 });
 test("concurrent duplicates create one like; different browsers remain independent", async () => {
   const results = await Promise.all(Array.from({ length: 6 }, () => operations.setProjectLike(project, visitor, true)));
   assert.ok(results.every(result => result.liked && result.likes === 4));
-  assert.deepEqual(await operations.setProjectLike(project, other, true), { liked: true, likes: 5 });
-  await operations.setProjectLike(project, visitor, false); assert.deepEqual(await operations.readProjectLike(project, other), { liked: true, likes: 4 });
+  assert.deepEqual(businessState(await operations.setProjectLike(project, other, true)), { liked: true, likes: 5 });
+  await operations.setProjectLike(project, visitor, false); assert.deepEqual(businessState(await operations.readProjectLike(project, other)), { liked: true, likes: 4 });
 });
 test("opposite parallel actions serialize and the final explicit action determines the stored state", async () => {
   await Promise.all([true, false, true, false].map(liked => operations.setProjectLike(project, visitor, liked)));
-  assert.deepEqual(await operations.setProjectLike(project, visitor, false), { liked: false, likes: 4 });
-  assert.deepEqual(await operations.readProjectLike(project, visitor), { liked: false, likes: 4 });
+  assert.deepEqual(businessState(await operations.setProjectLike(project, visitor, false)), { liked: false, likes: 4 });
+  assert.deepEqual(businessState(await operations.readProjectLike(project, visitor)), { liked: false, likes: 4 });
 });
 test("reconciliation waits for an in-progress write before reading the committed snapshot", async () => {
   const client = await pool.connect();
@@ -58,7 +62,7 @@ test("reconciliation waits for an in-progress write before reading the committed
     await client.query("INSERT INTO gallery_likes(project_id,visitor_key) VALUES($1,$2) ON CONFLICT DO NOTHING", [project, visitor]);
     let resolved = false; reading = operations.readProjectLike(project, visitor).then(result => { resolved = true; return result; });
     await new Promise(resolve => setTimeout(resolve, 100)); assert.equal(resolved, false);
-    await client.query("COMMIT"); assert.deepEqual(await reading, { liked: true, likes: 5 });
+    await client.query("COMMIT"); assert.deepEqual(businessState(await reading), { liked: true, likes: 5 });
   } finally { await client.query("ROLLBACK"); client.release(); await reading; }
 });
 test("missing and hidden projects reject writes without changing their likes", async () => {
@@ -68,7 +72,7 @@ test("missing and hidden projects reject writes without changing their likes", a
     await assert.rejects(operations.setProjectLike(project, visitor, false), error => (error as { status: number }).status === 404);
     await assert.rejects(operations.readProjectLike(project, visitor), error => (error as { status: number }).status === 404);
   } finally { await pool.query("UPDATE gallery_projects SET visibility='published' WHERE id=$1", [project]); }
-  assert.deepEqual(await operations.readProjectLike(project, visitor), { liked: true, likes: 5 });
+  assert.deepEqual(businessState(await operations.readProjectLike(project, visitor)), { liked: true, likes: 5 });
 });
 test("the existing durable limiter allows exactly 60 parallel actions per browser per minute", async () => {
   const allowed = await Promise.all(Array.from({ length: 64 }, () => allowAttempt("project-like", quotaVisitor, 60, 60)));

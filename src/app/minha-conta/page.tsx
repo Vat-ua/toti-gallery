@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { accounts, users } from "@/db/schema";
-import { getCurrentUser } from "@/lib/auth";
+import { accounts } from "@/db/schema";
+import { getCurrentSession, getCurrentUser } from "@/lib/auth";
 import { AccountForm } from "@/components/account-form";
 
 export const metadata: Metadata = { title: "Editar perfil", robots: { index: false, follow: false } };
@@ -11,8 +11,10 @@ export const metadata: Metadata = { title: "Editar perfil", robots: { index: fal
 export default async function AccountPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/entrar?next=%2Fminha-conta");
-  const account = (await db.select({ email: users.email }).from(users).where(eq(users.id, user.id)).limit(1))[0];
-  if (!account) redirect("/entrar?next=%2Fminha-conta");
-  const credentials = await db.select({ id: accounts.id }).from(accounts).where(and(eq(accounts.userId, user.id), eq(accounts.providerId, "credential"))).limit(1);
-  return <AccountForm user={user} email={account.email} canChangePassword={credentials.length > 0}/>;
+  const [session, credentials] = await Promise.all([
+    getCurrentSession(),
+    db.select({ id: accounts.id }).from(accounts).where(and(eq(accounts.userId, user.id), eq(accounts.providerId, "credential"))).limit(1),
+  ]);
+  if (!session) redirect("/entrar?next=%2Fminha-conta");
+  return <AccountForm user={user} email={session.user.email} canChangePassword={credentials.length > 0}/>;
 }

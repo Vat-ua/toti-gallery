@@ -16,6 +16,7 @@ export type Person = {
 };
 
 export type PublicationTurma = { id: string; name: string; number: number; courseName: string | null };
+export type CommunityPerson = Person & { projectCount: number; totalLikes: number };
 
 export type Project = {
   id: string;
@@ -37,9 +38,13 @@ export type Project = {
   authors: Person[];
   likes: number;
   liked: boolean;
+  likesObservedAt?: number;
   visibility: "published" | "hidden";
   moderationReason?: string | null;
 };
+
+/** Lists do not transfer descriptions, repository URLs or editor versions. */
+export type ProjectSummary = Omit<Project, "description" | "githubUrl" | "liveUrl" | "version">;
 
 export const TECHNOLOGIES = ["HTML", "CSS", "JavaScript", "React", "Next.js", "TypeScript", "Node.js", "Express", "PostgreSQL", "SQLite", "MongoDB", "Python", "Tailwind CSS"];
 export const COVER_STYLES = ["abstract", "eco", "books", "finance", "connect", "weather", "quiz"];

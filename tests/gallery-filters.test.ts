@@ -2,12 +2,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { galleryFilterParams, readGalleryFilters } from "../src/lib/gallery-filters";
 
-const options = { cohorts: ["Turma 58", "Turma 54"], technologies: ["React", "CSS"] };
 
 test("final-project selection round-trips with search, turma, technologies, and sorting", () => {
-  const filters = readGalleryFilters(new URLSearchParams("q=livros&cohort=54&tech=React&tech=CSS&final=1&sort=likes"), options);
+  const filters = readGalleryFilters(new URLSearchParams("q=livros&cohort=54&tech=React&tech=CSS&final=1&sort=likes"));
   assert.equal(filters.finalOnly, true);
-  assert.deepEqual(readGalleryFilters(galleryFilterParams(filters), options), filters);
+  assert.deepEqual(readGalleryFilters(galleryFilterParams(filters)), filters);
   const all = galleryFilterParams({ ...filters, finalOnly: false });
   assert.equal(all.has("final"), false);
   assert.equal(all.get("q"), "livros"); assert.equal(all.get("cohort"), "54");
@@ -15,15 +14,15 @@ test("final-project selection round-trips with search, turma, technologies, and 
 });
 
 test("old destaque URLs do not apply an invisible filter or imply final projects", () => {
-  const filters = readGalleryFilters(new URLSearchParams("featured=1"), options);
+  const filters = readGalleryFilters(new URLSearchParams("featured=1"));
   assert.equal(filters.finalOnly, false);
   assert.equal(galleryFilterParams(filters).toString(), "");
 });
 
 test("loaded pages round-trip alongside all gallery filters", () => {
-  const filters = readGalleryFilters(new URLSearchParams("q=livros&cohort=54&tech=React&final=1&sort=likes&page=2"), options);
+  const filters = readGalleryFilters(new URLSearchParams("q=livros&cohort=54&tech=React&final=1&sort=likes&page=2"));
   assert.equal(filters.page, 2);
-  assert.deepEqual(readGalleryFilters(galleryFilterParams(filters), options), filters);
+  assert.deepEqual(readGalleryFilters(galleryFilterParams(filters)), filters);
   const firstPage = galleryFilterParams({ ...filters, page: 1 });
   assert.equal(firstPage.has("page"), false);
   assert.equal(firstPage.get("q"), "livros");
@@ -35,8 +34,17 @@ test("loaded pages round-trip alongside all gallery filters", () => {
 
 test("invalid pages fall back to the first batch", () => {
   for (const value of ["", "0", "-1", "1.5", "abc", "Infinity", "9007199254740992"]) {
-    const filters = readGalleryFilters(new URLSearchParams({ page: value }), options);
+    const filters = readGalleryFilters(new URLSearchParams({ page: value }));
     assert.equal(filters.page, 1, value);
     assert.equal(galleryFilterParams(filters).has("page"), false, value);
   }
+});
+
+test("unknown valid filters retain the same meaning independently of available choices", () => {
+  const params = new URLSearchParams("cohort=000999&tech=NotPresent&tech=&tech=React&tech=React");
+  const filters = readGalleryFilters(params);
+  assert.equal(filters.cohort, "Turma 999"); assert.deepEqual(filters.techs, ["NotPresent", "React"]);
+  assert.deepEqual(readGalleryFilters(galleryFilterParams(filters)), filters);
+  assert.deepEqual(readGalleryFilters(params, "community").techs, []);
+  assert.equal(readGalleryFilters(params, "page").cohort, "");
 });
