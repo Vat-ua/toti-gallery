@@ -49,7 +49,7 @@ export function Presentation({ authenticated }: { authenticated: boolean }) {
   return <main id="conteudo" className="container presentation-page">
     <header className="presentation-heading">
       <div><p className="presentation-kicker">Apresentação do projeto</p><h1>Do exercício ao <span><em>projeto final</em>.</span></h1></div>
-      <div className="presentation-heading-copy"><p>Uma plataforma criada por estudantes para reunir projetos, reconhecer cada autoria e aproximar quem está aprendendo.</p><a href="https://github.com/Vat-ua/toti-gallery" target="_blank" rel="noopener noreferrer" className="presentation-source"><Icon name="github" size={18}/>Código no GitHub<Icon name="arrow-up-right" size={16}/></a></div>
+      <div className="presentation-heading-copy"><p>Uma plataforma criada por estudantes para reunir projetos, reconhecer cada autoria e aproximar quem está aprendendo.</p><a href="https://github.com/Vat-ua/toti-gallery" target="_blank" rel="noopener noreferrer" className="button button-outline presentation-source"><Icon name="github" size={16}/>Código no GitHub<Icon name="arrow-up-right" size={14}/></a></div>
     </header>
 
     <div ref={tabs} className="presentation-tabs" role="tablist" aria-label="Seções da apresentação">{presentationTabs.map((tab, index) => <button key={tab.id} id={`presentation-tab-${tab.id}`} role="tab" type="button" aria-selected={active === tab.id} aria-controls={`presentation-panel-${tab.id}`} tabIndex={active === tab.id ? 0 : -1} onClick={() => select(tab.id)} onKeyDown={event => tabKeys(event, index)}><span aria-hidden="true">0{index + 1}</span>{tab.label}</button>)}</div>
@@ -64,7 +64,6 @@ export function Presentation({ authenticated }: { authenticated: boolean }) {
         <article><span>02</span><h3>Valorizar a equipe</h3><p>Um trabalho em grupo tem uma publicação e aparece nos perfis de todos os autores.</p></article>
         <article><span>03</span><h3>Manter a comunidade organizada</h3><p>Turmas, acesso e moderação têm uma área própria, separada da experiência pública.</p></article>
       </div>
-      <p className="presentation-note">Uma iniciativa de estudantes, veja <Link href="/sobre">Sobre a plataforma<Icon name="arrow-right" size={14}/></Link></p>
       <details className="presentation-follow-up"><summary>O que ainda está em evolução</summary><p>A ativação de contas e a recuperação de senha usam links enviados manualmente pela administração. A recuperação automática por email e o envio de convites em lote ficam para uma evolução futura, conforme a necessidade de uso. A interface continua sendo aprimorada com testes e feedback.</p></details>
     </section>
 

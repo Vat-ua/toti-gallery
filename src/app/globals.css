@@ -2329,7 +2329,7 @@ html[data-theme="dark"] .theme-icon-moon {
 /* Project presentation */
 
 .presentation-page {
-  padding-block: var(--space-10) var(--space-16);
+  padding-block: var(--space-16);
 }
 
 .presentation-heading {
@@ -2337,7 +2337,7 @@ html[data-theme="dark"] .theme-icon-moon {
   grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
   align-items: end;
   gap: var(--space-12);
-  padding-bottom: var(--space-8);
+  padding-bottom: var(--space-12);
 }
 
 .presentation-kicker {
@@ -2376,16 +2376,7 @@ html[data-theme="dark"] .theme-icon-moon {
 }
 
 .presentation-source {
-  display: inline-flex;
-  gap: var(--space-2);
-  align-items: center;
-  font-size: var(--text-secondary);
   margin-top: var(--space-4);
-}
-
-.presentation-source:hover,
-.presentation-note a:hover {
-  color: var(--accent);
 }
 
 .presentation-tabs {
@@ -2393,7 +2384,7 @@ html[data-theme="dark"] .theme-icon-moon {
   gap: var(--space-8);
   overflow-x: auto;
   border-bottom: 1px solid var(--line);
-  margin-bottom: var(--space-10);
+  margin-bottom: var(--space-12);
 }
 
 .presentation-tabs>button {
@@ -2401,7 +2392,7 @@ html[data-theme="dark"] .theme-icon-moon {
   align-items: center;
   gap: var(--space-2);
   flex-shrink: 0;
-  padding-block: var(--space-4);
+  padding: var(--space-4) var(--space-2);
   border-bottom: 2px solid transparent;
   color: var(--ink-2);
   font-size: var(--text-ui);
@@ -2420,6 +2411,11 @@ html[data-theme="dark"] .theme-icon-moon {
 
 .presentation-tabs>button:hover {
   color: var(--ink);
+}
+
+.presentation-tabs>button:focus-visible {
+  outline-width: 2px;
+  outline-offset: calc(-1 * var(--space-1));
 }
 
 .presentation-panel[hidden] {
@@ -2506,7 +2502,6 @@ html[data-theme="dark"] .theme-icon-moon {
 }
 
 .presentation-screen figcaption,
-.presentation-note,
 .presentation-model-note {
   font-size: var(--text-label);
   color: var(--ink-3);
@@ -2519,7 +2514,7 @@ html[data-theme="dark"] .theme-icon-moon {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-8);
-  margin-top: var(--space-12);
+  margin-top: var(--space-16);
 }
 
 .presentation-principles article {
@@ -2546,17 +2541,6 @@ html[data-theme="dark"] .theme-icon-moon {
   color: var(--ink-2);
   font-size: var(--text-ui);
   line-height: var(--leading-body);
-}
-
-.presentation-note {
-  margin-top: var(--space-8);
-}
-
-.presentation-note a {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  color: var(--ink);
 }
 
 .presentation-section-heading {
@@ -2645,7 +2629,7 @@ html[data-theme="dark"] .theme-icon-moon {
 }
 
 .presentation-model {
-  margin-top: var(--space-12);
+  margin-top: var(--space-16);
 }
 
 .presentation-model h3 {
@@ -2753,7 +2737,6 @@ html[data-theme="dark"] .theme-icon-moon {
 }
 
 .presentation-follow-up {
-  border-top: 1px solid var(--line);
   margin-top: var(--space-8);
   padding-top: var(--space-6);
   font-size: var(--text-ui);
@@ -2838,7 +2821,7 @@ html[data-theme="dark"] .theme-icon-moon {
 
 @media (max-width: 720px) {
   .presentation-page {
-    padding-block: var(--space-6) var(--space-12);
+    padding-block: var(--space-10) var(--space-12);
   }
 
   .presentation-heading {
@@ -2852,7 +2835,7 @@ html[data-theme="dark"] .theme-icon-moon {
 
   .presentation-tabs {
     gap: var(--space-5);
-    margin-bottom: var(--space-8);
+    margin-bottom: var(--space-10);
   }
 
   .presentation-tabs>button>span {
