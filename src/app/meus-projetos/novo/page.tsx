@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { ProjectEditor } from "@/components/project-editor";
 import { getCoauthorCandidates, getPublicationTurmas } from "@/lib/queries";
 
-export const metadata: Metadata = { title: "Publicar projeto" };
+export const metadata: Metadata = { title: "Publicar projeto", robots: { index: false, follow: false } };
 export default async function NewProjectPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/entrar?next=%2Fmeus-projetos%2Fnovo");

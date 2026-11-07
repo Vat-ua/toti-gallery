@@ -38,8 +38,8 @@ export function metadataDescription(markdown: string): string {
 }
 
 /** Complete nested social metadata: Next.js replaces, rather than deep-merges it. */
-export function sharingMetadata({ title = siteTitle, description = siteDescription, path = "/" }: {
-  title?: string; description?: string; path?: string;
+export function sharingMetadata({ title = siteTitle, description = siteDescription, path = "/", canonical = true }: {
+  title?: string; description?: string; path?: string; canonical?: boolean;
 } = {}): Metadata {
   const summary = metadataDescription(description) || siteDescription;
   const socialTitle = title === siteTitle ? title : `${title} · Toti Gallery`;
@@ -47,6 +47,7 @@ export function sharingMetadata({ title = siteTitle, description = siteDescripti
   return {
     title,
     description: summary,
+    alternates: { canonical: canonical ? path : null },
     openGraph: {
       type: "website", locale: "pt_BR", siteName: "Toti Gallery",
       title: socialTitle, description: summary, url: path, images: [image],

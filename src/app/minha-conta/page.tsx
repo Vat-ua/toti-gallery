@@ -6,7 +6,7 @@ import { accounts, users } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { AccountForm } from "@/components/account-form";
 
-export const metadata: Metadata = { title: "Editar perfil" };
+export const metadata: Metadata = { title: "Editar perfil", robots: { index: false, follow: false } };
 
 export default async function AccountPage() {
   const user = await getCurrentUser();

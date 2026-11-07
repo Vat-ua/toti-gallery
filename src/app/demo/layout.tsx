@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { sharingMetadata } from "@/lib/metadata";
 
 export const metadata: Metadata = {
-  ...sharingMetadata({ title: "Demonstração", description: "Explore como um estudante fictício. Crie e edite projetos de exemplo; as alterações ficam apenas neste navegador.", path: "/demo" }),
+  ...sharingMetadata({ title: "Demonstração", description: "Explore como um estudante fictício. Crie e edite projetos de exemplo; as alterações ficam apenas neste navegador.", path: "/demo", canonical: false }),
   robots: { index: false, follow: false },
 };
 export default async function DemoLayout({ children }: { children: ReactNode }) {

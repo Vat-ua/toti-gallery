@@ -44,6 +44,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run build:smoke
       - run: npm run test:smoke
+      - run: npm run test:sitemap
       - uses: actions/upload-artifact@v5
         if: failure()
         with:

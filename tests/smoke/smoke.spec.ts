@@ -31,6 +31,59 @@ test("visitor can explore, filter, like and open a project; private pages requir
   await page.goto("/meus-projetos"); await expect(page).toHaveURL(/\/entrar\?next=/);
 });
 
+test("sitemap returns public XML with unique profile URLs and excludes service pages", async ({ request }) => {
+  const response = await request.get("/sitemap.xml");
+  expect(response.status()).toBe(200);
+  expect(response.headers()["content-type"]).toContain("xml");
+  expect(response.headers()["cache-control"]).toContain("max-age=0");
+  expect(response.headers()["cache-control"]).toContain("must-revalidate");
+  const body = await response.text();
+  const urls = Array.from(body.matchAll(/<loc>([^<]+)<\/loc>/g), match => match[1]);
+  const origin = new URL(response.url()).origin;
+  for (const path of ["/", "/comunidade", "/sobre", "/projetos/smoke-project"]) expect(urls).toContain(origin + path);
+  expect(new Set(urls).size).toBe(urls.length);
+  expect(urls.filter(url => new URL(url).pathname.startsWith("/pessoas/"))).toHaveLength(1);
+  for (const url of urls) {
+    expect(new URL(url).origin).toBe(origin);
+    expect(new URL(url).search).toBe("");
+    expect(new URL(url).pathname).not.toMatch(/^\/(admin|api|demo|apresentacao|acesso|entrar|minha-conta|meus-projetos)(\/|$)/);
+  }
+});
+
+test("public canonical URLs and robots agree; service pages stay out of the index", async ({ page, request, baseURL }) => {
+  const robots = await request.get("/robots.txt");
+  expect(robots.status()).toBe(200);
+  expect(robots.headers()["content-type"]).toContain("text/plain");
+  const rules = await robots.text();
+  expect(rules).toContain("User-Agent: *");
+  expect(rules).toContain("Allow: /");
+  expect(rules).toContain("Disallow: /api/");
+  expect(rules).toContain(`Sitemap: ${baseURL}/sitemap.xml`);
+  expect(rules).not.toMatch(/Disallow: \/(demo|entrar|acesso|apresentacao|admin|meus-projetos|minha-conta)/);
+  const xml = await (await request.get("/sitemap.xml")).text();
+  const profile = Array.from(xml.matchAll(/<loc>([^<]+)<\/loc>/g), match => new URL(match[1]).pathname)
+    .find(path => path.startsWith("/pessoas/"));
+  expect(profile).toBeTruthy();
+  for (const [path, canonical] of [
+    ["/?q=smoke&sort=az&page=2", "/"],
+    ["/comunidade?q=smoke", "/comunidade"],
+    ["/sobre", "/sobre"],
+    ["/projetos/smoke-project", "/projetos/smoke-project"],
+    [profile!, profile!],
+  ]) {
+    await page.goto(path);
+    await expect(page.locator('link[rel="canonical"]')).toHaveCount(1);
+    // Next.js serializes the root canonical without a trailing slash.
+    const expectedURL = canonical === "/" ? new URL(baseURL!).origin : new URL(canonical, baseURL).href;
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", expectedURL);
+  }
+  for (const path of ["/entrar?next=%2Fmeus-projetos", "/acesso", "/demo", "/apresentacao"]) {
+    await page.goto(path);
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+    await expect(page.locator('link[rel="canonical"]')).toHaveCount(0);
+  }
+});
+
 test("student signs in, recovers a lost publish response, edits and deletes one publication", async ({ page, request }) => {
   await page.goto("/entrar");
   await page.getByRole("button", { name: "Entrar com email" }).click();
@@ -38,6 +91,8 @@ test("student signs in, recovers a lost publish response, edits and deletes one 
   const accessibility = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
   expect(accessibility.violations.filter(issue => ["serious", "critical"].includes(issue.impact || ""))).toEqual([]);
   await login(page);
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+  await expect(page.locator('link[rel="canonical"]')).toHaveCount(0);
   expect((await page.request.post("/api/admin/turmas", { headers: { origin: new URL(page.url()).origin }, data: {} })).status()).toBe(403);
   await page.locator("main").getByRole("link", { name: "Publicar projeto", exact: true }).click();
   const title = `Publicação smoke ${test.info().project.name}`;
@@ -57,6 +112,7 @@ test("student signs in, recovers a lost publish response, edits and deletes one 
   await expect(page).toHaveURL(/\/projetos\//);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
   const publishedURL = page.url();
+  expect(await (await request.get("/sitemap.xml")).text()).toContain(`<loc>${publishedURL}</loc>`);
   const publicResponse = await request.get("/api/projects");
   expect((await publicResponse.json()).filter((project: { title: string }) => project.title === title)).toHaveLength(1);
   await page.getByRole("link", { name: "Editar projeto", exact: true }).click();
@@ -70,6 +126,7 @@ test("student signs in, recovers a lost publish response, edits and deletes one 
   await expect(page.getByRole("button", { name: `Excluir ${title} editada`, exact: true })).toHaveCount(0);
   const remaining = await (await request.get("/api/projects")).json();
   expect(remaining.some((project: { slug: string }) => project.slug === new URL(publishedURL).pathname.split("/").pop())).toBe(false);
+  expect(await (await request.get("/sitemap.xml")).text()).not.toContain(`<loc>${publishedURL}</loc>`);
   // A streamed Next.js not-found response can legitimately retain HTTP 200.
   await page.goto(publishedURL);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Essa ideia tomou outro caminho.");

@@ -86,7 +86,7 @@ export function Presentation({ authenticated }: { authenticated: boolean }) {
     <section className="presentation-panel" id="presentation-panel-tecnologia" role="tabpanel" aria-labelledby="presentation-tab-tecnologia" hidden={active !== "tecnologia"} tabIndex={0}>
       <div className="presentation-section-heading"><h2>Como a plataforma funciona.</h2><p>Interface, regras de negócio e persistência têm responsabilidades distintas.</p></div>
       <div className="presentation-architecture">
-        <article><Icon name="grid" size={23}/><h3>Interface</h3><strong>Next.js · React · TypeScript</strong><p>Páginas públicas, publicação e administração. Estilos compartilhados, Radix e Lucide mantêm os controles consistentes.</p></article>
+        <article><Icon name="grid" size={23}/><h3>Interface</h3><strong>Next.js · React · TypeScript</strong><p>Páginas públicas, publicação e administração. Estilos compartilhados, Radix e Lucide mantêm os controles consistentes.</p><p>Sitemap dinâmico, URLs canônicas e metadados para buscadores e redes sociais.</p></article>
         <article><Icon name="code" size={23}/><h3>Servidor</h3><strong>Route Handlers · Better Auth</strong><p>Validação, permissões e operações transacionais. Google e email/senha dão acesso ao mesmo cadastro provisionado.</p></article>
         <article><Icon name="database" size={23}/><h3>Dados e imagens</h3><strong>PostgreSQL · Drizzle · Neon</strong><p>Dados relacionais no PostgreSQL e arquivos no Object Storage. Imagens são otimizadas em WebP, com versões para exibição.</p></article>
       </div>

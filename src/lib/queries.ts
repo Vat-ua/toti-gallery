@@ -49,6 +49,20 @@ export async function getCommunityPeople() {
 export async function getPerson(id: string, connection: Pick<typeof db, "select"> = db) { return findPerson(eq(users.id, id), connection); }
 export async function getPersonBySlug(slug: string, connection: Pick<typeof db, "select"> = db) { return findPerson(eq(users.slug, slug), connection); }
 
+/** Public discovery only; no visitor cookies, private fields or membership duplicates. */
+export async function getSitemapRecords(connection: Pick<typeof db, "select"> = db) {
+  const [publicProjects, communityProfiles] = await Promise.all([
+    connection.select({ slug: projects.slug, updatedAt: projects.updatedAt }).from(projects)
+      .where(eq(projects.visibility, "published")).orderBy(projects.slug),
+    connection.select({ slug: users.slug }).from(users)
+      .where(and(
+        or(eq(users.emailVerified, true), eq(users.isDemo, true)),
+        inArray(users.id, connection.select({ userId: turmaMembers.userId }).from(turmaMembers)),
+      )).orderBy(users.slug),
+  ]);
+  return { projects: publicProjects, people: communityProfiles };
+}
+
 export async function getPublicationTurmas(userId: string) {
   return db.select({ id: turmas.id, name: turmas.name, number: turmas.number, courseName: turmas.courseName })
     .from(turmaMembers).innerJoin(turmas, eq(turmas.id, turmaMembers.turmaId))

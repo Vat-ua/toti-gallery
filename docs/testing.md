@@ -19,6 +19,7 @@ npm run typecheck
 npm run test:unit
 npm run build:smoke
 npm run test:smoke
+npm run test:sitemap
 ```
 
 `typecheck` generates Next.js types before running TypeScript. This makes image
@@ -28,7 +29,9 @@ development server or running a full build. Generated files remain ignored.
 `test:unit` explicitly selects the existing tests that do not write to a cloud
 service. Database integration suites (`test:projects`, `test:account`, `test:admin`,
 `test:likes`, `test:auth`) retain their separate verified-test-target requirements;
-CI does not claim to run all of them. Add new non-cloud tests to the explicit unit
+CI does not claim to run all of them. The focused `test:sitemap` integration suite
+runs after smoke setup has created the schema in the same disposable PostgreSQL
+service; its fixtures are rolled back. Add new non-cloud tests to the explicit unit
 list rather than globbing every test into CI.
 
 ## Browser smoke tests
