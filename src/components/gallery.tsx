@@ -504,8 +504,8 @@ export function Gallery({ projects }: { projects: Project[] }) {
             </p>
           </div>
           <Link href={demo ? "/demo/novo" : "/meus-projetos/novo"} className="button button-invert">
+            <Icon name="plus" size={18} />
             Publicar projeto
-            <Icon name="arrow-up-right" size={18} />
           </Link>
           <span className="publish-band-mark" aria-hidden="true">
             <BrandSymbol/>
