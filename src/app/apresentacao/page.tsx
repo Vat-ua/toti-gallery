@@ -5,7 +5,7 @@ import { Presentation } from "@/components/presentation";
 import { sharingMetadata } from "@/lib/metadata";
 
 export const metadata: Metadata = {
-  ...sharingMetadata({ title: "Apresentação do projeto", description: "Conheça a experiência de publicação, a administração e as decisões técnicas da Toti Gallery.", path: "/apresentacao" }),
+  ...sharingMetadata({ title: "Apresentação do projeto", description: "Conheça a experiência de publicação, a administração e as decisões técnicas da Toti Gallery.", path: "/apresentacao", canonical: false }),
   robots: { index: false, follow: false },
 };
 

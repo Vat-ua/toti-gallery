@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { metadataDescription, sharingMetadata, siteDescription } from "../src/lib/metadata";
+import robots from "../src/app/robots";
 
 test("sharing descriptions keep readable CommonMark text rather than formatting or destinations", () => {
   assert.equal(metadataDescription("### **DevNotes**\n\nUm *projeto* com [uma experiência](https://example.test/path?q=1) e `React`."), "DevNotes Um projeto com uma experiência e React.");
@@ -36,6 +37,7 @@ test("each public page retains complete shared-image metadata with its own title
   assert.equal(graph.title, "DevNotes · Toti Gallery");
   assert.equal(graph.description, metadata.description);
   assert.equal(graph.url, "/projetos/devnotes");
+  assert.deepEqual(metadata.alternates, { canonical: "/projetos/devnotes" });
   assert.equal(graph.locale, "pt_BR");
   assert.deepEqual(graph.images, [{ url: "/social-card.png", width: 1200, height: 630, alt: "Toti Gallery — Projetos de quem aprende fazendo." }]);
   assert.ok(metadata.twitter && "card" in metadata.twitter && metadata.twitter.card === "summary_large_image");
@@ -43,4 +45,21 @@ test("each public page retains complete shared-image metadata with its own title
   assert.equal(metadata.twitter.description, metadata.description);
   assert.deepEqual(metadata.twitter.images, [{ url: "/social-card.png", alt: "Toti Gallery — Projetos de quem aprende fazendo." }]);
   assert.equal(sharingMetadata().title, sharingMetadata().openGraph?.title);
+});
+
+test("public canonical URLs belong to each page; defaults and non-indexable layouts opt out", () => {
+  assert.deepEqual(sharingMetadata().alternates, { canonical: "/" });
+  for (const path of ["/comunidade", "/sobre", "/projetos/ideia", "/pessoas/alex-oliveira"]) {
+    assert.deepEqual(sharingMetadata({ path }).alternates, { canonical: path });
+  }
+  const privateMetadata = sharingMetadata({ path: "/demo", canonical: false });
+  assert.deepEqual(privateMetadata.alternates, { canonical: null });
+  assert.equal(privateMetadata.openGraph?.url, "/demo");
+});
+
+test("robots advertises the trusted-origin sitemap while leaving noindex pages crawlable", () => {
+  assert.deepEqual(robots(), {
+    rules: { userAgent: "*", allow: "/", disallow: "/api/" },
+    sitemap: new URL("/sitemap.xml", process.env.BETTER_AUTH_URL || "http://localhost:3000").href,
+  });
 });

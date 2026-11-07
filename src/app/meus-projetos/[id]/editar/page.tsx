@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getCoauthorCandidates, getProjects } from "@/lib/queries";
 import { ProjectEditor } from "@/components/project-editor";
 
-export const metadata: Metadata = { title: "Editar projeto" };
+export const metadata: Metadata = { title: "Editar projeto", robots: { index: false, follow: false } };
 export default async function EditProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await getCurrentUser();

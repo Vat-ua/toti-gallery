@@ -9,7 +9,8 @@ import { sharingMetadata, siteTitle } from "@/lib/metadata";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  ...sharingMetadata(),
+  // Individual public pages opt in; private routes must not inherit home as canonical.
+  ...sharingMetadata({ canonical: false }),
   metadataBase: new URL(process.env.BETTER_AUTH_URL || "http://localhost:3000"),
   title: { default: siteTitle, template: "%s · Toti Gallery" },
   icons: { icon: "/favicon.svg" },

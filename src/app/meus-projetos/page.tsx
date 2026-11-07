@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getProjects } from "@/lib/queries";
 import { MyProjects } from "@/components/my-projects";
 
-export const metadata: Metadata = { title: "Meus projetos" };
+export const metadata: Metadata = { title: "Meus projetos", robots: { index: false, follow: false } };
 export default async function MyProjectsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/entrar?next=%2Fmeus-projetos");
