@@ -9,7 +9,8 @@ import { demoPerson } from "@/lib/demo-data";
 import { isDemoPath } from "@/lib/demo-mode";
 import { DemoModeProvider, useDemoMode } from "./demo-mode";
 import { DemoBanner } from "./demo-banner";
-import { Header, Footer } from "./header";
+import { Header } from "./header";
+import { Footer } from "./footer";
 
 type User = (Person & { role?: Role }) | null;
 export function SiteChrome({ user, initialDemo, presentationEnabled, children }: { user: User; initialDemo: boolean; presentationEnabled: boolean; children: ReactNode }) {
