@@ -3,13 +3,13 @@
 import { startTransition, useEffect, useMemo, useOptimistic, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { galleryFilterParams, readGalleryFilters } from "@/lib/gallery-filters";
-import type { GalleryFilterOptions, GalleryFilters } from "@/lib/gallery-filters";
+import type { CollectionFilterMode, GalleryFilters } from "@/lib/gallery-filters";
 
 type FilterUpdate = Partial<GalleryFilters> | ((current: GalleryFilters) => GalleryFilters);
 
-export function useGalleryFilters(options: GalleryFilterOptions) {
+export function useGalleryFilters(mode: CollectionFilterMode = "gallery") {
   const params = useSearchParams();
-  const urlFilters = useMemo(() => readGalleryFilters(params, options), [params, options]);
+  const urlFilters = useMemo(() => readGalleryFilters(params, mode), [params, mode]);
   const [optimisticFilters, setOptimisticFilters] = useOptimistic(urlFilters);
   const [draft, setDraft] = useState({
     source: urlFilters.query,
@@ -61,7 +61,7 @@ export function useGalleryFilters(options: GalleryFilterOptions) {
 
   function updateFilters(update: FilterUpdate) {
     cancelSearch();
-    const persisted = readGalleryFilters(new URLSearchParams(window.location.search), options);
+    const persisted = readGalleryFilters(new URLSearchParams(window.location.search), mode);
     const current = { ...persisted, query };
     const next = typeof update === "function" ? update(current) : { ...current, ...update };
     const changed = galleryFilterParams({ ...next, page: 1 }).toString()
@@ -76,7 +76,7 @@ export function useGalleryFilters(options: GalleryFilterOptions) {
 
   function commitQuery(value: string) {
     cancelSearch();
-    const current = readGalleryFilters(new URLSearchParams(window.location.search), options);
+    const current = readGalleryFilters(new URLSearchParams(window.location.search), mode);
     writeUrl({ ...current, query: value, page: value === current.query ? current.page : 1 }, "replace");
   }
 
@@ -93,7 +93,7 @@ export function useGalleryFilters(options: GalleryFilterOptions) {
 
   function changePage(page: number) {
     cancelSearch();
-    const current = readGalleryFilters(new URLSearchParams(window.location.search), options);
+    const current = readGalleryFilters(new URLSearchParams(window.location.search), mode);
     const next = { ...current, query, page };
     startTransition(() => {
       setOptimisticFilters(next);

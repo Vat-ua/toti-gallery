@@ -45,6 +45,7 @@ jobs:
       - run: npm run build:smoke
       - run: npm run test:smoke
       - run: npm run test:sitemap
+      - run: npm run test:reads
       - uses: actions/upload-artifact@v5
         if: failure()
         with:

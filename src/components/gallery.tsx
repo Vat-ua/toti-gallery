@@ -4,14 +4,16 @@ import { useDemoMode } from "./demo-mode";
 
 import Link from "next/link";
 import {
-  useDeferredValue,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
-import type { Project } from "@/lib/types";
+import type { ProjectSummary } from "@/lib/types";
+import type { CollectionSnapshot } from "@/lib/collection-page";
+import type { GalleryFilterOptions } from "@/lib/gallery-filters";
+import { usePagedCollection } from "./use-paged-collection";
+import { CollectionFeedback } from "./collection-feedback";
 import { Icon } from "./icon";
 import { BrandSymbol } from "./brand-symbol";
 import { ProjectCard } from "./project-card";
@@ -19,52 +21,21 @@ import { SortMenu } from "./sort-menu";
 import { useGalleryFilters } from "./use-gallery-filters";
 import { Popover } from "./popover";
 
-const normalize = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
 const cohortNumber = (value: string) => value.replace(/^Turma\s*/i, "");
-const PAGE_SIZE = 9;
 const filterGroups = [
   { id: "cohort", label: "Turma" },
   { id: "technology", label: "Tecnologias" },
 ] as const;
 
-export function Gallery({ projects }: { projects: Project[] }) {
+export function Gallery({ initialPage, filterOptions }: { initialPage: CollectionSnapshot<ProjectSummary>; filterOptions: GalleryFilterOptions }) {
   const demo = useDemoMode().active;
-  const cohorts = useMemo(() => {
-    return [
-      ...new Set(
-        projects.flatMap((project) =>
-          project.authors.map((author) => author.cohort),
-        ),
-      ),
-    ].sort((a, b) => b.localeCompare(a, "pt-BR", { numeric: true }));
-  }, [projects]);
-  const techOptions = useMemo(() => {
-    const map = new Map<string, number>();
-    projects.forEach((project) =>
-      project.technologies.forEach((tech) =>
-        map.set(tech, (map.get(tech) || 0) + 1),
-      ),
-    );
-    return [...map.entries()].sort(
-      (a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "pt-BR"),
-    );
-  }, [projects]);
-
-  const filterOptions = useMemo(
-    () => ({
-      cohorts,
-      technologies: techOptions.map(([tech]) => tech),
-    }),
-    [cohorts, techOptions],
-  );
+  const cohorts = filterOptions.cohorts;
+  const techOptions = filterOptions.technologies.map(tech => [tech]);
+  const collection = usePagedCollection(initialPage, "/api/projects?view=gallery", "gallery");
+  const { items, total, loadedPages: loadedPage } = collection.data;
   const { filters, updateFilters, changeQuery, flushQuery, changePage } =
-    useGalleryFilters(filterOptions);
-  const { query, cohort, techs, sort, finalOnly, page } = filters;
-  const search = useDeferredValue(query);
+    useGalleryFilters();
+  const { query, cohort, techs, sort, finalOnly } = filters;
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filterGroup, setFilterGroup] = useState<"cohort" | "technology">(
     "cohort",
@@ -95,34 +66,6 @@ export function Gallery({ projects }: { projects: Project[] }) {
     document.addEventListener("keydown", shortcut);
     return () => document.removeEventListener("keydown", shortcut);
   }, []);
-
-  const filtered = useMemo(
-    () =>
-      projects
-        .filter((project) => {
-          const text = normalize(
-            `${project.title} ${project.description} ${project.authors.map((author) => author.name).join(" ")} ${project.technologies.join(" ")}`,
-          );
-          return (
-            (!search || text.includes(normalize(search))) &&
-            (!cohort ||
-              project.authors.some((author) => author.cohort === cohort)) &&
-            (!finalOnly || project.isFinal) &&
-            techs.every((tech) => project.technologies.includes(tech))
-          );
-        })
-        .sort((a, b) =>
-          sort === "likes"
-            ? b.likes - a.likes
-            : sort === "az"
-              ? a.title.localeCompare(b.title, "pt-BR")
-              : new Date(b.createdAt).getTime() -
-                new Date(a.createdAt).getTime(),
-        ),
-    [projects, search, cohort, finalOnly, techs, sort],
-  );
-  const loadedPage = Math.min(page, Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)));
-  const visible = loadedPage * PAGE_SIZE;
 
   function clear() {
     updateFilters({
@@ -394,8 +337,8 @@ export function Gallery({ projects }: { projects: Project[] }) {
             </div>
           </div>
           <p className="results-count" aria-live="polite" aria-atomic="true">
-            <strong>{filtered.length}</strong>{" "}
-            {filtered.length === 1 ? "projeto" : "projetos"}
+            <strong>{total}</strong>{" "}
+            {total === 1 ? "projeto" : "projetos"}
           </p>
         </div>
 
@@ -449,23 +392,26 @@ export function Gallery({ projects }: { projects: Project[] }) {
           </div>
         )}
 
-        {filtered.length > 0 ? (
+        <CollectionFeedback error={collection.error} retry={collection.retry} pending={collection.pending} hasItems={items.length > 0}/>
+        {total > 0 ? (
           <>
             <div
-              className={`project-grid ${search !== query ? "is-searching" : ""}`}
+              className={`project-grid ${collection.pending ? "is-searching" : ""}`}
+              aria-busy={collection.pending}
             >
-              {filtered.slice(0, visible).map((project) => (
+              {items.map((project) => (
                 <ProjectCard key={project.id} project={project} />
               ))}
             </div>
             <div className="load-more-area">
-              {visible < filtered.length ? (
+              {collection.data.hasMore ? (
                 <button
                   type="button"
                   className="button button-outline load-more"
-                  onClick={() => changePage(loadedPage + 1)}
+                  onClick={() => collection.error ? collection.retry() : changePage(loadedPage + 1)}
+                  disabled={!!collection.pending}
                 >
-                  Carregar mais projetos
+                  {collection.pending ? "Carregando..." : "Carregar mais projetos"}
                   <Icon name="arrow-down" size={18} />
                 </button>
               ) : (
@@ -474,12 +420,12 @@ export function Gallery({ projects }: { projects: Project[] }) {
                 </p>
               )}
               <p className="load-count">
-                Mostrando {Math.min(visible, filtered.length)} de{" "}
-                {filtered.length}
+                Mostrando {items.length} de{" "}
+                {total}
               </p>
             </div>
           </>
-        ) : (
+        ) : !collection.pending && !collection.error ? (
           <div className="empty-state">
             <span className="empty-icon">
               <Icon name="search" size={28} />
@@ -491,7 +437,7 @@ export function Gallery({ projects }: { projects: Project[] }) {
               <Icon name="x" size={16} />
             </button>
           </div>
-        )}
+        ) : null}
       </section>
 
       <div className="container">

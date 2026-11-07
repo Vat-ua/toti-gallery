@@ -12,6 +12,7 @@ test("bounded pool config, safe background error handling and Vercel lifecycle a
   delete process.env.VERCEL;
   const pool = createDatabasePool("postgresql://fixture:fixture@127.0.0.1:1/fixture");
   assert.equal(pool.options.max, 5); assert.equal(pool.options.connectionTimeoutMillis, 10000);
+  assert.equal(pool.options.idleTimeoutMillis, 60000);
   assert.equal(pool.options.statement_timeout, 30000); assert.ok(pool.options.query_timeout! > pool.options.statement_timeout!);
   assert.equal(pool.options.lock_timeout, 10000); assert.equal(attached, 0);
   const logs: string[] = []; console.error = value => logs.push(String(value));
@@ -19,5 +20,5 @@ test("bounded pool config, safe background error handling and Vercel lifecycle a
   assert.equal(JSON.parse(logs[0]).event, "database.pool.error"); assert.ok(!logs.join("").includes("secret"));
   await pool.end();
   process.env.VERCEL = "1"; const hosted = createDatabasePool("postgresql://fixture:fixture@127.0.0.1:1/fixture");
-  assert.equal(attached, 1); await hosted.end();
+  assert.equal(attached, 1); assert.equal(hosted.options.idleTimeoutMillis, 10000); await hosted.end();
 });

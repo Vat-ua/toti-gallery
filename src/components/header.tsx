@@ -16,10 +16,12 @@ export function Header({
   user,
   demo = false,
   onDemoExit,
+  pending = false,
 }: {
   user: HeaderUser | null;
   demo?: boolean;
   onDemoExit?: () => void;
+  pending?: boolean;
 }) {
   const pathname = usePathname();
   return (
@@ -29,6 +31,7 @@ export function Header({
       pathname={pathname}
       demo={demo}
       onDemoExit={onDemoExit}
+      pending={pending}
     />
   );
 }
@@ -37,11 +40,13 @@ function HeaderContent({
   pathname,
   demo,
   onDemoExit,
+  pending,
 }: {
   user: HeaderUser | null;
   pathname: string;
   demo: boolean;
   onDemoExit?: () => void;
+  pending: boolean;
 }) {
   const adminArea = pathname.startsWith("/admin");
   const router = useRouter();
@@ -84,7 +89,7 @@ function HeaderContent({
             <Link href="/">Ver galeria</Link>
           ) : (
             <>
-              <Link className={pathname === "/" ? "nav-active" : ""} href="/">
+              <Link className={pathname === "/" ? "nav-active" : ""} href="/" prefetch={true}>
                 Explorar
               </Link>
               <Link
@@ -96,6 +101,7 @@ function HeaderContent({
                     : ""
                 }
                 href="/comunidade"
+                prefetch={true}
               >
                 Comunidade
               </Link>
@@ -119,7 +125,7 @@ function HeaderContent({
         </nav>
         <div className="header-actions">
           <ThemeToggle />
-          {user ? (
+          {pending ? <button type="button" className="login-link" disabled aria-label="Carregando conta"><Icon name="user" size={20}/></button> : user ? (
             <div className="user-dropdown">
               <DropdownMenu
                 open={open}
@@ -237,11 +243,11 @@ function HeaderContent({
               Administração
             </Link>
           )}
-          <Link href="/">
+          <Link href="/" prefetch={true}>
             <Icon name="search" size={18} />
             Explorar
           </Link>
-          <Link href="/comunidade">
+          <Link href="/comunidade" prefetch={true}>
             <Icon name="users" size={18} />
             Comunidade
           </Link>

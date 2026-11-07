@@ -41,7 +41,7 @@ function createAuth() {
     },
     session: { expiresIn: 30 * 24 * 60 * 60, cookieCache: { enabled: false } },
     verification: { storeIdentifier: "hashed" },
-    advanced: { cookiePrefix: "toti_gallery", useSecureCookies: settings.baseURL.startsWith("https:"), ipAddress: { ipAddressHeaders: ["x-real-ip"] } },
+    advanced: { database: { joins: true }, cookiePrefix: "toti_gallery", useSecureCookies: settings.baseURL.startsWith("https:"), ipAddress: { ipAddressHeaders: ["x-real-ip"] } },
     // Include the custom password route's window so Better Auth's shared-table
     // cleanup cannot prematurely remove our 15-minute password-change counters.
     rateLimit: { enabled: true, storage: "database", window: 60, max: 100, customRules: { "/sign-in/email": { window: 60, max: 10 }, "/sign-in/social": { window: 60, max: 20 }, "/change-password": { window: 900, max: 10 } } },

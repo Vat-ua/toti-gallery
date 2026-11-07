@@ -1,27 +1,38 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Person, Project } from "@/lib/types";
+import type { Person, ProjectSummary } from "@/lib/types";
 import { ProjectCard } from "./project-card";
 import { Icon } from "./icon";
 import { useToast } from "./ui";
 import { deleteProject, leaveProject } from "@/lib/projects-client";
 import type { LikeAction } from "@/lib/likes-client";
+import type { CollectionSnapshot } from "@/lib/collection-page";
+import { usePagedCollection } from "./use-paged-collection";
+import { CollectionFeedback } from "./collection-feedback";
+import { useGalleryFilters } from "./use-gallery-filters";
+
 
 import { studentProjectLinks, type ProjectLinks } from "@/lib/project-links";
 
 export type MyProjectsActions = { remove: typeof deleteProject; leave: typeof leaveProject; like?: LikeAction };
 const apiActions: MyProjectsActions = { remove: deleteProject, leave: leaveProject };
 
-export function MyProjects({ projects, user, actions = apiActions, links = studentProjectLinks, removalDescription, removalSuccessMessage = "Projeto excluído.", backHref = "/" }: {
-  projects: Project[]; user: Person; actions?: MyProjectsActions; links?: ProjectLinks; removalDescription?: string; removalSuccessMessage?: string; backHref?: string | null;
+export function MyProjects({ projects, user, actions = apiActions, links = studentProjectLinks, removalDescription, removalSuccessMessage = "Projeto excluído.", backHref = "/", pagination }: {
+  projects: ProjectSummary[]; user: Person; actions?: MyProjectsActions; links?: ProjectLinks; removalDescription?: string; removalSuccessMessage?: string; backHref?: string | null; pagination?: CollectionSnapshot<ProjectSummary>;
 }) {
-  const [list, setList] = useState({ source: projects, items: projects });
+  const initial = useMemo(() => pagination || { items: projects, total: projects.length, loadedPages: 1, pageSize: projects.length, hasMore: false }, [pagination, projects]);
+  // Demo passes no pagination and remains entirely local, including data operations.
+  const collection = usePagedCollection(initial, pagination ? "/api/projects?view=mine" : null);
+  const { changePage } = useGalleryFilters("page");
+  const source = collection.data.items;
+  const [list, setList] = useState({ source, items: source });
   const items = list.items;
-  if (list.source !== projects) setList({ source: projects, items: projects });
-  const [target, setTarget] = useState<Project | null>(null);
+  if (list.source !== source) setList({ source, items: source });
+  const total = collection.data.total - (source.length - items.length);
+  const [target, setTarget] = useState<ProjectSummary | null>(null);
   const [pending, setPending] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const notify = useToast();
@@ -49,9 +60,10 @@ export function MyProjects({ projects, user, actions = apiActions, links = stude
       </div>
     </div>
     <div className="dashboard-summary">
-      <span><strong>{items.length}</strong> {items.length === 1 ? "projeto" : "projetos"}</span>
+      <span><strong>{total}</strong> {total === 1 ? "projeto" : "projetos"}</span>
     </div>
-    {items.length ? <div className="management-grid">{items.map(project => {
+    <CollectionFeedback error={collection.error} retry={collection.retry} pending={collection.pending} hasItems={items.length > 0}/>
+    {items.length ? <div className="management-grid" aria-busy={collection.pending}>{items.map(project => {
       const isOwner = project.author.id === user.id;
       const href = links.view(project);
       return <div key={project.id} className="management-card">
@@ -63,12 +75,13 @@ export function MyProjects({ projects, user, actions = apiActions, links = stude
           {isOwner ? <button type="button" aria-label={`Excluir ${project.title}`} onClick={() => setTarget(project)}><Icon name="trash" size={16}/></button> : <button type="button" className="leave-project" onClick={() => setTarget(project)} aria-label={`Sair do projeto ${project.title}`}>Sair do projeto</button>}
         </div>
       </div>;
-    })}</div> : <div className="empty-state">
+    })}</div> : !collection.pending && !collection.error ? <div className="empty-state">
       <span className="empty-icon"><Icon name="code" size={32}/></span>
       <h2>Você ainda não tem projetos.</h2>
       <p>Publique um projeto ou participe como coautor.</p>
       <Link href={links.create} className="button button-dark"><Icon name="plus" size={17}/>Publicar projeto</Link>
-    </div>}
+    </div> : null}
+    {pagination && collection.data.hasMore && <div className="load-more-area"><button type="button" className="button button-outline load-more" disabled={!!collection.pending} onClick={() => collection.error ? collection.retry() : changePage(collection.data.loadedPages + 1)}>{collection.pending ? "Carregando..." : "Carregar mais projetos"}<Icon name="arrow-down" size={18}/></button><p className="load-count">Mostrando {items.length} de {total}</p></div>}
     <dialog ref={dialogRef} className="dialog" aria-labelledby="delete-title" aria-describedby="delete-description" onCancel={event => { if (pending) event.preventDefault(); else setTarget(null); }} onClick={event => { if (event.target === event.currentTarget && !pending) setTarget(null); }}>
       <span className="dialog-icon"><Icon name={removingPublication ? "trash" : "logout"} size={24}/></span>
       <h2 id="delete-title">{removingPublication ? "Excluir este projeto?" : "Sair deste projeto?"}</h2>

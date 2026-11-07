@@ -48,3 +48,13 @@ test("server prop refreshes cannot overwrite an in-flight user action", async ()
   calls[0].resolve({ liked: true, likes: 8 }); await tick();
   c.refresh({ liked: true, likes: 10 }); assert.equal(c.getSnapshot().likes, 10); assert.ok(snapshots.includes(true)); unsubscribe();
 });
+
+test("fresh SQL snapshots update remounted views while older prefetch snapshots cannot revert a confirmed like", async () => {
+  const c = createLikeController({ liked: false, likes: 20, observedAt: 100 }, async () => ({ liked: true, likes: 21, observedAt: 300 }));
+  c.refresh({ liked: false, likes: 30, observedAt: 200 }); assert.equal(c.getSnapshot().likes, 30);
+  c.toggle(); await tick();
+  c.refresh({ liked: false, likes: 20, observedAt: 100 }); assert.equal(c.getSnapshot().liked, true); assert.equal(c.getSnapshot().likes, 21);
+  c.refresh({ liked: true, likes: 40, observedAt: 400 }); assert.equal(c.getSnapshot().likes, 40);
+  c.refresh({ liked: true, likes: 45, observedAt: 500 });
+  c.refresh({ liked: false, likes: 20, observedAt: 450 }); assert.equal(c.getSnapshot().liked, true);
+});

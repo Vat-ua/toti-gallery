@@ -1,3 +1,5 @@
+import { requestedPage } from "./collection-page";
+
 export type GalleryFilters = {
   query: string;
   cohort: string;
@@ -14,18 +16,20 @@ export type GalleryFilterOptions = {
 
 type SearchParams = Pick<URLSearchParams, "get" | "getAll">;
 
-export function readGalleryFilters(params: SearchParams, options: GalleryFilterOptions): GalleryFilters {
+export type CollectionFilterMode = "gallery" | "community" | "page";
+
+export function readGalleryFilters(params: SearchParams, mode: CollectionFilterMode = "gallery"): GalleryFilters {
   const cohort = params.get("cohort");
   const sort = params.get("sort");
   const rawPage = params.get("page") || "";
   const page = /^\d+$/.test(rawPage) ? Number(rawPage) : 1;
   return {
-    query: params.get("q") || "",
-    cohort: options.cohorts.find((value) => value.replace(/^Turma\s*/i, "") === cohort) || "",
-    techs: [...new Set(params.getAll("tech"))].filter((tech) => options.technologies.includes(tech)),
-    sort: sort === "likes" || sort === "az" ? sort : "recent",
-    finalOnly: params.get("final") === "1",
-    page: Number.isSafeInteger(page) && page > 0 ? page : 1,
+    query: mode === "page" ? "" : (params.get("q") || "").replace(/\0/g, "").slice(0, 254),
+    cohort: mode !== "page" && /^\d{1,10}$/.test(cohort || "") && Number(cohort) > 0 ? `Turma ${Number(cohort)}` : "",
+    techs: mode === "gallery" ? [...new Set(params.getAll("tech").map(tech => tech.trim()))].filter(tech => !!tech && tech.length <= 80 && !tech.includes("\0")).slice(0, 24) : [],
+    sort: mode === "gallery" && (sort === "likes" || sort === "az") ? sort : "recent",
+    finalOnly: mode === "gallery" && params.get("final") === "1",
+    page: requestedPage(page),
   };
 }
 

@@ -1,21 +1,29 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getProjects } from "@/lib/queries";
-import { getCurrentUser } from "@/lib/auth";
-import { ProjectDetails } from "@/components/project-details";
+import { Suspense } from "react";
+import { getProjectBySlug, getRelatedProjects } from "@/lib/queries";
+import { getCurrentSession, isCurrentUser } from "@/lib/auth";
+import { ProjectDetails, RelatedProjects } from "@/components/project-details";
 import { sharingMetadata } from "@/lib/metadata";
 
 type Props = { params: Promise<{ slug: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const project = (await getProjects()).find(p => p.slug === slug);
+  const project = await getProjectBySlug(slug);
   return sharingMetadata({ title: project?.title || "Projeto não encontrado", description: project?.description, path: `/projetos/${encodeURIComponent(slug)}` });
 }
 export default async function ProjectPage({ params }: Props) {
   const { slug } = await params;
-  const [projects, user] = await Promise.all([getProjects(), getCurrentUser()]);
-  const project = projects.find(p => p.slug === slug);
+  const [project] = await Promise.all([getProjectBySlug(slug), getCurrentSession()]);
   if (!project) notFound();
-  const related = projects.filter(p => p.id !== project.id).sort((a, b) => Number(b.authors.some(author => project.authors.some(person => person.id === author.id))) - Number(a.authors.some(author => project.authors.some(person => person.id === author.id)))).slice(0, 3);
-  return <ProjectDetails project={project} related={related} canEdit={user?.id === project.author.id}/>;
+  const related = getRelatedProjects(project);
+  // The boundary still observes this rejection. Avoid an orphaned rejection if
+  // the independent ownership check fails before the page can return it.
+  void related.catch(() => {});
+  return <ProjectDetails project={project} canEdit={await isCurrentUser(project.author.id)}
+    relatedContent={<Suspense fallback={null}><RelatedContent projects={related}/></Suspense>}/>;
+}
+
+async function RelatedContent({ projects }: { projects: ReturnType<typeof getRelatedProjects> }) {
+  return <RelatedProjects projects={await projects}/>;
 }

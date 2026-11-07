@@ -1,9 +1,10 @@
 import Link from "next/link";
-import type { Project } from "@/lib/types";
+import type { ProjectSummary } from "@/lib/types";
 import type { LikeAction } from "@/lib/likes-client";
 import { Avatar, LikeButton } from "./ui";
 import { Icon } from "./icon";
 import { ProjectCover } from "./project-cover";
+import { IntentLink } from "./intent-link";
 
 export function ProjectLikeCount({ likes }: { likes: number }) {
   return <span className="project-like-count" aria-label={`${likes} curtidas`}><Icon name="heart" size={16}/><span>{likes}</span></span>;
@@ -11,12 +12,12 @@ export function ProjectLikeCount({ likes }: { likes: number }) {
 
 import { studentProjectLinks, type ProjectLinks } from "@/lib/project-links";
 
-export function ProjectCard({ project, isCoauthor = false, href = `/projetos/${project.slug}`, readOnly = false, likeAction, links = studentProjectLinks }: { project: Project; isCoauthor?: boolean; href?: string; readOnly?: boolean; likeAction?: LikeAction; links?: ProjectLinks }) {
+export function ProjectCard({ project, isCoauthor = false, href = `/projetos/${project.slug}`, readOnly = false, likeAction, links = studentProjectLinks }: { project: ProjectSummary; isCoauthor?: boolean; href?: string; readOnly?: boolean; likeAction?: LikeAction; links?: ProjectLinks }) {
   const visibleTechs = 3;
   return <article className="project-card">
-    <Link href={href} className="project-cover-link" aria-label={`Ver projeto: ${project.title}${project.isFinal ? ", projeto final" : ""}`}>
+    <IntentLink href={href} className="project-cover-link" aria-label={`Ver projeto: ${project.title}${project.isFinal ? ", projeto final" : ""}`}>
       <ProjectCover title={project.title} style={project.coverStyle} imageUrl={project.imageUrl} isFinal={project.isFinal} framing={project.coverFraming}/>
-    </Link>
+    </IntentLink>
     <div className="project-card-body">
       <div className="card-meta">
         <div className="card-author-details">
@@ -25,7 +26,7 @@ export function ProjectCard({ project, isCoauthor = false, href = `/projetos/${p
             <span className="author-name">{project.authors.length} autores{isCoauthor && <span className="coauthor-label"> (coautor)</span>}</span>
           </Link> : <Link href={links.profile(project.author.slug)} className="project-author"><Avatar person={project.author} size={26}/><span className="author-name">{project.author.name}</span></Link>}
         </div>
-        {readOnly ? <ProjectLikeCount likes={project.likes}/> : <LikeButton id={project.id} initialLiked={project.liked} initialLikes={project.likes} action={likeAction}/>}
+        {readOnly ? <ProjectLikeCount likes={project.likes}/> : <LikeButton id={project.id} initialLiked={project.liked} initialLikes={project.likes} observedAt={project.likesObservedAt} action={likeAction}/>}
       </div>
       <div className="technology-tags">{project.technologies.slice(0, visibleTechs).map(tech => <span className="technology-tag" key={tech}>{tech}</span>)}{project.technologies.length > visibleTechs && <span className="technology-tag technology-more">+{project.technologies.length - visibleTechs}</span>}</div>
     </div>
