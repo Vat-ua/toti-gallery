@@ -408,7 +408,7 @@ export function Gallery({ initialPage, filterOptions }: { initialPage: Collectio
                   onClick={() => collection.error ? collection.retry() : changePage(loadedPage + 1)}
                   disabled={!!collection.pending}
                 >
-                  {collection.pending ? "Carregando..." : "Carregar mais projetos"}
+                  {collection.pending ? "Carregando..." : "Mostrar mais projetos"}
                   <Icon name="arrow-down" size={18} />
                 </button>
               ) : (

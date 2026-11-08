@@ -1625,6 +1625,7 @@ html[data-theme="dark"] .theme-icon-moon {
 }
 
 .load-more-area {
+  overflow-anchor: none;
   text-align: center;
   padding: var(--space-12) 0 var(--space-14);
   display: flex;

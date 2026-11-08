@@ -197,7 +197,7 @@ owner/turma schema already present in development and the isolated test branch.
 The global list and a turma's `Projetos` tab share gallery cards, project/author
 search and publication filters. The global view also filters by turma, including
 archived groups. Filtering and stable creation-date/ID ordering run in SQL before
-incremental loading (9 cards initially, then `Carregar mais projetos`). Previously
+incremental loading (using the shared batch size, then `Mostrar mais projetos`). Previously
 loaded cards remain visible, and filtering always searches the full database.
 Filters and the number of loaded batches remain in the URL, including when returning
 from project review. Author matching includes coauthors and

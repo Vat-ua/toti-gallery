@@ -58,14 +58,14 @@ test('gallery requests bounded records per batch and restores cumulative URL sta
   await expect(page.locator('.project-card')).toHaveCount(SIZE);
   const image = page.locator(`a[href="/projetos/${prefix}-${IMAGE_INDEX}"] .custom-cover-image`);
   await expect(image).toHaveCSS('object-position', '23% 60%');
-  await page.getByRole('button', { name: 'Carregar mais projetos', exact: true }).click();
+  await page.getByRole('button', { name: 'Mostrar mais projetos', exact: true }).click();
   await expect(page.locator('.project-card')).toHaveCount(SIZE * 2);
   await expect(page).toHaveURL(/page=2/);
   await page.reload(); await expect(page.locator('.project-card')).toHaveCount(SIZE * 2);
-  await page.getByRole('button', { name: 'Carregar mais projetos', exact: true }).click();
+  await page.getByRole('button', { name: 'Mostrar mais projetos', exact: true }).click();
   await expect(page.locator('.project-card')).toHaveCount(SIZE * 3);
-  while (await page.getByRole('button', { name: 'Carregar mais projetos', exact: true }).count()) {
-    const button = page.getByRole('button', { name: 'Carregar mais projetos', exact: true });
+  while (await page.getByRole('button', { name: 'Mostrar mais projetos', exact: true }).count()) {
+    const button = page.getByRole('button', { name: 'Mostrar mais projetos', exact: true });
     await expect(button).toBeEnabled(); await button.click();
     await expect(page.locator('.project-grid')).toHaveAttribute('aria-busy', 'false');
   }
@@ -81,7 +81,7 @@ test('a failed next batch preserves cards and recovers without duplicates', asyn
     if (new URL(route.request().url()).searchParams.get('page') === '2' && fail) { fail = false; return route.abort(); }
     return route.continue();
   });
-  await page.getByRole('button', { name: 'Carregar mais projetos', exact: true }).click();
+  await page.getByRole('button', { name: 'Mostrar mais projetos', exact: true }).click();
   await expect(page.locator('.collection-feedback [role="alert"]')).toContainText('conexão');
   await expect(page.locator('.project-card')).toHaveCount(SIZE);
   await page.getByRole('button', { name: 'Tentar novamente', exact: true }).click();
@@ -129,7 +129,7 @@ test('community and public profile load real batches while retaining complete to
   await page.goto(`/pessoas/${studentSlug}`);
   await expect(page.locator('.profile-projects .project-card')).toHaveCount(SIZE);
   await expect(page.locator('.profile-stats')).toContainText(`${PROJECT_COUNT} projetos`);
-  await page.getByRole('button', { name: 'Carregar mais projetos', exact: true }).click();
+  await page.getByRole('button', { name: 'Mostrar mais projetos', exact: true }).click();
   await expect(page.locator('.profile-projects .project-card')).toHaveCount(SIZE * 2);
 });
 
@@ -178,7 +178,7 @@ test('private batches require the actual session; deletion refreshes the visible
   await expect(page.getByRole('button', { name: `Excluir ${prefix} ${IMAGE_INDEX}`, exact: true })).toHaveCount(0);
   await expect(page.locator('.dashboard-summary')).toContainText(`${PROJECT_COUNT} projetos`);
   await expect(page.locator('.management-card')).toHaveCount(SIZE);
-  await page.getByRole('button', { name: 'Carregar mais projetos', exact: true }).click();
+  await page.getByRole('button', { name: 'Mostrar mais projetos', exact: true }).click();
   await expect(page.locator('.management-card')).toHaveCount(SIZE * 2);
 });
 
@@ -213,7 +213,7 @@ test('insertions during loading rebuild the list and reach the actual end', asyn
   await page.getByRole('textbox', { name: 'Buscar projetos' }).fill(`${prefix}-live`);
   await expect(page.locator('.project-card')).toHaveCount(SIZE);
   dataset = [{ ...sample, id: 'new-publication' }, ...rows];
-  const more = page.getByRole('button', { name: 'Carregar mais projetos', exact: true });
+  const more = page.getByRole('button', { name: 'Mostrar mais projetos', exact: true });
   await more.click(); await expect(page.locator('.project-card')).toHaveCount(SIZE * 2);
   await expect(more).toBeEnabled(); await more.click();
   await expect(page.locator('.project-card')).toHaveCount(dataset.length);

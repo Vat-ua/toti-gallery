@@ -80,7 +80,7 @@ export function AdminProjects({ result, turmas = [], scopedTurmaId }: { result: 
       })}</div> : <div className="admin-list admin-empty"><Icon name="code" size={30}/><h3>{filtered ? "Nenhum projeto encontrado" : "Ainda não há projetos"}</h3><p>{filtered ? "Ajuste a busca ou os filtros para encontrar uma publicação." : "Os projetos publicados pelos estudantes aparecerão aqui."}</p></div>}
     </div>
     {projects.length < total && <div className="load-more-area">
-      <button className="button button-outline load-more" type="button" disabled={refreshing} onClick={() => navigate({ page: filters.page + 1 }, true)}>{refreshing ? "Carregando..." : "Carregar mais projetos"}<Icon name="arrow-down" size={18}/></button>
+      <button className="button button-outline load-more" type="button" disabled={refreshing} onClick={() => navigate({ page: filters.page + 1 }, true)}>{refreshing ? "Carregando..." : "Mostrar mais projetos"}<Icon name="arrow-down" size={18}/></button>
       <p className="load-count">Mostrando {projects.length} de {total}</p>
     </div>}
   </>;
