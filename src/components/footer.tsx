@@ -34,10 +34,10 @@ export function Footer({
             <span>Conhecer</span>
             <Link href="/">Projetos</Link>
             <Link href="/comunidade">Comunidade</Link>
-            <Link href="/sobre">Sobre</Link>
             {presentationEnabled && (
               <Link href="/apresentacao">Apresentação</Link>
             )}
+            <Link href="/sobre">Sobre</Link>
           </div>
           <div>
             <span>Participar</span>
