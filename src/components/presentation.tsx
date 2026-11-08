@@ -5,7 +5,7 @@ import galleryScreenshot from "../../public/presentation/galeria.webp";
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
 import { Icon } from "./icon";
-import { adminScreens, entities, presentationImages, presentationTabs, relations, studentSteps, type EntityId, type PresentationImage, type PresentationTab } from "@/lib/presentation-data";
+import { adminScreens, entities, entityOperations, presentationImages, presentationTabs, relations, studentSteps, type EntityId, type PresentationImage, type PresentationTab } from "@/lib/presentation-data";
 
 function subscribeTab(listener: () => void) {
   window.addEventListener("hashchange", listener);
@@ -39,7 +39,7 @@ export function Presentation({ authenticated }: { authenticated: boolean }) {
     return <figure className="presentation-screen">
       <button type="button" onClick={() => setExpanded({ image, alt })} aria-label={`Ampliar imagem: ${alt}`}>
         <Image src={image === "galeria" ? galleryScreenshot : `/presentation/${image}.webp`} alt={alt} {...presentationImages[image]} sizes="(max-width: 1000px) 100vw, 900px" preload={priority}/>
-        <span className="presentation-zoom"><Icon name="external" size={15}/>Ampliar</span>
+        <span className="presentation-zoom"><Icon name="zoom-in" size={15}/>Ampliar</span>
       </button>
       <figcaption>Interface da plataforma com dados fictícios.</figcaption>
     </figure>;
@@ -86,7 +86,7 @@ export function Presentation({ authenticated }: { authenticated: boolean }) {
     <section className="presentation-panel" id="presentation-panel-tecnologia" role="tabpanel" aria-labelledby="presentation-tab-tecnologia" hidden={active !== "tecnologia"} tabIndex={0}>
       <div className="presentation-section-heading"><h2>Como a plataforma funciona.</h2><p>Interface, regras de negócio e persistência têm responsabilidades distintas.</p></div>
       <div className="presentation-architecture">
-        <article><Icon name="grid" size={23}/><h3>Interface</h3><strong>Next.js · React · TypeScript</strong><p>Páginas públicas, publicação e administração. Estilos compartilhados, Radix e Lucide mantêm os controles consistentes.</p><p>Sitemap dinâmico, URLs canônicas e metadados para buscadores e redes sociais.</p></article>
+        <article><Icon name="grid" size={23}/><h3>Interface</h3><strong>Next.js · React · TypeScript</strong><p>Páginas públicas, publicação e administração, com estilos compartilhados e controles consistentes em Radix e Lucide.</p></article>
         <article><Icon name="code" size={23}/><h3>Servidor</h3><strong>Route Handlers · Better Auth</strong><p>Validação, permissões e operações transacionais. Google e email/senha dão acesso ao mesmo cadastro provisionado.</p></article>
         <article><Icon name="database" size={23}/><h3>Dados e imagens</h3><strong>PostgreSQL · Drizzle · Neon</strong><p>Dados relacionais no PostgreSQL e arquivos no Object Storage. Imagens são otimizadas em WebP, com versões para exibição.</p></article>
       </div>
@@ -135,16 +135,28 @@ function DataModel() {
   const entity = entities.find(item => item.id === selected)!;
   const connected = relations.filter(relation => relation.from === selected || relation.to === selected);
   return <section className="presentation-model" aria-labelledby="presentation-model-title">
-    <div className="presentation-section-heading"><h3 id="presentation-model-title">Um projeto, várias relações.</h3><p>Selecione uma tabela para conhecer seu papel e destacar as conexões.</p></div>
+    <div className="presentation-section-heading"><h3 id="presentation-model-title">Um projeto, várias relações.</h3><p>Selecione uma tabela para explorar suas relações e operações na plataforma.</p></div>
     <div className="presentation-model-layout">
+      <div className="presentation-model-diagram">
       <div className="presentation-model-scroll" tabIndex={0} role="region" aria-label="Diagrama das tabelas principais, com rolagem horizontal em telas pequenas">
         <div className="presentation-graph" ref={graph}>
           <svg viewBox={`0 0 ${wires.width} ${wires.height}`} aria-hidden="true">{wires.paths.map(wire => <path key={wire.key} d={wire.path} className={wire.from === selected || wire.to === selected ? "is-connected" : ""}/>)}</svg>
           {entities.map(item => <button type="button" className="presentation-entity" key={item.id} data-entity={item.id} aria-pressed={selected === item.id} onClick={() => setSelected(item.id)}><strong>{item.label}</strong><code>{item.table}</code><span>{item.fields.map(field => <span key={field}>{field}</span>)}</span></button>)}
         </div>
       </div>
-      <aside className="presentation-inspector" aria-live="polite" aria-atomic="true"><h4>{entity.label}</h4><p>{entity.text}</p><ul>{connected.map(relation => <li key={`${relation.from}-${relation.to}`}>{relation.text}</li>)}</ul></aside>
+      <p className="presentation-model-note">Recorte das seis tabelas principais. Autenticação e controle de operações usam tabelas de apoio. PK: chave primária. FK: chave estrangeira. Nos endpoints, [id] identifica o registro da operação.</p>
+      </div>
+      <aside className="presentation-inspector" aria-live="polite" aria-atomic="true">
+        <h4>{entity.label}</h4><p>{entity.text}</p>
+        <ul>{connected.map(relation => <li key={`${relation.from}-${relation.to}`}>{relation.text}</li>)}</ul>
+        <details key={selected} className="presentation-operations">
+          <summary>Operações na plataforma</summary>
+          <dl>{entityOperations[selected].map(operation => <div key={`${operation.method} ${operation.path}`}>
+            <dt>{operation.label}</dt>
+            <dd><strong>{operation.method}</strong><code>{operation.path}</code>{operation.note && <p>{operation.note}</p>}</dd>
+          </div>)}</dl>
+        </details>
+      </aside>
     </div>
-    <p className="presentation-model-note">Recorte das seis tabelas principais. Autenticação e controle de operações usam tabelas de apoio. PK: chave primária. FK: chave estrangeira.</p>
   </section>;
 }

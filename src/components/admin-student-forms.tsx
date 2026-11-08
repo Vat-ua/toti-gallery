@@ -3,12 +3,12 @@
 import { FieldError, useFormFeedback } from "./form-feedback";
 import { identityErrors, rejectFields } from "@/lib/form-validation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import type { AdminTurma, ImportPreview, StudentLookup, StudentAdded } from "@/lib/admin-types";
+import type { AdminTurmaChoice, ImportPreview, StudentLookup, StudentAdded } from "@/lib/admin-types";
 import { Icon } from "./icon";
 import { AccessLinkBox, Dialog, ErrorText, Search, type Grant } from "./admin-ui";
 import { message, turmasApi, type StudentCandidate } from "@/lib/admin-client";
 
-export function AddStudent({ turmaId, turmaName, turmas, close, saved }: { turmaId?: string; turmaName?: string; turmas?: AdminTurma[]; close: () => void; saved: () => void }) {
+export function AddStudent({ turmaId, turmaName, turmas, close, saved }: { turmaId?: string; turmaName?: string; turmas?: AdminTurmaChoice[]; close: () => void; saved: () => void }) {
   const [selectedTurma, setSelectedTurma] = useState("");
   const activeTurmaId = turmaId || selectedTurma;
   const activeTurmaName = turmaName || turmas?.find(t => t.id === activeTurmaId)?.name;
@@ -95,7 +95,7 @@ export function AddStudent({ turmaId, turmaName, turmas, close, saved }: { turma
   </Dialog>;
 }
 
-export function ImportStudents({ turmaId, turmaName, turmas, close, saved }: { turmaId?: string; turmaName?: string; turmas?: AdminTurma[]; close: () => void; saved: (text: string) => void }) {
+export function ImportStudents({ turmaId, turmaName, turmas, close, saved }: { turmaId?: string; turmaName?: string; turmas?: AdminTurmaChoice[]; close: () => void; saved: (text: string) => void }) {
   const [selectedTurma, setSelectedTurma] = useState("");
   const activeTurmaId = turmaId || selectedTurma;
   const activeTurmaName = turmaName || turmas?.find(t => t.id === activeTurmaId)?.name;

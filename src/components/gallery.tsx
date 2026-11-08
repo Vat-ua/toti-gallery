@@ -1,8 +1,6 @@
 "use client";
 
-import { useDemoMode } from "./demo-mode";
-
-import Link from "next/link";
+import { PublishProjectLink } from "./publish-project-link";
 import {
   useEffect,
   useRef,
@@ -28,7 +26,6 @@ const filterGroups = [
 ] as const;
 
 export function Gallery({ initialPage, filterOptions }: { initialPage: CollectionSnapshot<ProjectSummary>; filterOptions: GalleryFilterOptions }) {
-  const demo = useDemoMode().active;
   const cohorts = filterOptions.cohorts;
   const techOptions = filterOptions.technologies.map(tech => [tech]);
   const collection = usePagedCollection(initialPage, "/api/projects?view=gallery", "gallery");
@@ -115,10 +112,10 @@ export function Gallery({ initialPage, filterOptions }: { initialPage: Collectio
             Explore exercícios, experimentos e aplicações completas. Inspire-se
             no trabalho de outras pessoas e compartilhe o seu.
           </p>
-          <Link href={demo ? "/demo/novo" : "/meus-projetos/novo"} className="button hero-publish">
+          <PublishProjectLink className="button hero-publish">
             <Icon name="plus" size={18}/>
             Publicar projeto
-          </Link>
+          </PublishProjectLink>
         </div>
       </section>
 
@@ -411,7 +408,7 @@ export function Gallery({ initialPage, filterOptions }: { initialPage: Collectio
                   onClick={() => collection.error ? collection.retry() : changePage(loadedPage + 1)}
                   disabled={!!collection.pending}
                 >
-                  {collection.pending ? "Carregando..." : "Carregar mais projetos"}
+                  {collection.pending ? "Carregando..." : "Mostrar mais projetos"}
                   <Icon name="arrow-down" size={18} />
                 </button>
               ) : (
@@ -449,10 +446,10 @@ export function Gallery({ initialPage, filterOptions }: { initialPage: Collectio
               Mostre o resultado, conte o que praticou e dê crédito a quem criou com você.
             </p>
           </div>
-          <Link href={demo ? "/demo/novo" : "/meus-projetos/novo"} className="button button-invert">
+          <PublishProjectLink className="button button-invert">
             <Icon name="plus" size={18} />
             Publicar projeto
-          </Link>
+          </PublishProjectLink>
           <span className="publish-band-mark" aria-hidden="true">
             <BrandSymbol/>
           </span>

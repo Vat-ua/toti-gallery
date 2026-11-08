@@ -40,9 +40,28 @@ transaction that creates the grant. A separate list read cannot authorize it.
 
 ## Reads and imports
 
-Turma detail reads select only enrolled profiles and their other memberships.
+Turma choices for filters and forms omit membership/publication counters. The
+Turmas list computes its counters in the same SQL statement as the groups.
+Turma detail headers retain both counts; the Projects tab does not read member
+profiles. Its header and projects start concurrently after authentication.
 Candidate profiles use the same bounded server search from both entry points.
-Student and project listing keep their existing pagination/loading behavior.
+
+Project lists select card fields and hydrate authors/like counts in the same SQL
+round trip. SSR restores at most three shared batches. The staff-only
+`GET /api/admin/projetos` returns one `CollectionPage`, including its preceding
+boundary ID. `usePagedCollection` reuses the public list's abort, retry, history,
+and live-list reconciliation behavior with the administrative URL parser.
+Search, turma and visibility changes use browser history and bounded API reads;
+loading more does not rerender the server page or reload earlier batches.
+Moderation still refreshes the current server snapshot. Detail reads retain the
+full project and moderation context.
+
+Students remain paginated at 25/50. Counts, selected students, their memberships
+and latest relevant grant metadata share one SQL statement for normal pages.
+Out-of-range pages perform a bounded fallback count and read. Administrative
+read transactions retain live staff checks and consistent list snapshots;
+transaction-scoped write authorization and locks are unchanged. No persistent
+permission or private-data cache is used.
 
 Import preview does not create records. Confirmation reparses and validates the
 selection, orders email locks, locks eligible existing users and rechecks their

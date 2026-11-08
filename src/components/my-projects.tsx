@@ -81,7 +81,7 @@ export function MyProjects({ projects, user, actions = apiActions, links = stude
       <p>Publique um projeto ou participe como coautor.</p>
       <Link href={links.create} className="button button-dark"><Icon name="plus" size={17}/>Publicar projeto</Link>
     </div> : null}
-    {pagination && collection.data.hasMore && <div className="load-more-area"><button type="button" className="button button-outline load-more" disabled={!!collection.pending} onClick={() => collection.error ? collection.retry() : changePage(collection.data.loadedPages + 1)}>{collection.pending ? "Carregando..." : "Carregar mais projetos"}<Icon name="arrow-down" size={18}/></button><p className="load-count">Mostrando {items.length} de {total}</p></div>}
+    {pagination && collection.data.hasMore && <div className="load-more-area"><button type="button" className="button button-outline load-more" disabled={!!collection.pending} onClick={() => collection.error ? collection.retry() : changePage(collection.data.loadedPages + 1)}>{collection.pending ? "Carregando..." : "Mostrar mais projetos"}<Icon name="arrow-down" size={18}/></button><p className="load-count">Mostrando {items.length} de {total}</p></div>}
     <dialog ref={dialogRef} className="dialog" aria-labelledby="delete-title" aria-describedby="delete-description" onCancel={event => { if (pending) event.preventDefault(); else setTarget(null); }} onClick={event => { if (event.target === event.currentTarget && !pending) setTarget(null); }}>
       <span className="dialog-icon"><Icon name={removingPublication ? "trash" : "logout"} size={24}/></span>
       <h2 id="delete-title">{removingPublication ? "Excluir este projeto?" : "Sair deste projeto?"}</h2>

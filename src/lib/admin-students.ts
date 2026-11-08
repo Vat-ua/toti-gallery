@@ -36,22 +36,33 @@ export async function listStudents(actorId: string, options: Partial<StudentList
       filters.turmaId === "all" ? undefined : filters.turmaId === "none" ? notInArray(users.id, membershipsQuery) : inArray(users.id, tx.select({ id: turmaMembers.userId }).from(turmaMembers).where(eq(turmaMembers.turmaId, filters.turmaId))),
       filters.status === "all" ? undefined : filters.status === "demo" ? eq(users.isDemo, true) : and(eq(users.isDemo, false), eq(users.status, filters.status)),
     );
-    const [{ total }] = await tx.select({ total: count() }).from(users).where(where);
-    const page = Math.min(filters.page, Math.max(1, Math.ceil(total / filters.pageSize)));
-    const people = await tx.select({ id: users.id, name: users.name, email: users.email, emailVerified: users.emailVerified, avatar: users.image, status: users.status, role: users.role, isDemo: users.isDemo, primaryTurmaId: users.primaryTurmaId }).from(users).where(where).orderBy(users.name, users.id).limit(filters.pageSize).offset((page - 1) * filters.pageSize);
-    const ids = people.map(person => person.id);
-    if (!ids.length) return { students: [], total, filters: { ...filters, page } };
-    const memberships = await tx.select({ userId: turmaMembers.userId, turmaId: turmas.id, name: turmas.name }).from(turmaMembers).innerJoin(turmas, eq(turmaMembers.turmaId, turmas.id)).where(inArray(turmaMembers.userId, ids)).orderBy(desc(turmas.number));
-    // Fetch latest metadata only, for this page; no bearer tokens or full history.
-    const grants = await tx.selectDistinctOn([invitations.userId, invitations.purpose], { id: invitations.id, userId: invitations.userId, purpose: invitations.purpose, expiresAt: invitations.expiresAt, consumedAt: invitations.consumedAt, revokedAt: invitations.revokedAt }).from(invitations).where(inArray(invitations.userId, ids)).orderBy(invitations.userId, invitations.purpose, desc(invitations.createdAt), desc(invitations.id));
+    let page = filters.page;
+    type Grant = { id: string; purpose: "activation" | "password_reset"; expiresAt: string; consumedAt: string | null; revokedAt: string | null };
+    // Keep nested outer references qualified; invitation rows also have an id.
+    const read = () => tx.select({ id: users.id, name: users.name, email: users.email, emailVerified: users.emailVerified,
+      avatar: users.image, status: users.status, role: users.role, isDemo: users.isDemo, primaryTurmaId: users.primaryTurmaId,
+      total: sql<number>`count(*) over()`.mapWith(Number),
+      groups: sql<{ id: string; name: string }[]>`coalesce((select jsonb_agg(jsonb_build_object('id', t.id, 'name', t.name) order by t.number desc)
+        from gallery_turma_members m join gallery_turmas t on t.id=m.turma_id where m.user_id=gallery_users.id), '[]'::jsonb)`,
+      grant: sql<Grant | null>`(select jsonb_build_object('id', g.id, 'purpose', g.purpose, 'expiresAt', g.expires_at at time zone 'UTC', 'consumedAt', g.consumed_at, 'revokedAt', g.revoked_at)
+        from gallery_invitations g where g.user_id=gallery_users.id and g.purpose=case when gallery_users.status='pending' then 'activation' else 'password_reset' end
+        order by g.created_at desc, g.id desc limit 1)`,
+    }).from(users).where(where).orderBy(users.name, users.id).limit(filters.pageSize).offset((page - 1) * filters.pageSize);
+    let people = await read(), total = people[0]?.total || 0;
+    if (!people.length && page > 1) {
+      [{ total }] = await tx.select({ total: count() }).from(users).where(where);
+      page = Math.min(page, Math.max(1, Math.ceil(total / filters.pageSize)));
+      if (total) people = await read();
+    }
     const now = new Date();
-    const students: ManagedStudent[] = people.map(person => {
-      const groups = memberships.filter(m => m.userId === person.id);
-      const grant = grants.find(g => g.userId === person.id && g.purpose === (person.status === "pending" ? "activation" : "password_reset"));
-      return { ...person, turmaNames: groups.map(g => g.name), turmaIds: groups.map(g => g.turmaId), accessLink: grant ? {
-        id: grant.id, purpose: grant.purpose, expiresAt: grant.expiresAt.toISOString(),
-        state: grant.consumedAt ? "used" : grant.revokedAt ? "revoked" : grant.expiresAt <= now ? "expired" : "valid",
-      } : null };
+    const students: ManagedStudent[] = people.map(row => {
+      const { groups, grant } = row;
+      return { id: row.id, name: row.name, email: row.email, emailVerified: row.emailVerified,
+        avatar: row.avatar, status: row.status, role: row.role, isDemo: row.isDemo, primaryTurmaId: row.primaryTurmaId,
+        turmaNames: groups.map(g => g.name), turmaIds: groups.map(g => g.id), accessLink: grant ? {
+          id: grant.id, purpose: grant.purpose, expiresAt: new Date(grant.expiresAt).toISOString(),
+          state: grant.consumedAt ? "used" : grant.revokedAt ? "revoked" : new Date(grant.expiresAt) <= now ? "expired" : "valid",
+        } : null };
     });
     return { students, total, filters: { ...filters, page } };
   }, { isolationLevel: "repeatable read" });

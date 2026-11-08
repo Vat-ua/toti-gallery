@@ -170,3 +170,18 @@ test("email lookup detects existing membership and manual addition preserves ide
   const fresh = await service.addStudent(adminId, groupId, "Manual New Student", email); userIds.add(fresh.id);
   assert.equal(fresh.created, true); assert.equal(fresh.status, "pending");
 });
+
+test("filter choices omit counters; project-tab summaries preserve counts without member profiles", async () => {
+  const choices = await service.listTurmaChoices(adminId);
+  const choice = choices.find(turma => turma.id === groupId)!;
+  assert(choice); assert(!("students" in choice)); assert(!("projects" in choice));
+  const full = await service.turmaDetails(adminId, groupId);
+  const summary = await service.turmaDetails(adminId, groupId, { includeMembers: false });
+  assert.deepEqual(summary.turma, full.turma);
+  assert.equal(summary.memberCount, full.members.length); assert.equal(summary.projectCount, full.projectCount);
+  assert.deepEqual(summary.members, []);
+  for (const denied of [studentId, suspendedId]) {
+    await assert.rejects(() => service.listTurmaChoices(denied), /restrito/);
+    await assert.rejects(() => service.turmaDetails(denied, groupId, { includeMembers: false }), /restrito/);
+  }
+});

@@ -5,7 +5,7 @@ import { focusFirstError } from "./form-feedback";
 
 import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import type { AdminTurma, ManagedStudent, StudentListPage } from "@/lib/admin-types";
+import type { AdminTurmaChoice, ManagedStudent, StudentListPage } from "@/lib/admin-types";
 import { studentListHref, type StudentListParams } from "@/lib/student-list-params";
 import { SelectMenu } from "./select-menu";
 import { AdminTurmaFilter } from "./admin-turma-filter";
@@ -19,7 +19,7 @@ function StatusBadge({ student }: { student: ManagedStudent }) {
   return <span className={`admin-badge ${student.isDemo ? "is-muted" : `is-${student.status}`}`}>{student.isDemo ? "Perfil de exemplo" : statusText[student.status]}</span>;
 }
 
-export function StudentsList({ result, turmas, owner }: { result: StudentListPage; turmas: AdminTurma[]; owner: boolean }) {
+export function StudentsList({ result, turmas, owner }: { result: StudentListPage; turmas: AdminTurmaChoice[]; owner: boolean }) {
   const { students, total, filters } = result;
   const router = useRouter(), notify = useToast();
   const [search, setSearch] = useState({ source: filters.query, value: filters.query });
@@ -64,11 +64,14 @@ export function StudentsList({ result, turmas, owner }: { result: StudentListPag
   </>;
 }
 
-function StudentPanel({ student, turmas, refreshing, close, saved }: { student: ManagedStudent; turmas: AdminTurma[]; refreshing: boolean; close: () => void; saved: (text: string) => void }) {
+function StudentPanel({ student, turmas, refreshing, close, saved }: { student: ManagedStudent; turmas: AdminTurmaChoice[]; refreshing: boolean; close: () => void; saved: (text: string) => void }) {
   const [selectedTurmas, setSelectedTurmas] = useState(student.turmaIds);
   const [primaryTurmaId, setPrimaryTurmaId] = useState(student.primaryTurmaId);
   const [membershipSnapshot, setMembershipSnapshot] = useState({ turmaIds: student.turmaIds, primaryTurmaId: student.primaryTurmaId });
   const [membershipError, setMembershipError] = useState("");
+  const [addingTurma, setAddingTurma] = useState(false), [turmaQuery, setTurmaQuery] = useState("");
+  const turmaSearch = useRef<HTMLInputElement>(null), addTurmaButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => { if (addingTurma) turmaSearch.current?.focus(); }, [addingTurma]);
   const [identity, setIdentity] = useState({ name: student.name, email: student.email });
   const [profileError, setProfileError] = useState(""), [deleteError, setDeleteError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{ name?: string; email?: string }>({});
@@ -83,7 +86,11 @@ function StudentPanel({ student, turmas, refreshing, close, saved }: { student: 
   const primaryChanged = primaryTurmaId !== membershipSnapshot.primaryTurmaId;
   const primaryOptions = turmas.filter(turma => selectedTurmas.includes(turma.id)).toSorted((a, b) => b.number - a.number);
   const suspended = student.status === "suspended";
-  const turmaOptions = turmas.toSorted((a, b) => Number(student.turmaIds.includes(b.id)) - Number(student.turmaIds.includes(a.id)) || Number(a.archived) - Number(b.archived) || b.number - a.number);
+  const availableTurmas = turmas.filter(turma => !selectedTurmas.includes(turma.id)).toSorted((a, b) => Number(a.archived) - Number(b.archived) || b.number - a.number);
+  const matchingTurmas = availableTurmas.filter(turma => `${turma.name} ${turma.courseName || ""} ${turma.startYear || ""}`.toLocaleLowerCase("pt-BR").includes(turmaQuery.trim().toLocaleLowerCase("pt-BR")));
+  function closeTurmaPicker() {
+    setAddingTurma(false); setTurmaQuery(""); addTurmaButton.current?.focus();
+  }
   async function mutate<T>(operation: () => Promise<T>, text: string) {
     setPending(true); setError("");
     try { const result = await operation(); saved(text); return result; }
@@ -142,24 +149,40 @@ function StudentPanel({ student, turmas, refreshing, close, saved }: { student: 
         <ErrorText text={profileError}/><button className="button button-dark" type="submit" disabled={!identityChanged}>Salvar alterações</button>
       </fieldset></form>
     </section>
-    {!student.isDemo && !suspended && <section className="admin-access admin-student-section"><h3>{student.status === "pending" ? "Ativação da conta" : "Definir senha"}</h3><p>{student.status === "pending" ? "O estudante pode usar seu Google cadastrado ou criar uma senha pelo link de ativação." : "O link permite definir uma senha. Quando utilizado, encerra as sessões existentes."}</p>{emailChanged ? <p className="admin-help">Salve o novo email antes de gerar outro link.</p> : link && !grant && <AccessLinkStatus link={link}/>}<div className="admin-inline-actions"><button type="button" className="button button-outline" disabled={busy || emailChanged} onClick={generate}><Icon name="link" size={17}/>{pending ? "Preparando..." : link?.state === "valid" || grant ? "Gerar novo link" : student.status === "pending" ? "Gerar link de ativação" : "Gerar link para definir senha"}</button>{link?.state === "valid" && <button type="button" className="button button-outline" disabled={busy} onClick={async () => { if (await mutate(() => studentsApi.revoke(student.id, link.id), "Link revogado.")) setGrant(null); }}>Revogar link</button>}</div>{grant && !emailChanged && <AccessLinkBox grant={grant} name={student.name} activation={student.status === "pending"}/>}</section>}
+
     <section className="admin-student-section">
       <h3>Turmas</h3>
-      <p>Selecione as turmas de que esta pessoa participa. Alterar a participação preserva o perfil e a autoria dos projetos.</p>
-      <fieldset className="account-fieldset" disabled={busy}>
+      <p>Adicionar ou remover turmas preserva o perfil e a autoria dos projetos.</p>
+      <fieldset className="account-fieldset admin-membership-fields" disabled={busy}>
         <legend className="sr-only">Participação em turmas</legend>
-        <div className="admin-candidates admin-turma-options">
-          {turmaOptions.length ? turmaOptions.map(turma => <label key={turma.id} className="admin-candidate">
-            <input type="checkbox" checked={selectedTurmas.includes(turma.id)} onChange={event => {
-              const checked = event.target.checked;
-              setSelectedTurmas(current => checked ? [...current, turma.id] : current.filter(id => id !== turma.id));
-              if (!checked && primaryTurmaId === turma.id) setPrimaryTurmaId(null);
-            }}/>
+        {primaryOptions.length > 0 && <ul className="admin-student-turma-list">
+          {primaryOptions.map(turma => <li key={turma.id}>
             <span><strong>{turma.name}{turma.archived ? " · Arquivada" : ""}</strong><small>{[turma.courseName, turma.startYear].filter(Boolean).join(" · ")}</small></span>
-          </label>) : <p className="admin-help">Crie uma turma para adicionar esta pessoa.</p>}
-        </div>
+            <button type="button" className="button button-outline admin-small-button" aria-label={`Remover ${turma.name}`} onClick={() => {
+              setSelectedTurmas(current => current.filter(id => id !== turma.id));
+              if (primaryTurmaId === turma.id) setPrimaryTurmaId(null);
+              addTurmaButton.current?.focus();
+            }}><Icon name="x" size={16}/>Remover</button>
+          </li>)}
+        </ul>}
+        <button ref={addTurmaButton} type="button" className="button button-outline" aria-expanded={addingTurma} aria-controls="student-add-turma" disabled={!availableTurmas.length} onClick={() => {
+          if (addingTurma) closeTurmaPicker(); else setAddingTurma(true);
+        }}><Icon name={addingTurma ? "x" : "plus"} size={17}/>{addingTurma ? "Cancelar" : "Adicionar turma"}</button>
+        {addingTurma && <div id="student-add-turma" className="admin-turma-picker" onKeyDown={event => {
+          if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeTurmaPicker(); }
+        }}>
+          <div className="search-field admin-search"><Icon name="search" size={19}/><input ref={turmaSearch} aria-label="Buscar turma para adicionar" placeholder="Buscar por turma, curso ou ano" value={turmaQuery} onChange={event => setTurmaQuery(event.target.value)}/></div>
+          <div className="admin-candidates admin-turma-options" role="group" aria-label="Turmas disponíveis">
+            {matchingTurmas.map(turma => <button type="button" className="admin-candidate admin-turma-option" key={turma.id} onClick={() => {
+              setSelectedTurmas(current => current.includes(turma.id) ? current : [...current, turma.id]);
+              closeTurmaPicker();
+            }}><span><strong>{turma.name}{turma.archived ? " · Arquivada" : ""}</strong><small>{[turma.courseName, turma.startYear].filter(Boolean).join(" · ")}</small></span><Icon name="plus" size={17}/></button>)}
+            {!matchingTurmas.length && <p className="admin-help" role="status">Nenhuma turma encontrada.</p>}
+          </div>
+        </div>}
+        {!availableTurmas.length && <p className="admin-help">{turmas.length ? "Esta pessoa participa de todas as turmas cadastradas." : "Crie uma turma para adicionar esta pessoa."}</p>}
         {primaryOptions.length > 1 && <div className="form-field">
-          <label htmlFor="student-primary-turma">Turma principal</label>
+          <label htmlFor="student-primary-turma">Turma exibida no perfil</label>
           <select id="student-primary-turma" value={primaryTurmaId || ""} onChange={event => setPrimaryTurmaId(event.target.value || null)} aria-describedby="student-primary-turma-help">
             <option value="">Automática — {primaryOptions[0].name}</option>
             {primaryOptions.map(turma => <option key={turma.id} value={turma.id}>{turma.name}</option>)}
@@ -171,6 +194,7 @@ function StudentPanel({ student, turmas, refreshing, close, saved }: { student: 
         <ErrorText text={membershipError}/>
       </fieldset>
     </section>
+    {!student.isDemo && !suspended && <section className="admin-access admin-student-section"><h3>{student.status === "pending" ? "Ativação da conta" : "Definir senha"}</h3><p>{student.status === "pending" ? "O estudante pode usar seu Google cadastrado ou criar uma senha pelo link de ativação." : "O link permite definir uma senha. Quando utilizado, encerra as sessões existentes."}</p>{emailChanged ? <p className="admin-help">Salve o novo email antes de gerar outro link.</p> : link && !grant && <AccessLinkStatus link={link}/>}<div className="admin-inline-actions"><button type="button" className="button button-outline" disabled={busy || emailChanged} onClick={generate}><Icon name="link" size={17}/>{pending ? "Preparando..." : link?.state === "valid" || grant ? "Gerar novo link" : student.status === "pending" ? "Gerar link de ativação" : "Gerar link para definir senha"}</button>{link?.state === "valid" && <button type="button" className="button button-outline" disabled={busy} onClick={async () => { if (await mutate(() => studentsApi.revoke(student.id, link.id), "Link revogado.")) setGrant(null); }}>Revogar link</button>}</div>{grant && !emailChanged && <AccessLinkBox grant={grant} name={student.name} activation={student.status === "pending"}/>}</section>}
     {!student.isDemo && student.role === "user" && <section className="admin-student-section"><h3>Acesso à conta</h3><p>{suspended ? "O acesso está suspenso. Restaurar permite entrar novamente; uma conta ainda não ativada continuará pendente." : "Suspender bloqueia o acesso e revoga sessões e links. Perfil, turmas, projetos e créditos são mantidos."}</p>{confirmStatus ? <><p className="admin-status-confirm">{suspended ? "Restaurar o acesso desta pessoa?" : "Suspender o acesso desta pessoa?"}</p><div className="admin-inline-actions"><button type="button" className="button button-outline" disabled={busy} onClick={() => setConfirmStatus(false)}>Cancelar</button><button type="button" className={`button ${suspended ? "button-dark" : "button-outline admin-danger"}`} disabled={busy} onClick={toggleStatus}>{pending ? "Salvando..." : suspended ? "Confirmar restauração" : "Confirmar suspensão"}</button></div></> : <button type="button" className={`button button-outline ${suspended ? "" : "admin-danger"}`} disabled={busy} onClick={() => setConfirmStatus(true)}>{suspended ? "Restaurar acesso" : "Suspender acesso"}</button>}</section>}
     {canDelete && <section className="admin-student-section"><h3>Excluir cadastro</h3>{confirmDelete ? <><p>Excluir o cadastro de <strong>{student.name}</strong> ({student.email})? A participação em todas as turmas e os links de ativação serão removidos. Esta ação não pode ser desfeita.</p><div className="admin-inline-actions"><button type="button" className="button button-outline" disabled={busy} onClick={() => { setConfirmDelete(false); setDeleteError(""); }}>Cancelar</button><button type="button" className="button button-outline admin-danger" disabled={busy} onClick={deleteProfile}>{pending ? "Excluindo..." : "Confirmar exclusão"}</button></div></> : <><p>Remova um cadastro incorreto antes da ativação da conta.</p><button type="button" className="button button-outline admin-danger" disabled={busy} onClick={() => setConfirmDelete(true)}><Icon name="trash" size={17}/>Excluir cadastro</button></>}<ErrorText text={deleteError}/></section>}
     <ErrorText text={error}/>

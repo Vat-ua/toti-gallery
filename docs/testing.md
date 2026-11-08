@@ -10,6 +10,8 @@ suites, a Webpack production build, and Chromium smoke tests at desktop/mobile
 sizes. A PostgreSQL 18 service container is created for that job and discarded
 with the runner. No GitHub secrets, Neon/Vercel access, OAuth or image credentials
 are needed. Fork pull requests can run the same checks. The workflow never deploys.
+Playwright publishes failures as GitHub annotations as well as the console log
+and downloadable HTML report, so the failing assertion is visible in PR checks.
 
 Commands:
 
@@ -57,6 +59,11 @@ Playwright starts the real built Next.js application on `127.0.0.1:3102`, with
 and inserts synthetic students/admins and a sample project. It never resets a
 populated database or copies real accounts. This verifies the current application
 schema, not pending production migrations.
+
+Authentication scenarios use the shared smoke fixture's per-test synthetic client
+IP, keeping the application's rate limits enabled without sharing one local-client
+budget across the suite. Deletion scenarios own their temporary publications and
+clean them up in `finally`, preserving records used by other tests.
 
 The small suite covers public navigation/search/final filtering, a like, login
 validation and an accessibility check, actual email/password sign-in, a publish

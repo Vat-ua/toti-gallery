@@ -22,6 +22,7 @@ replace("./src/components/footer.tsx", { Footer: () => <footer>FOOTER_READY</foo
 replace("./src/components/ui.tsx", { ToastProvider: ({ children }: { children: ReactNode }) => children, useToast: () => () => {} });
 replace("./src/app/globals.css", {});
 const RootLayout = (require("./src/app/layout.tsx") as typeof import("../src/app/layout")).default;
+const { PublishProjectLink } = require("./src/components/publish-project-link.tsx") as typeof import("../src/components/publish-project-link");
 after(() => { for (const [id, value] of originals) { if (value) require.cache[id] = value; else delete require.cache[id]; } });
 
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; }
@@ -44,14 +45,28 @@ const person: Person & { role: "user" } = { id: "fixture", slug: "fixture", name
 test("root and public content stream before unresolved identity; chrome resolves independently", async () => {
   pathname = "/"; demoCookie = false;
   const user = deferred<typeof person | null>(); identity = user.promise;
-  const root = await within(RootLayout({ children: <main>PUBLIC_CONTENT_READY</main> }));
+  const root = await within(RootLayout({ children: <main>PUBLIC_CONTENT_READY<PublishProjectLink>Publicar projeto</PublishProjectLink></main> }));
   const result = stream(root);
   try {
     await within(result.waitFor("PUBLIC_CONTENT_READY"));
     assert(result.html().includes("ACCOUNT_PENDING")); assert(!result.html().includes("ACCOUNT_READY"));
+    assert(result.html().includes('href="/meus-projetos/novo"'));
     user.resolve(person); await within(result.finished);
     assert(result.html().includes("ACCOUNT_READY")); assert(result.html().includes("FOOTER_READY"));
   } finally { user.resolve(null); result.abort(); }
+});
+
+test("publication links resolve the existing identity to direct login or editor destinations", async () => {
+  pathname = "/"; demoCookie = false;
+  for (const user of [null, person]) {
+    identity = Promise.resolve(user);
+    const result = stream(await RootLayout({ children: <main><PublishProjectLink>Publicar projeto</PublishProjectLink></main> }));
+    try {
+      await within(result.finished);
+      assert.equal(result.html().includes('href="/entrar?next=%2Fmeus-projetos%2Fnovo"'), !user);
+      if (user) assert(result.html().includes('href="/meus-projetos/novo"'));
+    } finally { result.abort(); }
+  }
 });
 
 test("demo waits for identity and never renders demo content for an authenticated user", async () => {
@@ -67,9 +82,11 @@ test("demo waits for identity and never renders demo content for an authenticate
 test("anonymous demo keeps its existing mode, banner and content after identity resolves", async () => {
   pathname = "/demo"; demoCookie = true;
   const user = deferred<typeof person | null>(); identity = user.promise;
-  const result = stream(await within(RootLayout({ children: <main>LOCAL_DEMO_CONTENT</main> })));
+  const result = stream(await within(RootLayout({ children: <main>LOCAL_DEMO_CONTENT<PublishProjectLink>Publicar projeto</PublishProjectLink></main> })));
   try {
     user.resolve(null); await within(result.finished);
     assert(result.html().includes("LOCAL_DEMO_CONTENT")); assert(result.html().includes("Modo de demonstração"));
+    assert(result.html().includes('href="/demo/novo"'));
+    assert(!result.html().includes('href="/entrar?next='));
   } finally { user.resolve(null); result.abort(); }
 });

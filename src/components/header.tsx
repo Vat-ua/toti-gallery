@@ -11,6 +11,7 @@ import { Logo } from "./logo";
 import { Avatar, useToast } from "./ui";
 import { ThemeToggle } from "./theme-toggle";
 import { DropdownMenu, DropdownItem, DropdownLabel } from "./dropdown-menu";
+import { PublishProjectLink } from "./publish-project-link";
 
 export function Header({
   user,
@@ -216,14 +217,14 @@ function HeaderContent({
             </Link>
           )}
           {!adminArea && (
-            <Link
-              href={demo ? "/demo/novo" : "/meus-projetos/novo"}
+            <PublishProjectLink
+              authenticated={pending ? undefined : !!user} demo={demo}
               className="button button-dark header-publish"
               aria-label="Publicar projeto"
               title="Publicar projeto"
             >
               <Icon name="plus" size={21} />
-            </Link>
+            </PublishProjectLink>
           )}
           <button
             className="mobile-menu-button"
@@ -255,13 +256,13 @@ function HeaderContent({
             <Icon name="grid" size={18} />
             Meus projetos
           </Link>
-          <Link
+          <PublishProjectLink
             className="mobile-publish"
-            href={demo ? "/demo/novo" : "/meus-projetos/novo"}
+            authenticated={pending ? undefined : !!user} demo={demo}
           >
             <Icon name="plus" size={18} />
             Publicar projeto
-          </Link>
+          </PublishProjectLink>
         </nav>
       )}
     </header>

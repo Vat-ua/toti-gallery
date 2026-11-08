@@ -1625,6 +1625,7 @@ html[data-theme="dark"] .theme-icon-moon {
 }
 
 .load-more-area {
+  overflow-anchor: none;
   text-align: center;
   padding: var(--space-12) 0 var(--space-14);
   display: flex;
@@ -2656,6 +2657,10 @@ html[data-theme="dark"] .theme-icon-moon {
   align-items: start;
 }
 
+.presentation-model-diagram {
+  min-width: 0;
+}
+
 .presentation-model-scroll {
   min-width: 0;
   overflow-x: auto;
@@ -2734,11 +2739,6 @@ html[data-theme="dark"] .theme-icon-moon {
   color: var(--ink-2);
 }
 
-.presentation-inspector {
-  border-left: 2px solid var(--accent);
-  padding-left: var(--space-5);
-}
-
 .presentation-inspector h4 {
   font-size: var(--text-subtitle);
 }
@@ -2746,6 +2746,53 @@ html[data-theme="dark"] .theme-icon-moon {
 .presentation-inspector ul {
   list-style: disc;
   padding-left: var(--space-5);
+}
+
+.presentation-operations {
+  margin-top: var(--space-8);
+}
+
+.presentation-operations summary {
+  cursor: pointer;
+  font-size: var(--text-ui);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-ui);
+}
+
+.presentation-operations dl>div {
+  margin-top: var(--space-4);
+}
+
+.presentation-operations dt {
+  font-size: var(--text-secondary);
+  line-height: var(--leading-ui);
+}
+
+.presentation-operations dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  margin-top: var(--space-1);
+  font-size: var(--text-label);
+  line-height: var(--leading-copy);
+}
+
+.presentation-operations strong {
+  font-weight: var(--weight-semibold);
+}
+
+.presentation-operations code {
+  min-width: 0;
+  font-family: var(--font-mono);
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+.presentation-operations p {
+  flex-basis: 100%;
+  margin-top: var(--space-1);
+  font-size: var(--text-secondary);
 }
 
 .presentation-follow-up {
@@ -5822,7 +5869,77 @@ html[data-theme="dark"] .theme-icon-moon {
 }
 
 .admin-turma-options {
-  margin-bottom: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.admin-membership-fields {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.admin-membership-fields>.button {
+  justify-self: start;
+}
+
+.admin-student-turma-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-student-turma-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-block: var(--space-3);
+}
+
+.admin-student-turma-list li>span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-student-turma-list small {
+  display: block;
+  font-size: var(--text-secondary);
+  color: var(--ink-3);
+}
+
+.admin-student-turma-list button {
+  flex-shrink: 0;
+}
+
+.admin-turma-picker {
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.admin-turma-picker .admin-search {
+  width: 100%;
+  min-width: 0;
+}
+
+.admin-turma-option {
+  width: 100%;
+  justify-content: space-between;
+  padding: var(--space-3);
+  border-radius: 6px;
+  text-align: left;
+}
+
+.admin-turma-option:hover {
+  background: var(--surface-2);
+}
+
+.admin-turma-option>span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-turma-option>svg {
+  flex-shrink: 0;
 }
 
 .admin-link-state {

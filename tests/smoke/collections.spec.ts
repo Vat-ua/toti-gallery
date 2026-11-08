@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { assertDatabaseTarget } from "../../src/lib/database-target.cjs";
@@ -58,14 +58,14 @@ test('gallery requests bounded records per batch and restores cumulative URL sta
   await expect(page.locator('.project-card')).toHaveCount(SIZE);
   const image = page.locator(`a[href="/projetos/${prefix}-${IMAGE_INDEX}"] .custom-cover-image`);
   await expect(image).toHaveCSS('object-position', '23% 60%');
-  await page.getByRole('button', { name: 'Carregar mais projetos', exact: true }).click();
+  await page.getByRole('button', { name: 'Mostrar mais projetos', exact: true }).click();
   await expect(page.locator('.project-card')).toHaveCount(SIZE * 2);
   await expect(page).toHaveURL(/page=2/);
   await page.reload(); await expect(page.locator('.project-card')).toHaveCount(SIZE * 2);
-  await page.getByRole('button', { name: 'Carregar mais projetos', exact: true }).click();
+  await page.getByRole('button', { name: 'Mostrar mais projetos', exact: true }).click();
   await expect(page.locator('.project-card')).toHaveCount(SIZE * 3);
-  while (await page.getByRole('button', { name: 'Carregar mais projetos', exact: true }).count()) {
-    const button = page.getByRole('button', { name: 'Carregar mais projetos', exact: true });
+  while (await page.getByRole('button', { name: 'Mostrar mais projetos', exact: true }).count()) {
+    const button = page.getByRole('button', { name: 'Mostrar mais projetos', exact: true });
     await expect(button).toBeEnabled(); await button.click();
     await expect(page.locator('.project-grid')).toHaveAttribute('aria-busy', 'false');
   }
@@ -81,7 +81,7 @@ test('a failed next batch preserves cards and recovers without duplicates', asyn
     if (new URL(route.request().url()).searchParams.get('page') === '2' && fail) { fail = false; return route.abort(); }
     return route.continue();
   });
-  await page.getByRole('button', { name: 'Carregar mais projetos', exact: true }).click();
+  await page.getByRole('button', { name: 'Mostrar mais projetos', exact: true }).click();
   await expect(page.locator('.collection-feedback [role="alert"]')).toContainText('conexão');
   await expect(page.locator('.project-card')).toHaveCount(SIZE);
   await page.getByRole('button', { name: 'Tentar novamente', exact: true }).click();
@@ -129,7 +129,7 @@ test('community and public profile load real batches while retaining complete to
   await page.goto(`/pessoas/${studentSlug}`);
   await expect(page.locator('.profile-projects .project-card')).toHaveCount(SIZE);
   await expect(page.locator('.profile-stats')).toContainText(`${PROJECT_COUNT} projetos`);
-  await page.getByRole('button', { name: 'Carregar mais projetos', exact: true }).click();
+  await page.getByRole('button', { name: 'Mostrar mais projetos', exact: true }).click();
   await expect(page.locator('.profile-projects .project-card')).toHaveCount(SIZE * 2);
 });
 
@@ -164,22 +164,32 @@ test('a prefetched project preserves a like made before navigation', async ({ pa
 
 test('private batches require the actual session; deletion refreshes the visible page and total', async ({ page }) => {
   const data = fixture();
-  await page.goto('/entrar');
-  await page.getByLabel('Email', { exact: true }).fill(data.email);
-  await page.getByLabel('Senha', { exact: true }).fill(data.password);
-  await page.getByRole('button', { name: 'Entrar com email', exact: true }).click();
-  await expect(page).toHaveURL(/\/meus-projetos$/);
-  await expect(page.locator('.management-card')).toHaveCount(SIZE);
-  await expect(page.locator('.dashboard-summary')).toContainText(`${PROJECT_COUNT + 1} projetos`);
-  const mine = await (await page.request.get('/api/projects?view=mine')).json();
-  expect(mine.items).toHaveLength(SIZE); expect(mine.total).toBe(PROJECT_COUNT + 1);
-  await page.getByRole('button', { name: `Excluir ${prefix} ${IMAGE_INDEX}`, exact: true }).click();
-  await page.getByRole('button', { name: 'Sim, excluir', exact: true }).click();
-  await expect(page.getByRole('button', { name: `Excluir ${prefix} ${IMAGE_INDEX}`, exact: true })).toHaveCount(0);
-  await expect(page.locator('.dashboard-summary')).toContainText(`${PROJECT_COUNT} projetos`);
-  await expect(page.locator('.management-card')).toHaveCount(SIZE);
-  await page.getByRole('button', { name: 'Carregar mais projetos', exact: true }).click();
-  await expect(page.locator('.management-card')).toHaveCount(SIZE * 2);
+  // Delete a fixture owned by this scenario, not a card used by later tests.
+  const deletionId = randomUUID(), deletionTitle = `Deletion ${prefix}`;
+  await pool.query(`WITH inserted AS (
+    INSERT INTO gallery_projects(id,slug,title,description,technologies,github_url,author_id,turma_id,is_final,image_url,cover_framing)
+    SELECT $1,$2,$3,description,technologies,github_url,author_id,turma_id,is_final,image_url,cover_framing
+    FROM gallery_projects WHERE id=$4 RETURNING id,author_id
+  ) INSERT INTO gallery_project_authors(project_id,user_id) SELECT id,author_id FROM inserted`,
+  [deletionId, `${prefix}-delete`, deletionTitle, ids[IMAGE_INDEX]]);
+  try {
+    await page.goto('/entrar');
+    await page.getByLabel('Email', { exact: true }).fill(data.email);
+    await page.getByLabel('Senha', { exact: true }).fill(data.password);
+    await page.getByRole('button', { name: 'Entrar com email', exact: true }).click();
+    await expect(page).toHaveURL(/\/meus-projetos$/);
+    await expect(page.locator('.management-card')).toHaveCount(SIZE);
+    await expect(page.locator('.dashboard-summary')).toContainText(`${PROJECT_COUNT + 2} projetos`);
+    const mine = await (await page.request.get('/api/projects?view=mine')).json();
+    expect(mine.items).toHaveLength(SIZE); expect(mine.total).toBe(PROJECT_COUNT + 2);
+    await page.getByRole('button', { name: `Excluir ${deletionTitle}`, exact: true }).click();
+    await page.getByRole('button', { name: 'Sim, excluir', exact: true }).click();
+    await expect(page.getByRole('button', { name: `Excluir ${deletionTitle}`, exact: true })).toHaveCount(0);
+    await expect(page.locator('.dashboard-summary')).toContainText(`${PROJECT_COUNT + 1} projetos`);
+    await expect(page.locator('.management-card')).toHaveCount(SIZE);
+    await page.getByRole('button', { name: 'Mostrar mais projetos', exact: true }).click();
+    await expect(page.locator('.management-card')).toHaveCount(SIZE * 2);
+  } finally { await pool.query('DELETE FROM gallery_projects WHERE id=$1', [deletionId]); }
 });
 
 test('default API and unknown URL filters share the bounded contract with server pages', async ({ page, request }) => {
@@ -213,7 +223,7 @@ test('insertions during loading rebuild the list and reach the actual end', asyn
   await page.getByRole('textbox', { name: 'Buscar projetos' }).fill(`${prefix}-live`);
   await expect(page.locator('.project-card')).toHaveCount(SIZE);
   dataset = [{ ...sample, id: 'new-publication' }, ...rows];
-  const more = page.getByRole('button', { name: 'Carregar mais projetos', exact: true });
+  const more = page.getByRole('button', { name: 'Mostrar mais projetos', exact: true });
   await more.click(); await expect(page.locator('.project-card')).toHaveCount(SIZE * 2);
   await expect(more).toBeEnabled(); await more.click();
   await expect(page.locator('.project-card')).toHaveCount(dataset.length);
@@ -244,4 +254,50 @@ test('empty search announces loading and a newly mounted card accepts a newer li
   await expect(page.locator('.collection-loading')).toContainText('Carregando');
   await expect(page.locator('.empty-state')).toHaveCount(0);
   release(); await expect(page.locator('.project-card .like-count')).toHaveText('30');
+});
+
+
+test('administrative lists append bounded private batches, recover errors and keep turma scope', async ({ page, request, baseURL }) => {
+  expect((await request.get('/api/admin/projetos')).status()).toBe(401);
+  const headers = { origin: new URL(baseURL!).origin };
+  const data = fixture();
+  expect((await page.request.post('/api/auth/sign-in/email', { headers, data: { email: data.email, password: data.password } })).ok()).toBe(true);
+  expect((await page.request.get('/api/admin/projetos')).status()).toBe(403);
+  expect((await page.request.post('/api/auth/sign-in/email', { headers, data: { email: data.adminEmail, password: data.password } })).ok()).toBe(true);
+  await page.goto(`/admin/projetos?q=${prefix}`);
+  await expect(page.locator('.management-card')).toHaveCount(SIZE);
+  const response = await page.request.get(`/api/admin/projetos?q=${prefix}&page=2`);
+  const body = await response.json();
+  expect(body.items).toHaveLength(SIZE); expect(body.total).toBe(PROJECT_COUNT);
+  expect(body.items.every((item: Record<string, unknown>) => !('description' in item) && !('version' in item) && !('githubUrl' in item))).toBe(true);
+  let fail = true;
+  const batches: number[] = [], navigations: string[] = [];
+  page.on('request', req => {
+    if (req.headers().rsc === '1' && new URL(req.url()).pathname === '/admin/projetos') navigations.push(req.url());
+  });
+  await page.route('**/api/admin/projetos?**', route => {
+    const params = new URL(route.request().url()).searchParams;
+    if (params.get('page') === '2' && fail) { fail = false; return route.abort(); }
+    batches.push(Number(params.get('page')));
+    return route.continue();
+  });
+  await page.getByRole('button', { name: 'Mostrar mais projetos', exact: true }).click();
+  await expect(page.locator('.collection-feedback [role="alert"]')).toContainText('conexão');
+  await expect(page.locator('.management-card')).toHaveCount(SIZE);
+  await page.getByRole('button', { name: 'Tentar novamente', exact: true }).click();
+  await expect(page.locator('.management-card')).toHaveCount(SIZE * 2);
+  expect(batches).toEqual([2]); expect(navigations).toEqual([]);
+  await expect(page).toHaveURL(/page=2/);
+  await page.reload(); await expect(page.locator('.management-card')).toHaveCount(SIZE * 2);
+  await page.goto(`/admin/projetos?q=${prefix}&page=5`);
+  await expect(page.locator('.management-card')).toHaveCount(PROJECT_COUNT);
+  expect(new Set(await page.locator('.project-cover-link').evaluateAll(nodes => nodes.map(node => node.getAttribute('href')))).size).toBe(PROJECT_COUNT);
+  await page.goto(`/admin/turmas/${data.turmaId}?tab=projetos&q=${prefix}`);
+  await expect(page.locator('.management-card')).toHaveCount(SIZE);
+  const scoped = page.waitForRequest(req => new URL(req.url()).pathname === '/api/admin/projetos');
+  await page.getByRole('button', { name: 'Mostrar mais projetos', exact: true }).click();
+  expect(new URL((await scoped).url()).searchParams.get('turma')).toBe(data.turmaId);
+  await expect(page.locator('.management-card')).toHaveCount(SIZE * 2);
+  await page.getByRole('textbox', { name: 'Buscar por projeto ou autor' }).fill(`${prefix}-nothing`);
+  await expect(page.getByRole('heading', { name: 'Nenhum projeto encontrado' })).toBeVisible();
 });

@@ -1,30 +1,36 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Icon } from "@/components/icon";
 import { getCurrentUser } from "@/lib/auth";
 import { sharingMetadata } from "@/lib/metadata";
 
 export const metadata: Metadata = sharingMetadata({
   title: "Sobre",
-  description: "Conheça a Toti Gallery, uma iniciativa independente de estudantes para compartilhar projetos e aprender em comunidade.",
+  description: "Descubra a Toti Gallery, um espaço para compartilhar e valorizar projetos de pessoas da comunidade Toti.",
   path: "/sobre",
 });
 
 export default async function AboutPage() {
   const user = await getCurrentUser();
   return <main id="conteudo" className="container inner-page">
+    <Link href="/" className="back-link"><Icon name="arrow-left" size={16}/>Projetos</Link>
     <article className="page-intro about-content">
-      <h1>Sobre a Toti Gallery</h1>
-      <p>Uma galeria para compartilhar projetos desenvolvidos durante o aprendizado: de exercícios e experimentos a aplicações completas. Um espaço para conhecer outros trabalhos, encontrar inspiração e acompanhar quem está construindo.</p>
+      <div className="page-heading"><div className="page-intro">
+        <h1>Sobre a Toti Gallery</h1>
+        <p>A Toti Gallery é um espaço para descobrir, compartilhar e valorizar projetos desenvolvidos por pessoas da comunidade Toti.</p>
+      </div></div>
 
       <section className="about-section" aria-labelledby="about-origin">
         <h2 id="about-origin">Como surgiu</h2>
-        <p>A Toti Gallery nasceu da iniciativa de estudantes que sentiram falta de um espaço para conhecer e compartilhar os projetos da comunidade. É um projeto independente, ainda sem vínculo oficial com a Toti Diversidade.</p>
+        <p>A Toti Gallery surgiu como um projeto independente durante o curso de desenvolvimento web da Toti. A ideia era criar um espaço onde as pessoas pudessem compartilhar seus trabalhos, conhecer os projetos de colegas e encontrar inspiração para criar algo novo.</p>
+        <p>Aprender fazendo é parte importante desse processo. Ter onde mostrar o que criamos também pode ser um incentivo para experimentar mais, cuidar dos detalhes e melhorar o resultado.</p>
+        <p>Aqui, há espaço tanto para experimentos e projetos em desenvolvimento quanto para trabalhos finais.</p>
       </section>
 
       <section className="about-section" aria-labelledby="about-participation">
         <h2 id="about-participation">Como participar</h2>
-        <p>Qualquer pessoa pode explorar os projetos e os perfis públicos. Para publicar, é necessário ter um cadastro criado pela administração.{!user && <> Se você já tem acesso, <Link href="/entrar">entre na sua conta</Link>.</>}</p>
-        {!user && <p>Quem quiser conhecer a experiência de publicação pode experimentar o <Link href="/demo">modo de demonstração</Link>, sem cadastro.</p>}
+        <p>Qualquer pessoa pode explorar a galeria, descobrir projetos e conhecer quem os criou. Para publicar e gerenciar seus próprios projetos, é necessário ter uma conta cadastrada pela administração.</p>
+        {!user && <p>Quer experimentar? No <Link href="/demo">modo de demonstração</Link>, você pode criar e editar projetos sem cadastro. As alterações ficam salvas apenas no seu navegador.</p>}
       </section>
     </article>
   </main>;

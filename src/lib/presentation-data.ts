@@ -42,6 +42,33 @@ export const entities = [
   { id: "likes", label: "Curtidas", table: "gallery_likes", fields: ["project_id · PK / FK", "visitor_key · PK"], text: "Relaciona um projeto ao identificador do navegador. A combinação é única: repetir a mesma intenção não adiciona outra curtida." },
 ] as const;
 export type EntityId = typeof entities[number]["id"];
+export const entityOperations: Record<EntityId, { label: string; method: "GET" | "POST" | "PATCH" | "DELETE"; path: string; note?: string }[]> = {
+  turmas: [
+    { label: "Criar uma turma", method: "POST", path: "/api/admin/turmas" },
+    { label: "Editar ou arquivar turma", method: "PATCH", path: "/api/admin/turmas/[id]" },
+  ],
+  members: [
+    { label: "Vincular estudante à turma", method: "POST", path: "/api/admin/turmas/[id]/members" },
+    { label: "Remover vínculo com a turma", method: "DELETE", path: "/api/admin/turmas/[id]/members" },
+  ],
+  users: [
+    { label: "Buscar pessoas na comunidade", method: "GET", path: "/api/people" },
+    { label: "Editar meu perfil", method: "PATCH", path: "/api/account" },
+  ],
+  projects: [
+    { label: "Buscar projetos na galeria", method: "GET", path: "/api/projects?view=gallery" },
+    { label: "Publicar um projeto", method: "POST", path: "/api/projects" },
+    { label: "Editar a própria publicação", method: "PATCH", path: "/api/projects/[id]" },
+    { label: "Moderar uma publicação", method: "POST", path: "/api/admin/projetos/[id]" },
+  ],
+  authors: [
+    { label: "Publicar com coautores", method: "POST", path: "/api/projects", note: "Os coautores são enviados junto com os dados do projeto." },
+    { label: "Sair da coautoria", method: "DELETE", path: "/api/projects/[id]/authors/me" },
+  ],
+  likes: [
+    { label: "Curtir ou descurtir", method: "POST", path: "/api/projects/[id]/like", note: "Envia o estado desejado. Repetir a requisição não duplica a curtida." },
+  ],
+};
 export const relations: { from: EntityId; to: EntityId; text: string }[] = [
   { from: "turmas", to: "members", text: "Uma turma reúne várias matrículas." },
   { from: "users", to: "members", text: "Uma pessoa pode ter várias matrículas." },
