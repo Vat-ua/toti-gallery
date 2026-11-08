@@ -245,3 +245,49 @@ test('empty search announces loading and a newly mounted card accepts a newer li
   await expect(page.locator('.empty-state')).toHaveCount(0);
   release(); await expect(page.locator('.project-card .like-count')).toHaveText('30');
 });
+
+
+test('administrative lists append bounded private batches, recover errors and keep turma scope', async ({ page, request, baseURL }) => {
+  expect((await request.get('/api/admin/projetos')).status()).toBe(401);
+  const headers = { origin: new URL(baseURL!).origin };
+  const data = fixture();
+  expect((await page.request.post('/api/auth/sign-in/email', { headers, data: { email: data.email, password: data.password } })).ok()).toBe(true);
+  expect((await page.request.get('/api/admin/projetos')).status()).toBe(403);
+  expect((await page.request.post('/api/auth/sign-in/email', { headers, data: { email: data.adminEmail, password: data.password } })).ok()).toBe(true);
+  await page.goto(`/admin/projetos?q=${prefix}`);
+  await expect(page.locator('.management-card')).toHaveCount(SIZE);
+  const response = await page.request.get(`/api/admin/projetos?q=${prefix}&page=2`);
+  const body = await response.json();
+  expect(body.items).toHaveLength(SIZE); expect(body.total).toBe(PROJECT_COUNT);
+  expect(body.items.every((item: Record<string, unknown>) => !('description' in item) && !('version' in item) && !('githubUrl' in item))).toBe(true);
+  let fail = true;
+  const batches: number[] = [], navigations: string[] = [];
+  page.on('request', req => {
+    if (req.headers().rsc === '1' && new URL(req.url()).pathname === '/admin/projetos') navigations.push(req.url());
+  });
+  await page.route('**/api/admin/projetos?**', route => {
+    const params = new URL(route.request().url()).searchParams;
+    if (params.get('page') === '2' && fail) { fail = false; return route.abort(); }
+    batches.push(Number(params.get('page')));
+    return route.continue();
+  });
+  await page.getByRole('button', { name: 'Mostrar mais projetos', exact: true }).click();
+  await expect(page.locator('.collection-feedback [role="alert"]')).toContainText('conexão');
+  await expect(page.locator('.management-card')).toHaveCount(SIZE);
+  await page.getByRole('button', { name: 'Tentar novamente', exact: true }).click();
+  await expect(page.locator('.management-card')).toHaveCount(SIZE * 2);
+  expect(batches).toEqual([2]); expect(navigations).toEqual([]);
+  await expect(page).toHaveURL(/page=2/);
+  await page.reload(); await expect(page.locator('.management-card')).toHaveCount(SIZE * 2);
+  await page.goto(`/admin/projetos?q=${prefix}&page=5`);
+  await expect(page.locator('.management-card')).toHaveCount(PROJECT_COUNT);
+  expect(new Set(await page.locator('.project-cover-link').evaluateAll(nodes => nodes.map(node => node.getAttribute('href')))).size).toBe(PROJECT_COUNT);
+  await page.goto(`/admin/turmas/${data.turmaId}?tab=projetos&q=${prefix}`);
+  await expect(page.locator('.management-card')).toHaveCount(SIZE);
+  const scoped = page.waitForRequest(req => new URL(req.url()).pathname === '/api/admin/projetos');
+  await page.getByRole('button', { name: 'Mostrar mais projetos', exact: true }).click();
+  expect(new URL((await scoped).url()).searchParams.get('turma')).toBe(data.turmaId);
+  await expect(page.locator('.management-card')).toHaveCount(SIZE * 2);
+  await page.getByRole('textbox', { name: 'Buscar por projeto ou autor' }).fill(`${prefix}-nothing`);
+  await expect(page.getByRole('heading', { name: 'Nenhum projeto encontrado' })).toBeVisible();
+});

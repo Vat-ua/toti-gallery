@@ -9,7 +9,7 @@ export { AdminError } from "./admin-server";
 import { parseStudents } from "./student-import";
 import { provisionIdentity } from "./admin-provision";
 import { studentSearch } from "./student-search";
-import type { StudentAdded, StudentLookup, AdminStudent, AdminTurma, ImportPreview } from "./admin-types";
+import type { StudentAdded, StudentLookup, AdminStudent, AdminTurma, AdminTurmaChoice, ImportPreview } from "./admin-types";
 import { allocateProfileSlug, allocateProfileSlugs } from "./profile-slug-server";
 import { issueGrant } from "./access-links";
 
@@ -40,14 +40,22 @@ export function validateTurma(value: unknown) {
   return { number: data.number as number, name: `Turma ${data.number}`, courseName: (data.courseName as string).trim(), startYear: data.startYear as number };
 }
 
+const turmaFields = { id: turmas.id, name: turmas.name, number: turmas.number, courseName: turmas.courseName,
+  startYear: turmas.startYear, archived: sql<boolean>`${turmas.archivedAt} is not null` };
+const memberCount = sql<number>`(select count(*) from gallery_turma_members m where m.turma_id=gallery_turmas.id)`.mapWith(Number);
+const projectCount = sql<number>`(select count(*) from gallery_projects p where p.turma_id=gallery_turmas.id)`.mapWith(Number);
+
 export async function listTurmas(actorId: string): Promise<AdminTurma[]> {
   return db.transaction(async tx => {
     await staff(tx, actorId);
-    const rows = await tx.select().from(turmas).orderBy(asc(turmas.name));
-    const members = await tx.select({ id: turmaMembers.turmaId, n: count() }).from(turmaMembers).groupBy(turmaMembers.turmaId);
-    const publications = await tx.select({ id: projects.turmaId, n: count() }).from(projects).groupBy(projects.turmaId);
-    return rows.map(row => ({ id: row.id, name: row.name, number: row.number, courseName: row.courseName, startYear: row.startYear, archived: !!row.archivedAt,
-      students: members.find(m => m.id === row.id)?.n || 0, projects: publications.find(p => p.id === row.id)?.n || 0 }));
+    return tx.select({ ...turmaFields, students: memberCount, projects: projectCount }).from(turmas).orderBy(asc(turmas.name));
+  });
+}
+/** Filters and provisioning forms need the choices, not whole-platform counters. */
+export async function listTurmaChoices(actorId: string): Promise<AdminTurmaChoice[]> {
+  return db.transaction(async tx => {
+    await staff(tx, actorId);
+    return tx.select(turmaFields).from(turmas).orderBy(sql`${turmas.archivedAt} is not null`, sql`${turmas.number} desc`);
   });
 }
 
@@ -69,19 +77,22 @@ export async function archiveTurma(actorId: string, id: string, archived: boolea
   });
 }
 
-export async function turmaDetails(actorId: string, id: string) {
+export async function turmaDetails(actorId: string, id: string, options: { includeMembers?: boolean } = {}) {
   return db.transaction(async tx => {
     await staff(tx, actorId);
-    const turma = await group(tx, id);
-    const people = await tx.select({ id: users.id, name: users.name, email: users.email, avatar: users.image, status: users.status, role: users.role, isDemo: users.isDemo, primaryTurmaId: users.primaryTurmaId }).from(turmaMembers).innerJoin(users, eq(users.id, turmaMembers.userId)).where(eq(turmaMembers.turmaId, id)).orderBy(users.name, users.id);
-    const ids = people.map(person => person.id);
-    const memberships = ids.length ? await tx.select({ userId: turmaMembers.userId, turmaId: turmas.id, name: turmas.name }).from(turmaMembers).innerJoin(turmas, eq(turmas.id, turmaMembers.turmaId)).where(inArray(turmaMembers.userId, ids)).orderBy(sql`${turmas.number} desc`) : [];
-    const [{ projectCount }] = await tx.select({ projectCount: count() }).from(projects).where(eq(projects.turmaId, id));
-    const allPeople: AdminStudent[] = people.map(person => ({ ...person, turmaNames: memberships.filter(m => m.userId === person.id).map(m => m.name), turmaIds: memberships.filter(m => m.userId === person.id).map(m => m.turmaId) }));
-    return { turma: { id, name: turma.name, number: turma.number, courseName: turma.courseName, startYear: turma.startYear, archived: !!turma.archivedAt },
-      members: allPeople,
-      projectCount };
-  });
+    const [summary] = await tx.select({ turma: turmaFields, memberCount, projectCount }).from(turmas).where(eq(turmas.id, id)).limit(1);
+    if (!summary) throw new AdminError("Turma não encontrada.", 404);
+    const members: AdminStudent[] = [];
+    if (options.includeMembers !== false) {
+      const rows = await tx.select({ id: users.id, name: users.name, email: users.email, avatar: users.image, status: users.status,
+        role: users.role, isDemo: users.isDemo, primaryTurmaId: users.primaryTurmaId,
+        groups: sql<{ id: string; name: string }[]>`coalesce((select jsonb_agg(jsonb_build_object('id', t.id, 'name', t.name) order by t.number desc)
+          from gallery_turma_members m join gallery_turmas t on t.id=m.turma_id where m.user_id=${users.id}), '[]'::jsonb)`,
+      }).from(turmaMembers).innerJoin(users, eq(users.id, turmaMembers.userId)).where(eq(turmaMembers.turmaId, id)).orderBy(users.name, users.id);
+      members.push(...rows.map(({ groups, ...person }) => ({ ...person, turmaNames: groups.map(g => g.name), turmaIds: groups.map(g => g.id) })));
+    }
+    return { ...summary, members };
+  }, { isolationLevel: "repeatable read" });
 }
 
 export async function turmaAccessLink(actorId: string, turmaId: string, userId: string, purpose: unknown) {

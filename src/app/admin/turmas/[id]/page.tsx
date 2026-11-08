@@ -11,17 +11,17 @@ export default async function TurmaPage({ params, searchParams }: { params: Prom
   const actor = await getCurrentUser();
   if (!actor) redirect(`/entrar?next=${encodeURIComponent(`/admin/turmas/${id}`)}`);
   if (!isStaff(actor.role)) notFound();
-  const details = await turmaDetails(actor.id, id).catch(error => {
-    if (error instanceof AdminError && error.status === 404) notFound();
-    throw error;
-  });
   const query = await searchParams;
-  let projectContent = null;
-  if (query.tab === "projetos") {
-    const filters = parseAdminProjectFilters({ ...query, turma: id });
-    const result = await listAdminProjects(actor.id, filters);
-    if (result.filters.page !== filters.page) redirect(adminProjectHref(result.filters, id));
-    projectContent = <AdminProjects result={result} scopedTurmaId={id}/>;
-  }
+  const projectTab = query.tab === "projetos";
+  const filters = parseAdminProjectFilters({ ...query, turma: id });
+  const [details, result] = await Promise.all([
+    turmaDetails(actor.id, id, { includeMembers: !projectTab }).catch(error => {
+      if (error instanceof AdminError && error.status === 404) notFound();
+      throw error;
+    }),
+    projectTab ? listAdminProjects(actor.id, filters) : Promise.resolve(null),
+  ]);
+  if (result && result.filters.page !== filters.page) redirect(adminProjectHref(result.filters, id));
+  const projectContent = result ? <AdminProjects result={result} scopedTurmaId={id}/> : null;
   return <TurmaDetail {...details} projectContent={projectContent} owner={actor.role === "owner"}/>;
 }

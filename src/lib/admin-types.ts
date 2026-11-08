@@ -1,11 +1,13 @@
 import type { StudentListParams } from "./student-list-params";
 import type { AdminProjectFilters } from "./admin-project-params";
-import type { Project } from "./types";
+import type { Project, ProjectSummary } from "./types";
+import type { CollectionSnapshot } from "./collection-page";
 
 export type AdminTurma = {
   id: string; name: string; number: number; courseName: string | null; startYear: number | null; archived: boolean;
   students: number; projects: number;
 };
+export type AdminTurmaChoice = Omit<AdminTurma, "students" | "projects">;
 export type StudentLookup = {
   id: string; name: string; email: string; status: "pending" | "active" | "suspended";
   member: boolean; blocked: boolean; reason: string | null;
@@ -34,7 +36,7 @@ export type AdministratorCandidate = {
   id: string; name: string; email: string; status: "pending" | "active" | "suspended";
 };
 export type AdminProject = Project & { turmaName: string; moderatedAt: string | null; moderatedByName: string | null };
-export type AdminProjectPage = { projects: AdminProject[]; total: number; filters: AdminProjectFilters };
+export type AdminProjectPage = CollectionSnapshot<ProjectSummary> & { filters: AdminProjectFilters };
 export type StudentInvitation = {
   id: string; name: string; email: string; url: string; expiresAt: string;
 };

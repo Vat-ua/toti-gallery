@@ -8,11 +8,16 @@ import { requestCollectionPage } from "@/lib/collections-client";
 import { loadCollection } from "@/lib/load-collection";
 
 /** URL-driven lifecycle; the pure loader owns batching and live-list reconciliation. */
-export function usePagedCollection<T extends { id: string }>(initial: CollectionSnapshot<T>, endpoint: string | null, mode: CollectionFilterMode = "page") {
+export type CollectionQueryReader = (params: Pick<URLSearchParams, "get" | "getAll">) => { page: number; search: string };
+export function usePagedCollection<T extends { id: string }>(initial: CollectionSnapshot<T>, endpoint: string | null, mode: CollectionFilterMode | CollectionQueryReader = "page") {
   const url = useSearchParams();
-  const filters = useMemo(() => readGalleryFilters(url, mode), [url, mode]);
-  const params = galleryFilterParams(filters); params.delete("page");
-  const search = params.toString(), key = `${endpoint}?${search}`;
+  const filters = useMemo(() => {
+    if (typeof mode === "function") return mode(url);
+    const filters = readGalleryFilters(url, mode);
+    const params = galleryFilterParams(filters); params.delete("page");
+    return { page: filters.page, search: params.toString() };
+  }, [url, mode]);
+  const search = filters.search, key = `${endpoint}?${search}`;
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState({ source: initial, key, data: initial, error: "", errorKey: "", attempt: -1 });
   const current = state.source === initial ? state : { source: initial, key, data: initial, error: "", errorKey: "", attempt: -1 };

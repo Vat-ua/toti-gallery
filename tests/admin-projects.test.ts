@@ -10,7 +10,7 @@ let pool: typeof import("../src/db").pool;
 let service: typeof import("../src/lib/admin-projects");
 const prefix = `moderation-${randomUUID()}`;
 const admin = randomUUID(), student = randomUUID(), coauthor = randomUUID(), suspended = randomUUID();
-const group = randomUUID(), otherGroup = randomUUID(), ids = Array.from({ length: SIZE + 2 }, () => randomUUID());
+const group = randomUUID(), otherGroup = randomUUID(), ids = Array.from({ length: SIZE * 4 + 2 }, () => randomUUID());
 let baseline: Record<string, string>;
 async function snapshot() {
   const result: Record<string, string> = {};
@@ -59,22 +59,30 @@ test("all reads and writes require active staff", async () => {
   for (const actor of [student, suspended, randomUUID()]) {
     await assert.rejects(() => service.listAdminProjects(actor), /restrito/);
     await assert.rejects(() => service.getAdminProject(actor, ids[0]), /restrito/);
+    await assert.rejects(() => service.readAdminProjectPage(actor), /restrito/);
     await assert.rejects(() => service.moderateProject(actor, ids[0], "hide", "published", "Reason"), /restrito/);
   }
 });
 test("incremental loading searches all coauthors, retains earlier cards and filters archived turmas", async () => {
   const filters = { query: `joao ${prefix}`, turmaId: group };
   const first = await service.listAdminProjects(admin, filters);
-  assert.equal(first.total, ids.length - 1); assert.equal(first.projects.length, SIZE);
+  assert.equal(first.total, ids.length - 1); assert.equal(first.items.length, SIZE);
   const second = await service.listAdminProjects(admin, { ...filters, page: 2 });
-  assert.equal(second.projects.length, ids.length - 1);
-  assert.deepEqual(second.projects.slice(0, SIZE).map(project => project.id), first.projects.map(project => project.id));
-  assert.equal(new Set(second.projects.map(project => project.id)).size, ids.length - 1);
+  assert.equal(second.items.length, SIZE * 2);
+  assert.deepEqual(second.items.slice(0, SIZE).map(project => project.id), first.items.map(project => project.id));
+  assert.equal(new Set(second.items.map(project => project.id)).size, SIZE * 2);
   const beyondInitial = await service.listAdminProjects(admin, { query: `${prefix} 0`, turmaId: group });
-  assert.equal(beyondInitial.total, 1); assert.equal(beyondInitial.projects[0].id, ids[0]);
-  assert.equal((await service.listAdminProjects(admin, { ...filters, page: 100 })).filters.page, 2);
+  assert.equal(beyondInitial.total, 1); assert.equal(beyondInitial.items[0].id, ids[0]);
+  const deep = await service.listAdminProjects(admin, { ...filters, page: 100 });
+  assert.equal(deep.filters.page, 5); assert.equal(deep.loadedPages, 3); assert.equal(deep.items.length, SIZE * 3);
+  const batch = await service.readAdminProjectPage(admin, { ...filters, page: 2 });
+  assert.equal(batch.items.length, SIZE); assert.equal(batch.previousId, first.items.at(-1)!.id);
+  assert.deepEqual(batch.items.map(project => project.id), second.items.slice(SIZE).map(project => project.id));
+  const last = await service.readAdminProjectPage(admin, { ...filters, page: 100 });
+  assert.equal(last.page, 5); assert.equal(last.items.length, 1); assert.equal(last.hasMore, false);
+  for (const project of batch.items) for (const field of ["description", "version", "githubUrl", "liveUrl", "moderatedAt", "moderatedByName"]) assert(!(field in project), field);
   assert.equal((await service.listAdminProjects(admin, { query: prefix + "-nothing" })).total, 0);
-  assert.equal(first.projects[0].authors.length, 2); assert.equal(first.projects[0].likes, 8);
+  assert.equal(first.items[0].authors.length, 2); assert.equal(first.items[0].likes, 8);
 });
 test("moderation preserves content, authors and likes, and rejects invalid or stale actions", async () => {
   const id = ids[0];
@@ -91,7 +99,7 @@ test("moderation preserves content, authors and likes, and rejects invalid or st
   assert.equal(hidden?.visibility, "hidden"); assert.equal(hidden?.moderatedByName, "Moderator");
   assert.ok(hidden?.moderationReason); assert.ok(hidden?.moderatedAt);
   const list = await service.listAdminProjects(admin, { query: prefix, visibility: "hidden" });
-  assert.equal(list.total, 1); assert.equal(list.projects[0].id, id);
+  assert.equal(list.total, 1); assert.equal(list.items[0].id, id);
   const row = (await pool.query("SELECT * FROM gallery_projects WHERE id=$1", [id])).rows[0];
   for (const key of Object.keys(original).filter(key => !["visibility", "moderation_reason", "moderated_by", "moderated_at"].includes(key))) assert.deepEqual(row[key], original[key], key);
   assert.equal((await pool.query("SELECT * FROM gallery_project_authors WHERE project_id=$1", [id])).rowCount, 2);
@@ -101,4 +109,13 @@ test("moderation preserves content, authors and likes, and rejects invalid or st
   assert.equal(restored?.visibility, "published"); assert.equal(restored?.moderationReason, null);
   assert.equal(restored?.likes, 8); assert.equal(restored?.authors.length, 2);
   assert.equal((await service.listAdminProjects(admin, { query: prefix, visibility: "hidden" })).total, 0);
+});
+
+// The extra boundary row can exist even when the requested page has disappeared.
+test("batch clamping rebuilds the last valid page instead of returning only its boundary", async () => {
+  const query = `Boundary ${prefix}`;
+  await pool.query("UPDATE gallery_projects SET title=$1 WHERE id=ANY($2::text[])", [query, ids.slice(0, SIZE)]);
+  const batch = await service.readAdminProjectPage(admin, { query, turmaId: group, page: 2 });
+  assert.equal(batch.total, SIZE); assert.equal(batch.page, 1); assert.equal(batch.previousId, null);
+  assert.equal(batch.items.length, SIZE); assert.equal(batch.hasMore, false);
 });

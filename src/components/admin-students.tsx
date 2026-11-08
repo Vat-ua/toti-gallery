@@ -5,7 +5,7 @@ import { focusFirstError } from "./form-feedback";
 
 import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import type { AdminTurma, ManagedStudent, StudentListPage } from "@/lib/admin-types";
+import type { AdminTurmaChoice, ManagedStudent, StudentListPage } from "@/lib/admin-types";
 import { studentListHref, type StudentListParams } from "@/lib/student-list-params";
 import { SelectMenu } from "./select-menu";
 import { AdminTurmaFilter } from "./admin-turma-filter";
@@ -19,7 +19,7 @@ function StatusBadge({ student }: { student: ManagedStudent }) {
   return <span className={`admin-badge ${student.isDemo ? "is-muted" : `is-${student.status}`}`}>{student.isDemo ? "Perfil de exemplo" : statusText[student.status]}</span>;
 }
 
-export function StudentsList({ result, turmas, owner }: { result: StudentListPage; turmas: AdminTurma[]; owner: boolean }) {
+export function StudentsList({ result, turmas, owner }: { result: StudentListPage; turmas: AdminTurmaChoice[]; owner: boolean }) {
   const { students, total, filters } = result;
   const router = useRouter(), notify = useToast();
   const [search, setSearch] = useState({ source: filters.query, value: filters.query });
@@ -64,7 +64,7 @@ export function StudentsList({ result, turmas, owner }: { result: StudentListPag
   </>;
 }
 
-function StudentPanel({ student, turmas, refreshing, close, saved }: { student: ManagedStudent; turmas: AdminTurma[]; refreshing: boolean; close: () => void; saved: (text: string) => void }) {
+function StudentPanel({ student, turmas, refreshing, close, saved }: { student: ManagedStudent; turmas: AdminTurmaChoice[]; refreshing: boolean; close: () => void; saved: (text: string) => void }) {
   const [selectedTurmas, setSelectedTurmas] = useState(student.turmaIds);
   const [primaryTurmaId, setPrimaryTurmaId] = useState(student.primaryTurmaId);
   const [membershipSnapshot, setMembershipSnapshot] = useState({ turmaIds: student.turmaIds, primaryTurmaId: student.primaryTurmaId });
