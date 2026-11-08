@@ -71,6 +71,13 @@ the footer have independent Suspense boundaries, so public content does not wait
 for chrome. Demo intent remains gated by resolved identity, including on public
 pages visited during demo; authenticated users cannot enter the local demo.
 
+Public publication links reuse that same identity through a small context. Once
+resolved, guests go directly to login with the editor as their return destination;
+signed-in users go to the editor and demo users to the local demo form. Their
+identity boundaries never wrap the page. While pending, links retain the guarded
+editor URL with prefetch disabled; no additional session API request or page-wide wait is needed.
+The editor and its API continue to authorize every request on the server.
+
 Public pages use the verified session identity to rule out ownership without waiting
 for the full account profile. Owners still pass the complete live account check before
 rendering edit controls, preserving the initial layout and empty-state copy. Related

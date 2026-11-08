@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Person } from "@/lib/types";
 import { Icon } from "./icon";
 import { Logo } from "./logo";
+import { PublishProjectLink } from "./publish-project-link";
 
 export function Footer({
   user,
@@ -47,9 +48,9 @@ export function Footer({
             ) : (
               <Link href="/entrar">Entrar</Link>
             )}
-            <Link href={demo ? "/demo/novo" : "/meus-projetos/novo"}>
+            <PublishProjectLink authenticated={!!user} demo={demo}>
               Publicar projeto
-            </Link>
+            </PublishProjectLink>
           </div>
         </nav>
       </div>

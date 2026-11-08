@@ -11,6 +11,38 @@ async function login(page: Page, admin = false) {
   await expect(page).toHaveURL(/\/meus-projetos$/);
 }
 
+test("publication links go directly to login for guests and follow fresh sign-in/out state", async ({ page }, info) => {
+  const loginHref = "/entrar?next=%2Fmeus-projetos%2Fnovo";
+  await page.goto("/");
+  const links = page.locator('.hero-publish, .publish-band a, .site-footer a').filter({ hasText: /Publicar projeto/ });
+  await expect(page.locator(".header-publish")).toHaveAttribute("href", loginHref);
+  await expect(links).toHaveCount(3);
+  for (const link of await links.all()) await expect(link).toHaveAttribute("href", loginHref);
+  if (info.project.name === "mobile") {
+    await page.locator(".mobile-menu-button").click();
+    await expect(page.locator(".mobile-publish")).toHaveAttribute("href", loginHref);
+    await page.locator(".mobile-menu-button").click();
+  }
+  const editorRequests: string[] = [];
+  page.on("request", request => { if (new URL(request.url()).pathname === "/meus-projetos/novo") editorRequests.push(request.url()); });
+  await page.locator(".hero-publish").click();
+  await expect(page.locator(".auth-form-section")).toBeVisible();
+  await expect(page).toHaveURL(/\/entrar\?next=/);
+  expect(editorRequests).toEqual([]);
+  const data = fixture();
+  await page.getByLabel("Email", { exact: true }).fill(data.email);
+  await page.getByLabel("Senha", { exact: true }).fill(data.password);
+  await page.getByRole("button", { name: "Entrar com email", exact: true }).click();
+  await expect(page).toHaveURL(/\/meus-projetos\/novo$/);
+  await page.goto("/");
+  await expect(page.locator(".hero-publish")).toHaveAttribute("href", "/meus-projetos/novo");
+  await expect(page.locator(".header-publish")).toHaveAttribute("href", "/meus-projetos/novo");
+  await page.getByRole("button", { name: "Abrir menu da conta", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Sair da conta", exact: true }).click();
+  await expect(page.locator(".hero-publish")).toHaveAttribute("href", loginHref);
+  await expect(page.locator(".header-publish")).toHaveAttribute("href", loginHref);
+});
+
 test("visitor can explore, filter, like and open a project; private pages require login", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("h1")).toContainText("Projetos de quem");

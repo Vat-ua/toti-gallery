@@ -11,13 +11,14 @@ import { DemoModeProvider, useDemoMode } from "./demo-mode";
 import { DemoBanner } from "./demo-banner";
 import { Header } from "./header";
 import { Footer } from "./footer";
+import { PublishIdentityContext } from "./publish-project-link";
 
 type User = (Person & { role?: Role }) | null;
 export function SiteChrome({ user, authenticated, initialDemo, presentationEnabled, children }: { user: Promise<User>; authenticated: Promise<boolean>; initialDemo: boolean; presentationEnabled: boolean; children: ReactNode }) {
   // Only entering/staying in demo needs an identity gate around its content.
   // Public pages stream independently of the account menu and footer.
   return <Suspense fallback={null}><DemoModeProvider initialActive={initialDemo} authenticated={authenticated}>
-    <Chrome user={user} presentationEnabled={presentationEnabled}>{children}</Chrome>
+    <PublishIdentityContext value={authenticated}><Chrome user={user} presentationEnabled={presentationEnabled}>{children}</Chrome></PublishIdentityContext>
   </DemoModeProvider></Suspense>;
 }
 function Chrome({ user, presentationEnabled, children }: { user: Promise<User>; presentationEnabled: boolean; children: ReactNode }) {
