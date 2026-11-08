@@ -42,9 +42,10 @@ import {
   User,
   Users,
   X,
+  ZoomIn,
 } from "lucide-react";
 
-export type IconName = "arrow-up-right" | "arrow-right" | "arrow-left" | "arrow-down" | "plus" | "search" | "chevron-down" | "heart" | "star" | "grid" | "x" | "menu" | "github" | "linkedin" | "external" | "logout" | "edit" | "trash" | "check" | "filter" | "code" | "database" | "user" | "users" | "eye" | "eye-off" | "restore" | "clock" | "link" | "mail" | "loader" | "upload" | "leaf" | "globe" | "sun" | "moon" | "book" | "spark" | "sliders" | "bold" | "italic" | "heading" | "list" | "list-ordered" | "quote";
+export type IconName = "arrow-up-right" | "arrow-right" | "arrow-left" | "arrow-down" | "plus" | "search" | "chevron-down" | "heart" | "star" | "grid" | "x" | "menu" | "github" | "linkedin" | "external" | "logout" | "edit" | "trash" | "check" | "filter" | "code" | "database" | "user" | "users" | "eye" | "eye-off" | "restore" | "clock" | "link" | "mail" | "loader" | "upload" | "leaf" | "globe" | "sun" | "moon" | "book" | "spark" | "sliders" | "bold" | "italic" | "heading" | "list" | "list-ordered" | "quote" | "zoom-in";
 
 const icons = {
   "arrow-up-right": ArrowUpRight,
@@ -60,6 +61,7 @@ const icons = {
   "x": X,
   "menu": Menu,
   "external": ExternalLink,
+  "zoom-in": ZoomIn,
   "logout": LogOut,
   "edit": Pencil,
   "trash": Trash2,
