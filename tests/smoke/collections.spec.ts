@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { assertDatabaseTarget } from "../../src/lib/database-target.cjs";
@@ -164,22 +164,32 @@ test('a prefetched project preserves a like made before navigation', async ({ pa
 
 test('private batches require the actual session; deletion refreshes the visible page and total', async ({ page }) => {
   const data = fixture();
-  await page.goto('/entrar');
-  await page.getByLabel('Email', { exact: true }).fill(data.email);
-  await page.getByLabel('Senha', { exact: true }).fill(data.password);
-  await page.getByRole('button', { name: 'Entrar com email', exact: true }).click();
-  await expect(page).toHaveURL(/\/meus-projetos$/);
-  await expect(page.locator('.management-card')).toHaveCount(SIZE);
-  await expect(page.locator('.dashboard-summary')).toContainText(`${PROJECT_COUNT + 1} projetos`);
-  const mine = await (await page.request.get('/api/projects?view=mine')).json();
-  expect(mine.items).toHaveLength(SIZE); expect(mine.total).toBe(PROJECT_COUNT + 1);
-  await page.getByRole('button', { name: `Excluir ${prefix} ${IMAGE_INDEX}`, exact: true }).click();
-  await page.getByRole('button', { name: 'Sim, excluir', exact: true }).click();
-  await expect(page.getByRole('button', { name: `Excluir ${prefix} ${IMAGE_INDEX}`, exact: true })).toHaveCount(0);
-  await expect(page.locator('.dashboard-summary')).toContainText(`${PROJECT_COUNT} projetos`);
-  await expect(page.locator('.management-card')).toHaveCount(SIZE);
-  await page.getByRole('button', { name: 'Mostrar mais projetos', exact: true }).click();
-  await expect(page.locator('.management-card')).toHaveCount(SIZE * 2);
+  // Delete a fixture owned by this scenario, not a card used by later tests.
+  const deletionId = randomUUID(), deletionTitle = `Deletion ${prefix}`;
+  await pool.query(`WITH inserted AS (
+    INSERT INTO gallery_projects(id,slug,title,description,technologies,github_url,author_id,turma_id,is_final,image_url,cover_framing)
+    SELECT $1,$2,$3,description,technologies,github_url,author_id,turma_id,is_final,image_url,cover_framing
+    FROM gallery_projects WHERE id=$4 RETURNING id,author_id
+  ) INSERT INTO gallery_project_authors(project_id,user_id) SELECT id,author_id FROM inserted`,
+  [deletionId, `${prefix}-delete`, deletionTitle, ids[IMAGE_INDEX]]);
+  try {
+    await page.goto('/entrar');
+    await page.getByLabel('Email', { exact: true }).fill(data.email);
+    await page.getByLabel('Senha', { exact: true }).fill(data.password);
+    await page.getByRole('button', { name: 'Entrar com email', exact: true }).click();
+    await expect(page).toHaveURL(/\/meus-projetos$/);
+    await expect(page.locator('.management-card')).toHaveCount(SIZE);
+    await expect(page.locator('.dashboard-summary')).toContainText(`${PROJECT_COUNT + 2} projetos`);
+    const mine = await (await page.request.get('/api/projects?view=mine')).json();
+    expect(mine.items).toHaveLength(SIZE); expect(mine.total).toBe(PROJECT_COUNT + 2);
+    await page.getByRole('button', { name: `Excluir ${deletionTitle}`, exact: true }).click();
+    await page.getByRole('button', { name: 'Sim, excluir', exact: true }).click();
+    await expect(page.getByRole('button', { name: `Excluir ${deletionTitle}`, exact: true })).toHaveCount(0);
+    await expect(page.locator('.dashboard-summary')).toContainText(`${PROJECT_COUNT + 1} projetos`);
+    await expect(page.locator('.management-card')).toHaveCount(SIZE);
+    await page.getByRole('button', { name: 'Mostrar mais projetos', exact: true }).click();
+    await expect(page.locator('.management-card')).toHaveCount(SIZE * 2);
+  } finally { await pool.query('DELETE FROM gallery_projects WHERE id=$1', [deletionId]); }
 });
 
 test('default API and unknown URL filters share the bounded contract with server pages', async ({ page, request }) => {

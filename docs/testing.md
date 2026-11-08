@@ -58,6 +58,11 @@ and inserts synthetic students/admins and a sample project. It never resets a
 populated database or copies real accounts. This verifies the current application
 schema, not pending production migrations.
 
+Authentication scenarios use the shared smoke fixture's per-test synthetic client
+IP, keeping the application's rate limits enabled without sharing one local-client
+budget across the suite. Deletion scenarios own their temporary publications and
+clean them up in `finally`, preserving records used by other tests.
+
 The small suite covers public navigation/search/final filtering, a like, login
 validation and an accessibility check, actual email/password sign-in, a publish
 whose server response is deliberately lost followed by a retry, editing/deleting
