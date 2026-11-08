@@ -10,6 +10,8 @@ suites, a Webpack production build, and Chromium smoke tests at desktop/mobile
 sizes. A PostgreSQL 18 service container is created for that job and discarded
 with the runner. No GitHub secrets, Neon/Vercel access, OAuth or image credentials
 are needed. Fork pull requests can run the same checks. The workflow never deploys.
+Playwright publishes failures as GitHub annotations as well as the console log
+and downloadable HTML report, so the failing assertion is visible in PR checks.
 
 Commands:
 
