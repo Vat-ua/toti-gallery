@@ -2,9 +2,7 @@ import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { randomBytes, randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { hashPassword } from "better-auth/crypto";
-import { generateDrizzleJson, generateMigration } from "drizzle-kit/api";
-import * as schema from "../../src/db/schema";
-import { assertDatabaseTarget } from "../../src/lib/database-target.cjs";
+import { createCurrentTestSchema } from "../helpers/current-test-schema";
 
 export const fixturePath = "tmp/smoke/fixture.private.json";
 export type SmokeFixture = { studentId: string; adminId: string; turmaId: string; email: string; adminEmail: string; password: string; projectId: string; slug: string };
@@ -13,15 +11,10 @@ export function fixture(): SmokeFixture { return JSON.parse(readFileSync(fixture
 export default async function setup() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 15000 });
   try {
-    await assertDatabaseTarget(pool, process.env, "test");
-    // Never schema-push or reset a populated test copy. This suite owns an empty DB.
-    const existing = await pool.query("SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' LIMIT 1");
-    if (existing.rowCount) throw new Error("Smoke setup requires an empty disposable database; it will not reset existing data.");
-    const statements = await generateMigration(generateDrizzleJson({}), generateDrizzleJson(schema));
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
-      for (const statement of statements) await client.query(statement);
+      await createCurrentTestSchema(client);
       const data: SmokeFixture = { studentId: randomUUID(), adminId: randomUUID(), turmaId: randomUUID(), email: "smoke-student@example.invalid", adminEmail: "smoke-admin@example.invalid", password: `Smoke-${randomBytes(24).toString("hex")}`, projectId: randomUUID(), slug: "smoke-project" };
       await client.query("INSERT INTO gallery_turmas(id,name,number,course_name,start_year) VALUES($1,'Turma 900001',900001,'Smoke course',2026)", [data.turmaId]);
       for (const [id, email, role] of [[data.studentId, data.email, "user"], [data.adminId, data.adminEmail, "admin"]]) {

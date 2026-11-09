@@ -4,11 +4,11 @@ const { parse } = require("dotenv");
 const { assertRuntimeTarget } = require("../../src/lib/database-target.cjs");
 const origin = "http://127.0.0.1:3102";
 
-function smokeEnvironment() {
-  const file = process.env.GALLERY_SMOKE_ENV_FILE || ".env.smoke";
+/** Shared guarded environment for browser smoke and local SQL integration runs. */
+function isolatedTestEnvironment(file) {
   const source = fs.existsSync(file) ? parse(fs.readFileSync(file)) : process.env.CI && process.env.GALLERY_LOCAL_TEST_DATABASE === "1" ? process.env : null;
   if (!source || source.GALLERY_DATABASE_ENV !== "test" || !/^gallery_test_[a-z0-9_]+$/.test(source.DATABASE_NAME || "")
-    || source.VERCEL_ENV || source.GALLERY_ALLOW_PRODUCTION_DATABASE) throw new Error("Smoke tests require an explicit, empty gallery_test_* database. See docs/testing.md.");
+    || source.VERCEL_ENV || source.GALLERY_ALLOW_PRODUCTION_DATABASE) throw new Error("Isolated tests require an explicit gallery_test_* database. See docs/testing.md.");
   const env = { ...process.env };
   for (const key of ["DATABASE_URL", "DATABASE_NAME", "GALLERY_DATABASE_ENV", "GALLERY_LOCAL_TEST_DATABASE", "NEON_PROJECT_ID", "NEON_BRANCH_ID", "NEON_ENDPOINT_ID"]) env[key] = source[key] || "";
   // Next loads .env.local even for a production build. Explicit empty values
@@ -20,4 +20,7 @@ function smokeEnvironment() {
   assertRuntimeTarget(env.DATABASE_URL, env);
   return env;
 }
-module.exports = { smokeEnvironment, origin };
+function smokeEnvironment() {
+  return isolatedTestEnvironment(process.env.GALLERY_SMOKE_ENV_FILE || ".env.smoke");
+}
+module.exports = { smokeEnvironment, isolatedTestEnvironment, origin };

@@ -18,9 +18,9 @@ async function snapshot() {
   for (const { tablename } of (await pool.query("SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename LIKE 'gallery_%'")).rows) result[tablename] = hash((await pool.query(`SELECT * FROM "${tablename}"`)).rows);
   return result;
 }
-async function fixture(role = "user", status = "active") {
+async function fixture(role = "user", status = "active", isDemo = false) {
   const id = randomUUID(); userIds.add(id);
-  await pool.query("INSERT INTO gallery_users(id,name,email,role,status,email_verified) VALUES ($1,$2,$3,$4,$5,true)", [id, "Fixture Student", `${prefix}-${id}@example.invalid`, role, status]);
+  await pool.query("INSERT INTO gallery_users(id,name,email,role,status,email_verified,is_demo) VALUES ($1,$2,$3,$4,$5,true,$6)", [id, "Fixture Student", `${prefix}-${id}@example.invalid`, role, status, isDemo]);
   return id;
 }
 before(async () => {
@@ -103,7 +103,10 @@ test("owner can issue student links; admin cannot reset owner or another adminis
   const { createAccessLink } = await import("../src/lib/access-links");
   const id = (await pool.query("SELECT id FROM gallery_users WHERE email=$1", [`${prefix}-new@example.invalid`])).rows[0].id;
   const grant = await createAccessLink(ownerId, id, "activation");
-  assert.ok(grant.url.startsWith("http://localhost:3000/acesso#token="));
+  const url = new URL(grant.url);
+  assert.equal(url.origin, new URL(process.env.BETTER_AUTH_URL!).origin);
+  assert.equal(url.pathname, "/acesso");
+  assert.match(url.hash, /^#token=[a-f0-9]{64}$/);
   await assert.rejects(() => createAccessLink(adminId, ownerId, "password_reset"));
   await assert.rejects(() => createAccessLink(adminId, adminId, "password_reset"));
   await assert.rejects(() => (import("../src/lib/admin-provision").then(m => m.bootstrapAdmin("Intruder", `${prefix}@example.invalid`))));
@@ -123,7 +126,8 @@ test("final migrated schema matches Drizzle and enforces a single owner", async 
 });
 
 test("imports reject protected identities and serialize concurrent duplicates", async () => {
-  const demo = (await pool.query("SELECT email FROM gallery_users WHERE is_demo LIMIT 1")).rows[0].email;
+  const demoId = await fixture("user", "active", true);
+  const demo = (await pool.query("SELECT email FROM gallery_users WHERE id=$1", [demoId])).rows[0].email;
   const admin = (await pool.query("SELECT email FROM gallery_users WHERE id=$1", [adminId])).rows[0].email;
   const suspendedUser = await fixture("user", "suspended");
   const suspended = (await pool.query("SELECT email FROM gallery_users WHERE id=$1", [suspendedUser])).rows[0].email;

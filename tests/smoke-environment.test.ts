@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PRODUCTION } from "../src/lib/database-target.cjs";
-const { smokeEnvironment, origin } = require("../scripts/lib/smoke-environment.cjs");
+const { smokeEnvironment, isolatedTestEnvironment, origin } = require("../scripts/lib/smoke-environment.cjs");
 const original = { ...process.env }, directory = mkdtempSync(join(tmpdir(), "gallery-smoke-env-"));
 const file = join(directory, "selected.env");
 const selected = { GALLERY_DATABASE_ENV: "test", GALLERY_LOCAL_TEST_DATABASE: "1", DATABASE_NAME: "gallery_test_ci", DATABASE_URL: "postgresql://fixture:fixture@127.0.0.1:5432/gallery_test_ci" };
@@ -35,4 +35,14 @@ test("smoke rejects development, production aliases and ordinary application dat
     { VERCEL_ENV: "production" }, { GALLERY_ALLOW_PRODUCTION_DATABASE: "1" },
   ];
   for (const patch of patches) { select({ ...selected, ...patch }); assert.throws(() => smokeEnvironment()); }
+});
+
+test("integration selects only its explicit file, independently of smoke or admin configuration", () => {
+  select(selected);
+  process.env.GALLERY_SMOKE_ENV_FILE = join(directory, "wrong-smoke.env");
+  process.env.GALLERY_ADMIN_TEST_ENV_FILE = ".env.local";
+  const env = isolatedTestEnvironment(file);
+  assert.equal(env.DATABASE_URL, selected.DATABASE_URL);
+  assert.notEqual(env.BETTER_AUTH_SECRET, original.BETTER_AUTH_SECRET);
+  assert.throws(() => isolatedTestEnvironment(join(directory, "missing-integration.env")), /explicit/);
 });
