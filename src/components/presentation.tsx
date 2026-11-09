@@ -3,8 +3,9 @@
 import Image from "next/image";
 import galleryScreenshot from "../../public/presentation/galeria.webp";
 import Link from "next/link";
-import { useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
+import { Suspense, use, useContext, useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
 import { Icon } from "./icon";
+import { PublishIdentityContext } from "./publish-project-link";
 import { adminScreens, entities, entityOperations, presentationImages, presentationTabs, relations, studentSteps, type EntityId, type PresentationImage, type PresentationTab } from "@/lib/presentation-data";
 
 function subscribeTab(listener: () => void) {
@@ -16,7 +17,7 @@ function readTab(): PresentationTab {
   return presentationTabs.find(tab => `#${tab.id}` === location.hash)?.id ?? "projeto";
 }
 
-export function Presentation({ authenticated }: { authenticated: boolean }) {
+export function Presentation() {
   const active = useSyncExternalStore(subscribeTab, readTab, () => "projeto" as PresentationTab);
   const tabs = useRef<HTMLDivElement>(null);
   const [studentStep, setStudentStep] = useState(0);
@@ -70,7 +71,7 @@ export function Presentation({ authenticated }: { authenticated: boolean }) {
     <section className="presentation-panel" id="presentation-panel-pratica" role="tabpanel" aria-labelledby="presentation-tab-pratica" hidden={active !== "pratica"} tabIndex={0}>
       <div className="presentation-section-heading"><h2>Da ideia à publicação.</h2><p>A mesma experiência para exercícios, experimentos e projetos finais — individuais ou em equipe.</p></div>
       <div className="presentation-split">
-        <div className="presentation-copy"><div className="presentation-steps" aria-label="Etapas de publicação">{studentSteps.map((item, index) => <button type="button" key={item.title} aria-pressed={studentStep === index} onClick={() => setStudentStep(index)}><span>0{index + 1}</span><strong>{item.title}</strong></button>)}</div><p>{step.text}</p><Link href={authenticated ? "/meus-projetos" : "/demo"} className="button button-dark">{authenticated ? "Meus projetos" : "Experimentar demonstração"}<Icon name="arrow-right" size={17}/></Link></div>
+        <div className="presentation-copy"><div className="presentation-steps" aria-label="Etapas de publicação">{studentSteps.map((item, index) => <button type="button" key={item.title} aria-pressed={studentStep === index} onClick={() => setStudentStep(index)}><span>0{index + 1}</span><strong>{item.title}</strong></button>)}</div><p>{step.text}</p><Suspense fallback={<PresentationLink authenticated={null}/>}><ResolvedPresentationLink/></Suspense></div>
         {screen(step.image, step.alt)}
       </div>
     </section>
@@ -99,6 +100,17 @@ export function Presentation({ authenticated }: { authenticated: boolean }) {
       {expanded && <div className="presentation-lightbox-image" tabIndex={0} role="region" aria-label="Imagem ampliada; use a rolagem para ver os detalhes"><Image src={expanded.image === "galeria" ? galleryScreenshot : `/presentation/${expanded.image}.webp`} alt={expanded.alt} {...presentationImages[expanded.image]} sizes="(max-width: 1280px) 1280px, 95vw"/></div>}
     </dialog>
   </main>;
+}
+
+function ResolvedPresentationLink() {
+  const identity = useContext(PublishIdentityContext);
+  const authenticated = identity === null || typeof identity === "boolean" ? identity : use(identity);
+  return <PresentationLink authenticated={authenticated}/>;
+}
+
+function PresentationLink({ authenticated }: { authenticated: boolean | null }) {
+  const href = authenticated === null ? "/entrar" : authenticated ? "/meus-projetos" : "/demo";
+  return <Link href={href} className="button button-dark">{authenticated === null ? "Acessar conta" : authenticated ? "Meus projetos" : "Experimentar demonstração"}<Icon name="arrow-right" size={17}/></Link>;
 }
 
 function DataModel() {

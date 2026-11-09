@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { Icon } from "@/components/icon";
-import { getCurrentUser } from "@/lib/auth";
+import { getPublicIdentity } from "@/lib/public-identity";
 import { sharingMetadata } from "@/lib/metadata";
 
 export const metadata: Metadata = sharingMetadata({
@@ -10,8 +11,7 @@ export const metadata: Metadata = sharingMetadata({
   path: "/sobre",
 });
 
-export default async function AboutPage() {
-  const user = await getCurrentUser();
+export default function AboutPage() {
   return <main id="conteudo" className="container inner-page">
     <Link href="/" className="back-link"><Icon name="arrow-left" size={16}/>Projetos</Link>
     <article className="page-intro about-content">
@@ -30,8 +30,13 @@ export default async function AboutPage() {
       <section className="about-section" aria-labelledby="about-participation">
         <h2 id="about-participation">Como participar</h2>
         <p>Qualquer pessoa pode explorar a galeria, descobrir projetos e conhecer quem os criou. Para publicar e gerenciar seus próprios projetos, é necessário ter uma conta cadastrada pela administração.</p>
-        {!user && <p>Quer experimentar? No <Link href="/demo">modo de demonstração</Link>, você pode criar e editar projetos sem cadastro. As alterações ficam salvas apenas no seu navegador.</p>}
+        <Suspense fallback={null}><DemoInvitation/></Suspense>
       </section>
     </article>
   </main>;
+}
+
+async function DemoInvitation() {
+  const identity = await getPublicIdentity();
+  return identity.status === "ready" && !identity.user ? <p>Quer experimentar? No <Link href="/demo">modo de demonstração</Link>, você pode criar e editar projetos sem cadastro. As alterações ficam salvas apenas no seu navegador.</p> : null;
 }

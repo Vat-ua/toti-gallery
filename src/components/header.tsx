@@ -18,11 +18,13 @@ export function Header({
   demo = false,
   onDemoExit,
   pending = false,
+  unavailable = false,
 }: {
   user: HeaderUser | null;
   demo?: boolean;
   onDemoExit?: () => void;
   pending?: boolean;
+  unavailable?: boolean;
 }) {
   const pathname = usePathname();
   return (
@@ -33,6 +35,7 @@ export function Header({
       demo={demo}
       onDemoExit={onDemoExit}
       pending={pending}
+      unavailable={unavailable}
     />
   );
 }
@@ -42,12 +45,14 @@ function HeaderContent({
   demo,
   onDemoExit,
   pending,
+  unavailable,
 }: {
   user: HeaderUser | null;
   pathname: string;
   demo: boolean;
   onDemoExit?: () => void;
   pending: boolean;
+  unavailable: boolean;
 }) {
   const adminArea = pathname.startsWith("/admin");
   const router = useRouter();
@@ -126,7 +131,7 @@ function HeaderContent({
         </nav>
         <div className="header-actions">
           <ThemeToggle />
-          {pending ? <button type="button" className="login-link" disabled aria-label="Carregando conta"><Icon name="user" size={20}/></button> : user ? (
+          {pending ? <button type="button" className="login-link" disabled aria-label="Carregando conta"><Icon name="user" size={20}/></button> : unavailable ? <button type="button" className="login-link" aria-label="Conta indisponível. Tentar novamente" title="Conta indisponível. Tentar novamente" onClick={() => router.refresh()}><Icon name="user" size={20}/></button> : user ? (
             <div className="user-dropdown">
               <DropdownMenu
                 open={open}
@@ -218,7 +223,7 @@ function HeaderContent({
           )}
           {!adminArea && (
             <PublishProjectLink
-              authenticated={pending ? undefined : !!user} demo={demo}
+              authenticated={pending ? undefined : unavailable ? null : !!user} demo={demo}
               className="button button-dark header-publish"
               aria-label="Publicar projeto"
               title="Publicar projeto"
@@ -258,7 +263,7 @@ function HeaderContent({
           </Link>
           <PublishProjectLink
             className="mobile-publish"
-            authenticated={pending ? undefined : !!user} demo={demo}
+            authenticated={pending ? undefined : unavailable ? null : !!user} demo={demo}
           >
             <Icon name="plus" size={18} />
             Publicar projeto

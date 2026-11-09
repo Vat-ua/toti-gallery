@@ -1,6 +1,8 @@
 import { after, beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
+import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import { PublicError } from "../src/lib/errors";
 import { FormValidationError } from "../src/lib/form-validation";
 import { serverErrorResponse } from "../src/lib/server-response";
@@ -101,4 +103,67 @@ test("native authentication failures stay private and the endpoint allowlist rem
   const response = await authRoutes.POST(new Request("http://localhost:3000/api/auth/sign-in/email", { method: "POST" }));
   assert.equal(response.status, 500); assert.ok(!JSON.stringify(await response.json()).includes(secret));
   assert.equal((await authRoutes.POST(new Request("http://localhost:3000/api/auth/sign-up/email", { method: "POST" }))).status, 403);
+});
+
+test("caught errors log an allowlisted kind and real application frames without private stack content", async () => {
+  const file = join(process.cwd(), "src/lib/account-mutations.ts");
+  const error = new TypeError(`${secret}\n    at ${file}:777:777`);
+  error.stack = `TypeError: ${error.message}\n    at secretFunction(${secret}) (${file}:28:17)\n    at ${process.cwd()}/src/lib/not-a-real-secret-file.ts:10:2\n    at ${process.cwd()}/node_modules/private-${secret}/index.js:2:1\n    at https://example.invalid/${secret}:3:1`;
+  const response = serverErrorResponse(new Error("Wrapper query must stay private", { cause: error }), "Tente novamente.", "account.profile");
+  assert.equal(response.status, 500);
+  const log = JSON.parse(logs[0]), body = await response.json();
+  assert.equal(log.errorKind, "TypeError");
+  assert.deepEqual(log.sourceFrames, ["src/lib/account-mutations.ts:28:17"]);
+  assert.equal(log.requestId, body.requestId);
+  for (const privateValue of [secret, "777", "secretFunction", process.cwd(), "not-a-real-secret-file", "https://", "Wrapper query"]) assert(!logs[0].includes(privateValue), privateValue);
+  assert.deepEqual(Object.keys(body).sort(), ["error", "requestId"]);
+});
+
+test("compiled frames and deployment metadata stay bounded, while arbitrary route values are dropped", () => {
+  const root = join(process.cwd(), ".next/server/chunks");
+  mkdirSync(root, { recursive: true });
+  const directory = mkdtempSync(join(root, "log-fixture-")), file = join(directory, "fixture.js");
+  const original = { commit: process.env.VERCEL_GIT_COMMIT_SHA, deployment: process.env.VERCEL_DEPLOYMENT_ID, environment: process.env.VERCEL_ENV };
+  try {
+    writeFileSync(file, "// Owned diagnostic fixture\n");
+    const error = new ReferenceError(secret);
+    error.stack = `ReferenceError: ${secret}\n${Array.from({ length: 12 }, (_, index) => `    at internal (${file}:${index + 1}:2)`).join("\n")}`;
+    process.env.VERCEL_GIT_COMMIT_SHA = "a".repeat(40); process.env.VERCEL_DEPLOYMENT_ID = "dpl_0123456789abcdefghijkl"; process.env.VERCEL_ENV = "preview";
+    logServerError("next.request.failed", error, { route: "/api/projects/[id]/route" });
+    const log = JSON.parse(logs[0]);
+    assert.equal(log.sourceFrames.length, 5); assert(log.sourceFrames.every((frame: string) => frame.startsWith(".next/server/chunks/log-fixture-")));
+    assert.equal(log.route, "/api/projects/[id]"); assert.equal(log.commit, "a".repeat(40)); assert.equal(log.deploymentId, process.env.VERCEL_DEPLOYMENT_ID); assert.equal(log.environment, "preview");
+    process.env.VERCEL_GIT_COMMIT_SHA = secret; process.env.VERCEL_DEPLOYMENT_ID = `https://${secret}`; process.env.VERCEL_ENV = secret;
+    logServerError("next.request.failed", error, { route: `/api/projects/${secret}` });
+    const rejected = JSON.parse(logs[1]);
+    for (const field of ["route", "commit", "deploymentId", "environment"]) assert.equal(rejected[field], undefined);
+    assert(!logs.join("").includes(secret));
+  } finally {
+    for (const [key, value] of [["VERCEL_GIT_COMMIT_SHA", original.commit], ["VERCEL_DEPLOYMENT_ID", original.deployment], ["VERCEL_ENV", original.environment]]) {
+      if (value === undefined) delete process.env[key!]; else process.env[key!] = value;
+    }
+    rmSync(directory, { recursive: true });
+  }
+});
+
+test("instrumentation records the static route template and never the request path or headers", async () => {
+  const { onRequestError } = await import("../src/instrumentation");
+  await onRequestError(new TypeError(secret), { path: `/projetos/${secret}?token=${secret}`, method: "GET", headers: { authorization: secret } }, {
+    routerKind: "App Router", routeType: "render", routePath: "/projetos/[slug]/page", renderSource: "react-server-components", revalidateReason: undefined,
+  });
+  const log = JSON.parse(logs[0]);
+  assert.equal(log.route, "/projetos/[slug]"); assert.equal(log.operation, "AppRouter.render");
+  assert(!logs[0].includes(secret));
+});
+
+test("administrative failure operations use known action labels and exclude IDs and body values", async () => {
+  for (const [action, operation] of [["profile", "admin.estudantes.profile"], [secret, "admin.estudantes"]]) {
+    const response = await adminMutation(new Request(`http://localhost:3000/api/admin/estudantes/${secret}?token=${secret}`, {
+      method: "POST", headers: { origin: "http://localhost:3000", "content-type": "application/json" },
+      body: JSON.stringify({ action, name: secret, email: secret }),
+    }), async () => { throw new TypeError(secret); });
+    assert.equal(response.status, 500);
+    assert.equal(JSON.parse(logs.at(-1)!).operation, operation);
+  }
+  assert(!logs.join("").includes(secret));
 });

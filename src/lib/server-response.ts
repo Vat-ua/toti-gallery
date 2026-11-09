@@ -5,7 +5,7 @@ import { BodyLimitError } from "./request-body";
 import { errorDetails, logServerError } from "./server-log";
 
 export function serverErrorResponse(error: unknown, fallback: string, operation: string) {
-  const requestId = randomUUID();
+  const requestId = error instanceof PublicError && error.requestId && /^[a-f0-9-]{36}$/.test(error.requestId) ? error.requestId : randomUUID();
   const expected = error instanceof PublicError;
   const status = error instanceof FormValidationError ? 400 : error instanceof BodyLimitError ? 413
     : expected ? error.status : errorDetails(error).unavailable ? 503 : 500;

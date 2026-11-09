@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { getProjectBySlug, getRelatedProjects } from "@/lib/queries";
-import { getCurrentSession, isCurrentUser } from "@/lib/auth";
+import { getPublicOwnership } from "@/lib/public-identity";
 import { ProjectDetails, RelatedProjects } from "@/components/project-details";
 import { sharingMetadata } from "@/lib/metadata";
 
@@ -14,13 +14,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 export default async function ProjectPage({ params }: Props) {
   const { slug } = await params;
-  const [project] = await Promise.all([getProjectBySlug(slug), getCurrentSession()]);
+  const project = await getProjectBySlug(slug);
   if (!project) notFound();
   const related = getRelatedProjects(project);
-  // The boundary still observes this rejection. Avoid an orphaned rejection if
-  // the independent ownership check fails before the page can return it.
-  void related.catch(() => {});
-  return <ProjectDetails project={project} canEdit={await isCurrentUser(project.author.id)}
+  return <ProjectDetails project={project} canEdit={getPublicOwnership(project.author.id)}
     relatedContent={<Suspense fallback={null}><RelatedContent projects={related}/></Suspense>}/>;
 }
 

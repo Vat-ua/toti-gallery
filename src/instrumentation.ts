@@ -4,7 +4,9 @@ export const onRequestError: Instrumentation.onRequestError = async (error, _req
   const { logServerError } = await import("./lib/server-log");
   // Never include request.path, headers, cookies or query tokens.
   logServerError("next.request.failed", error, {
-    operation: `${context.routerKind}.${context.routeType}`,
+    operation: `${context.routerKind === "App Router" ? "AppRouter" : "PagesRouter"}.${context.routeType}`,
+    route: context.routePath,
+    requestId: error && typeof error === "object" && "requestId" in error && typeof error.requestId === "string" ? error.requestId : undefined,
     digest: error && typeof error === "object" && "digest" in error && typeof error.digest === "string" ? error.digest : undefined,
   });
 };
