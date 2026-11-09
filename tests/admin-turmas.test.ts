@@ -65,7 +65,7 @@ test("turma editing and archive preserve membership, publications, credits and l
   await pool.query("INSERT INTO gallery_projects(id,slug,title,description,technologies,github_url,author_id,turma_id,is_final) VALUES ($1,$2,'Fixture','Fixture description','[]','https://github.com',$3,$4,true)", [projectId, prefix, studentId, groupId]);
   await pool.query("INSERT INTO gallery_project_authors(project_id,user_id) VALUES ($1,$2)", [projectId, studentId]);
   await pool.query("INSERT INTO gallery_likes(project_id,visitor_key) VALUES ($1,'fixture-like')", [projectId]);
-  await service.saveTurma(adminId, { number: turmaNumber, courseName: "Updated Course", startYear: 2027 }, groupId);
+  await service.saveTurma(adminId, { number: turmaNumber, courseName: "Updated Course", startYear: 2027 }, groupId, { number: turmaNumber, courseName: "Fixture Course", startYear: 2026 });
   await service.archiveTurma(adminId, groupId, true);
   let detail = await service.turmaDetails(ownerId, groupId);
   assert.equal(detail.turma.archived, true); assert.equal(detail.projectCount, 1); assert.equal(detail.members.length, 1);

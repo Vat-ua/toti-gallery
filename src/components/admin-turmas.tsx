@@ -16,6 +16,7 @@ import { Avatar, useToast } from "./ui";
 function Empty({ title, text }: { title: string; text: string }) { return <div className="admin-empty"><Icon name="users" size={30}/><h3>{title}</h3><p>{text}</p></div>; }
 function TurmaForm({ turma, close, saved }: { turma?: Pick<AdminTurma, "id" | "name" | "number" | "courseName" | "startYear" | "archived">; close: () => void; saved: (id: string, text?: string) => void }) {
   const [busy, setBusy] = useState(false), [error, setError] = useState("");
+  const [expected] = useState(() => turma ? { number: turma.number, courseName: turma.courseName, startYear: turma.startYear } : undefined);
   const feedback = useFormFeedback();
   const [confirmArchive, setConfirmArchive] = useState(false), [archiveError, setArchiveError] = useState("");
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -23,7 +24,7 @@ function TurmaForm({ turma, close, saved }: { turma?: Pick<AdminTurma, "id" | "n
     const value = { number: Number(fields.get("number")), courseName: String(fields.get("courseName")), startYear: Number(fields.get("startYear")) };
     if (!feedback.validate(() => rejectFields(turmaErrors(value)), formElement)) return;
     setBusy(true);
-    try { const data = await turmasApi.save(turma?.id, value); saved(data.id); }
+    try { const data = await turmasApi.save(turma?.id, value, expected); saved(data.id); }
     catch (error) { feedback.report(error, formElement); } finally { setBusy(false); }
   }
   async function archive() {
@@ -33,9 +34,9 @@ function TurmaForm({ turma, close, saved }: { turma?: Pick<AdminTurma, "id" | "n
     catch (error) { setArchiveError(message(error)); } finally { setBusy(false); }
   }
   return <Dialog title={turma ? "Editar turma" : "Nova turma"} description={turma ? undefined : "Informe o curso e o ano de início desta turma."} close={close} busy={busy} drawer><form noValidate aria-busy={busy} onChange={event => { const target = event.target; if (target instanceof HTMLInputElement) feedback.clear(target.name); }} onSubmit={submit}><fieldset disabled={busy || confirmArchive} className="account-fieldset">
-    <div className="form-field"><label htmlFor="turma-number">Número da turma</label><input id="turma-number" name="number" aria-invalid={!!feedback.fields.number} aria-describedby={feedback.fields.number ? "turma-number-error" : undefined} type="number" required min={1} max={999999999} defaultValue={turma?.number} placeholder="26" autoFocus/><FieldError id="turma-number-error" text={feedback.fields.number}/></div>
-    <div className="form-field"><label htmlFor="turma-course">Nome do curso</label><input id="turma-course" name="courseName" aria-invalid={!!feedback.fields.courseName} aria-describedby={feedback.fields.courseName ? "turma-course-error" : undefined} required minLength={2} maxLength={100} defaultValue={turma?.courseName || ""} placeholder="Full Stack"/><FieldError id="turma-course-error" text={feedback.fields.courseName}/></div>
-    <div className="form-field"><label htmlFor="turma-year">Ano de início</label><input id="turma-year" name="startYear" aria-invalid={!!feedback.fields.startYear} aria-describedby={feedback.fields.startYear ? "turma-year-error" : undefined} type="number" required min={2000} max={2100} defaultValue={turma?.startYear || ""} placeholder="2026"/><FieldError id="turma-year-error" text={feedback.fields.startYear}/></div>
+    <div className="form-field"><label htmlFor="turma-number">Número da turma</label><input id="turma-number" name="number" aria-invalid={!!feedback.fields.number} aria-describedby={feedback.fields.number ? "turma-number-error" : undefined} type="number" required min={1} max={999999999} defaultValue={expected?.number} placeholder="26" autoFocus/><FieldError id="turma-number-error" text={feedback.fields.number}/></div>
+    <div className="form-field"><label htmlFor="turma-course">Nome do curso</label><input id="turma-course" name="courseName" aria-invalid={!!feedback.fields.courseName} aria-describedby={feedback.fields.courseName ? "turma-course-error" : undefined} required minLength={2} maxLength={100} defaultValue={expected?.courseName || ""} placeholder="Full Stack"/><FieldError id="turma-course-error" text={feedback.fields.courseName}/></div>
+    <div className="form-field"><label htmlFor="turma-year">Ano de início</label><input id="turma-year" name="startYear" aria-invalid={!!feedback.fields.startYear} aria-describedby={feedback.fields.startYear ? "turma-year-error" : undefined} type="number" required min={2000} max={2100} defaultValue={expected?.startYear || ""} placeholder="2026"/><FieldError id="turma-year-error" text={feedback.fields.startYear}/></div>
     <ErrorText text={error || feedback.error}/><div className="admin-dialog-actions"><button type="button" className="button button-outline" onClick={close}>Cancelar</button><button className="button button-dark" type="submit">{busy ? "Salvando..." : turma ? "Salvar alterações" : "Criar turma"}</button></div>
   </fieldset></form>{turma && <section className="admin-turma-archive">
     <h3>{confirmArchive ? `${turma.archived ? "Desarquivar" : "Arquivar"} ${turma.name}?` : "Situação da turma"}</h3>

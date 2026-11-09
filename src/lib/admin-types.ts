@@ -8,6 +8,8 @@ export type AdminTurma = {
   students: number; projects: number;
 };
 export type AdminTurmaChoice = Omit<AdminTurma, "students" | "projects">;
+export type TurmaSnapshot = Pick<AdminTurma, "number" | "courseName" | "startYear">;
+export type StudentProfileSnapshot = Pick<AdminStudent, "name" | "email">;
 export type StudentLookup = {
   id: string; name: string; email: string; status: "pending" | "active" | "suspended";
   member: boolean; blocked: boolean; reason: string | null;

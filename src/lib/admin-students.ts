@@ -68,8 +68,11 @@ export async function listStudents(actorId: string, options: Partial<StudentList
   }, { isolationLevel: "repeatable read" });
 }
 
-export async function updateStudentProfile(actorId: string, id: string, name: unknown, email: unknown) {
+export async function updateStudentProfile(actorId: string, id: string, name: unknown, email: unknown, expected: unknown) {
   rejectFields(identityErrors(name, email));
+  if (!expected || typeof expected !== "object" || Array.isArray(expected)) throw new AdminError("Informe os dados iniciais do estudante. Atualize a página e tente novamente.");
+  const previous = expected as Record<string, unknown>;
+  if (Object.keys(previous).some(key => !["name", "email"].includes(key)) || typeof previous.name !== "string" || typeof previous.email !== "string") throw new AdminError("Confira os dados iniciais do estudante.");
   const identity = provisionIdentity(name as string, email as string);
   try {
     return await db.transaction(async tx => {
@@ -77,6 +80,7 @@ export async function updateStudentProfile(actorId: string, id: string, name: un
       // Match provisioning's lock order before taking the user row lock.
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${identity.email}))`);
       const person = await targetStudent(tx, actor, id);
+      if (person.name !== previous.name || person.email !== previous.email) throw new AdminError("Os dados do estudante mudaram. Copie suas alterações e atualize a página antes de salvar novamente.", 409);
       const emailChanged = identity.email !== person.email;
       if (emailChanged && (person.status !== "pending" || person.emailVerified || person.isDemo)) throw new AdminError("O email só pode ser alterado antes da ativação da conta.", 409);
       if (emailChanged) {

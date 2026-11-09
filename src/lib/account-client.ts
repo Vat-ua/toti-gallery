@@ -1,14 +1,14 @@
-import type { Person } from "./types";
 import { requestJson } from "./http-client";
+import type { ProfileSnapshot } from "./account";
 
 export type ProfileInput = { name: string; bio: string; github: string; linkedin: string; avatar: string | null };
-export type SavedProfile = Pick<Person, "name" | "bio" | "github" | "linkedin" | "avatar">;
+export type SavedProfile = ProfileSnapshot;
 export type PasswordInput = { currentPassword: string; newPassword: string; confirmPassword: string };
 const nullableString = (value: unknown): value is string | null => value === null || typeof value === "string";
 
-export async function updateAccountProfile(values: ProfileInput, image?: File | null): Promise<SavedProfile> {
+export async function updateAccountProfile(values: ProfileInput, expected: ProfileSnapshot, image?: File | null): Promise<SavedProfile> {
   const form = new FormData();
-  form.set("data", JSON.stringify(values));
+  form.set("data", JSON.stringify({ ...values, expected }));
   if (image) form.set("image", image);
   const fallback = "Não foi possível salvar seu perfil.";
   const data = await requestJson("/api/account", { method: "PATCH", body: form }, fallback);
