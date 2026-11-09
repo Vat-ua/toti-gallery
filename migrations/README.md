@@ -1,12 +1,17 @@
 # Database migrations
 
-For a new, empty database, follow the root README and create the current schema
-with Drizzle. No request-triggered sample seed or demo login is installed.
+For a new, verified empty database, `src/db/schema.ts` defines the current target
+schema for reviewed Drizzle-generated DDL. Do not schema-push over existing data.
+Requests do not seed sample database rows or sign visitors into a shared demo
+account. The local `/demo` workspace uses browser storage independently.
 
-For an existing database, apply pending `.sql` files in filename order using a
-PostgreSQL client or SQL editor connected to the intended database. They are not
-applied automatically when the application starts. Schema synchronization alone
-does not replace the authorship data backfill.
+For an existing database, first compare its actual schema with the migration
+requirements below. Apply only reviewed, missing upgrades in dependency order;
+never replay the historical cutover or run every SQL file blindly. Migrations
+are not applied automatically by startup/build. Follow
+[Environments](../docs/environments.md#development-workflow) for approval, isolated
+verification and recovery. Schema synchronization alone does not replace data
+backfills. Recorded application dates below are history, not a live schema check.
 
 **Auth cutover:** `toti_gallery` already has both auth migrations. The historical
 `toti_gallery_legacy` database is retained; do not apply current migrations to it
@@ -43,8 +48,18 @@ not additional production migrations.
 
 `20261027_stage3_owner.sql` adds the `owner` role and enforces a single owner.
 Existing-account promotion uses an explicitly selected active administrator ID;
-see [Administration](../docs/administration.md). Applied to development and
-production after isolated verification. Production received only the schema
+see [Administration](../docs/administration.md). The guarded development/test runner
+accepts an explicitly selected existing administrator:
+
+```sh
+node scripts/migrate-admin-foundation.cjs --env-file=PATH_TO_TEST_ENV \
+  --owner-id=EXISTING_FIRST_ADMIN_ID
+```
+
+It verifies the target and data preservation; it does not accept production.
+This is a one-time upgrade operation, not the routine way to add staff.
+Applied to development and production after isolated verification.
+Production received only the schema
 changes; existing administrator roles were preserved.
 
 `20261027_turma_details.sql` adds unique turma numbers, course names and start

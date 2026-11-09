@@ -54,12 +54,15 @@ Production at all times.
 
 ## Local development
 
-Individual developer branches, such as `development-amadu`, are copied from
-`development` and use separate branch passwords, auth secrets and storage keys.
-Remove inherited application passwords, OAuth tokens, sessions and access grants
-before handing a copy to another developer, then provision a local test login.
-Share only that developer's private configuration; access to Production, Vercel
-or the Neon project control plane is not needed to run the app locally.
+An additional developer needs an independent target, not shared write access to
+the maintainer's development or production database. A dedicated branch can
+provide isolation within this project; an independent Neon project also separates
+account quotas. External projects require adapting the runtime's explicit project
+allowlist before use; arbitrary endpoints are deliberately rejected.
+Before sharing a dataset, remove real credentials, OAuth tokens, sessions and
+access grants, and use synthetic or approved sanitized profiles. Provision a
+local test login. No access to production, Vercel or this project's control plane
+is needed. Do not assume an old developer-specific branch is still provisioned.
 
 Use `.env.local` with the **development** endpoint, its separate database password,
 and the metadata shown in `.env.example`. Use a separate Better Auth secret and
@@ -78,9 +81,9 @@ Keep all private environments ignored and never upload them to Vercel.
 
 ## Production
 
-Vercel Production uses `production / toti_gallery`. Changing DATABASE_URL requires
-a new deployment. Renaming the database preserves identities, credentials,
-sessions, project authorship and data; it does not require a new auth secret.
+Vercel Production uses `production / toti_gallery`. Changing `DATABASE_URL`
+requires a new deployment. A renamed database does not by itself require a new
+auth secret; preserve existing account and credential data when switching targets.
 
 The existing Vercel project connects to `Vat-ua/toti-gallery` on GitHub, with
 `main` as its Production branch. A push/merge to `main` publishes the committed
@@ -113,15 +116,12 @@ workflow. Preview success does not authorize that merge or a Production deployme
 
 Database migrations are separate from the build. Verify them on an isolated
 production copy, prepare a recovery path, then apply approved migrations before
-publishing code that requires them. The image migrations only add nullable fields;
-the preceding application version remains compatible for rollback. Rolling back
-an application deployment does not roll back database or object-storage writes.
-
-Production has the administration role constraints, turma-details fields and
-image metadata/framing migrations. Existing account roles were preserved when
-applying the role migration; schema support for `owner` does not promote an
-administrator automatically. Historical turma numbers are derived from their
-existing labels; unknown course names and start years remain unset until edited.
+publishing code that requires them. Assess code/schema rollback compatibility
+for the actual release; do not assume every upgrade is additive. Rolling back
+an application deployment does not roll
+back database or object-storage writes. Migration history is in
+[Migrations](../migrations/README.md); inspect the target rather than inferring
+its current schema from an earlier release record.
 
 For trusted manual provisioning/recovery, use an ignored `.env.operations` file
 with the production URL, original auth secret, public origin, and:

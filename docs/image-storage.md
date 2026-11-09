@@ -3,8 +3,8 @@
 User uploads use the existing `gallery-images` Neon Object Storage bucket.
 Development and production must use their respective branch endpoints and
 credentials. Static images shipped in `public/`, existing data URLs, external
-cover links and generated covers continue to work; this change does not bulk
-migrate existing images.
+cover links and generated covers remain supported. There is no automatic bulk
+migration of legacy images.
 
 ## Processing and display
 
@@ -49,24 +49,21 @@ use the thumbnail in cards and the larger version on the detail/editor page.
 
 ## Setup
 
-Apply the reviewed metadata migration on an isolated test copy, then development;
-see [Environments](environments.md). Credentials explicitly have both
-`storage:read` and `storage:write`, and are anchored to development, not its
-production ancestor.
-
-Apply `20261028_cover_framing.sql` after the image metadata migration, using
-`node scripts/migrate-image-storage.cjs --framing --env-file=<ignored-env-file>`.
-The same development/test-only target and data-preservation checks apply.
-Keep them server-only in ignored `.env.local`; see `.env.example` for names.
+Use the selected database branch's storage endpoint and credentials with both
+`storage:read` and `storage:write`. Keep them server-only in the selected ignored
+environment file; see `.env.example` for names and
+[Environments](environments.md) for target isolation.
 The app checks the storage endpoint's branch and verifies the actual SQL target
 before object writes/deletes. Do not blindly pull Neon env over existing database
 or Better Auth configuration.
 
-Production rollout is separate: review/apply pending schema migrations, create a
-production storage credential, configure its storage variables in Vercel, then
-deploy with approval. Do not reuse development credentials or publish them with
-a `NEXT_PUBLIC_` prefix. Normal profile/project edits without new uploads continue
-to work when storage credentials are absent.
+For a new environment, review actual schema requirements in
+[Migrations](../migrations/README.md) and configure its own storage variables.
+Existing production setup must not be recreated or migrations reapplied merely
+because this guide is being followed. Production configuration and deployment
+require approval. Never publish credentials with a `NEXT_PUBLIC_` prefix.
+Normal profile/project edits without new uploads continue to work when storage
+credentials are absent.
 
 ## Ownership and lifecycle
 
@@ -91,9 +88,10 @@ image URL or cached copy. Private documents do not belong in this bucket.
 
 `npm run test:images` exercises decoding, sizes/crops, EXIF removal, alpha,
 invalid/oversized files, bounded multipart parsing, legacy-image preservation,
-and storage-branch configuration without connecting to a database. API/browser
-write checks additionally require an explicitly selected temporary `test/*`
-branch with its own SQL/storage endpoint, never development or production.
+and storage-branch configuration without connecting to a database. Existing
+controlled-storage tests do not exercise a real bucket. Tests that actually write
+cloud images require an isolated test branch and matching SQL/storage endpoint,
+never development or production; see [Testing](testing.md).
 
 For commit uncertainty, connection limits and operational logging, see
 [Server reliability](server-reliability.md).

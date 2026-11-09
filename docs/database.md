@@ -75,7 +75,7 @@ memberships, or sign-in methods change.
 | `linkedin` | Nullable LinkedIn link, edited by the profile owner. The application requires HTTPS and a LinkedIn hostname. |
 | `role` | `user`, `admin`, or `owner`; defaults to `user`. |
 | `status` | `pending`, `active`, or `suspended`; defaults to `pending`. |
-| `is_demo` | Boolean; defaults to `false`. Marks demonstration profiles. |
+| `is_demo` | Boolean; defaults to `false`. Marks database demonstration profiles that cannot sign in; distinct from browser-only `/demo` data. |
 | `created_at`, `updated_at` | Creation and last-update timestamps. |
 | `cohort`, `year` | Nullable historical group/year fields; not used for current memberships or authentication. |
 
@@ -128,7 +128,7 @@ find a person's groups.
 | `cover_framing` | Nullable display settings: horizontal/vertical position (0–100) and zoom (1–3). Null keeps the original placement. |
 | `github_url` | Required code/repository URL. |
 | `live_url` | Nullable link to the running application. |
-| `featured` | Boolean; defaults to `false`. Used for `Destaques`. |
+| `featured` | Retained legacy boolean, default `false`; not the current gallery's final-project selector. |
 | `is_final` | Boolean; defaults to `false`. Marks a final course project. |
 | `base_likes` | Integer; defaults to `0`. Initial like count used for demonstration content. |
 | `author_id` | Required foreign key to the publication owner's user record. |
@@ -243,8 +243,9 @@ activation and recovery grants use the separate invitations table below.
 | `count` | Required integer request count. |
 | `last_request` | Required numeric request time, stored as a PostgreSQL bigint. |
 
-Better Auth uses these counters to limit repeated requests. They are operational
-records, not student or project content.
+Better Auth and custom endpoints use these counters to limit repeated requests,
+including login, uploads, access grants and likes. They are operational records,
+not student or project content.
 
 ### 11. `gallery_invitations` — activation and recovery grants
 

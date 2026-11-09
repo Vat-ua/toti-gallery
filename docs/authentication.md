@@ -1,34 +1,29 @@
 # Authentication and closed activation
 
-Better Auth 1.7.13 handles Google identities, email/password and sessions. Accounts
+Better Auth handles Google identities, email/password and sessions. Accounts
 are provisioned by the administration; there is no public sign-up. One permanent
 user ID owns the profile, publications and credits regardless of sign-in method.
 Google is optional at runtime: email/password and manually delivered recovery
 links work without OAuth configuration or availability.
 
-## Current stage and data
+## Accounts and eligibility
 
-Stage 2 implements authentication and server-side provisioning. Stage 3 adds
-Turmas administration, group imports, global student/access management, project
-moderation and owner-only administrator management. The current UI displays
-the earliest membership as the primary turma; project turma is stored independently.
+Accounts are pending until activation, active afterward, or suspended to block
+access while retaining their data. Application access also requires a verified
+email and a non-demo profile. The public profile displays the selected primary
+turma, or the highest-numbered membership when no preference is set; project
+turma is stored independently.
 New publications default to the highest-numbered membership and allow choosing
 another of the author's turmas, including archived ones. Published projects keep
 their saved turma. Only active, verified, non-demo members are offered as new
 coauthors; existing credits survive membership changes.
-Do not deploy the old database with this new runtime.
 
-The owner confirmed that **every existing account, including their test account,
-is a demo**. Apply the stage 1 foundation and stage 2 cutover migrations only to the
-intended database, after approval. The cutover marks existing profiles `is_demo`,
-discards their old password hashes/session table, and gives them no Better Auth
-credentials. Demo profiles, projects, author links, covers and likes are retained.
-Demo users cannot be activated, linked to Google or given password-reset grants.
-The application no longer creates sample data during requests.
-
-For a new empty database, the canonical `src/db/schema.ts` creates the final
-schema directly. The legacy group/year columns are retained only for later data
-review; current authentication/membership queries do not use them.
+Database profiles marked `is_demo` are display content, not sign-in identities.
+They cannot activate, link Google or receive password grants. They are distinct
+from the browser-only [demonstration workspace](user-stories.md#demonstration-mode).
+The application does not seed sample data during requests. The historical demo-only
+auth cutover must never be replayed on current accounts; see
+[Migrations](../migrations/README.md).
 
 ## Development and isolated tests
 
@@ -36,30 +31,16 @@ Use `development / toti_gallery` via `.env.local` and `npm run dev` for normal
 development. Production maintenance uses `.env.operations` with `--production`.
 See [Environments](environments.md) for exact resource guards and configuration.
 
-For authentication regression tests, first select a temporary Neon test branch
-and configure `.env.test-source` as documented there, then prepare its fixtures:
-
-```sh
-node scripts/prepare-auth-test.cjs
-npm run dev:auth-test
-```
-
-Preparation reads the source URL from `.env.test-source` and copies its historical
-demo data into a new `gallery_auth_test_*` database on the verified test branch. It needs permission
-to create databases. It applies the auth foundation/cutover, owner and turma-details
-migrations only to that copy, checks content
-preservation, and leaves the source and `.env.local` unchanged. Its generated
-`.env.auth-test` is ignored and mode 0600. Keep it private. Preparation refuses to
-overwrite an already configured target; the test copy is retained until its
-temporary branch expires or is explicitly removed.
-
-Open `http://localhost:3101` for test fixtures. Use `build:auth-test` /
-`start:auth-test` for that same isolated test environment. The normal development
-server remains on port 3000; the public application uses production separately.
+For suite selection and coverage, see [Testing](testing.md#database-integration-suites).
+`test:auth` has a historical fixture-preparation workflow on a temporary Neon
+branch. Follow [Temporary tests](environments.md#temporary-tests); never point
+it at development, production or real staff accounts. The optional isolated
+auth-test server uses port 3101; normal development uses port 3000.
 
 ## First administrator
 
-Run the trusted local/server command, replacing the placeholders:
+Only an installation without staff accounts needs bootstrap. For the intended
+development target, run the trusted command with your own values:
 
 ```sh
 npm run account:admin -- bootstrap --env-file=.env.local \
@@ -78,20 +59,22 @@ active administrator. Repeating it with the same pending administrator's email
 reissues their activation link. Existing/demo accounts are never promoted.
 There is no bootstrap HTTP endpoint and no hardcoded administrator credentials.
 
-## Provisioning and manual delivery before the admin UI
+## Provisioning and manual delivery
+
+Use Administração → Turmas/Estudantes for student registration and access links;
+the owner manages staff in Administradores. See [Administration](administration.md)
+for these workflows. The trusted CLI remains available for explicit maintenance:
 
 ```sh
 npm run account:admin -- add-student --env-file=.env.local \
-  --database=toti_gallery --actor="admin@gmail.com" \
-  --name="Student name" --email="student@gmail.com" --turma="Turma 24"
+  --database=toti_gallery --actor="ADMIN_EMAIL" \
+  --name="Student name" --email="STUDENT_EMAIL" --turma="EXISTING_TURMA_NAME"
 
 npm run account:admin -- activation-link --env-file=.env.local \
-  --database=toti_gallery --actor="admin@gmail.com" \
-  --email="student@gmail.com"
+  --database=toti_gallery --actor="ADMIN_EMAIL" --email="STUDENT_EMAIL"
 
 npm run account:admin -- reset-link --env-file=.env.local \
-  --database=toti_gallery --actor="admin@gmail.com" \
-  --email="student@gmail.com"
+  --database=toti_gallery --actor="ADMIN_EMAIL" --email="STUDENT_EMAIL"
 ```
 
 The actor must be an active, non-demo administrator. Repeated provisioning reuses
@@ -103,8 +86,9 @@ its profile but cannot publish until an administrator assigns one.
 
 `createAccessLink` returns `{ id, url, expiresAt }`. It does not send mail or depend
 on a delivery provider. The CLI currently prints that result for private manual
-delivery to the intended email. The Turmas admin UI uses the same service; a
-future email provider can use it without changing activation. Sending failures
+delivery to the intended email. Administrative operations share the grant
+primitives in `access-links.ts`; a future email provider can consume their results
+without changing activation. Sending failures
 must not create duplicate users or alter activation.
 Do not store bearer URLs in notes, commits, analytics, screenshots or shared logs.
 
@@ -157,34 +141,49 @@ Cookies are HttpOnly, same-site and secure on HTTPS. Exact trusted origin comes
 from configuration, not Host headers. Login throttling is database-backed, with
 an additional account-based limit and limits on grant redemption/password changes.
 
-## Verification
+## Google deployment setup and acceptance
 
-```sh
-npm run test:auth
-npm run build:auth-test
-```
+Use the existing linked Vercel project and the approved
+[Git release workflow](environments.md#development-workflow). For a new origin,
+configure a Google OAuth **Web application** client with basic identity scopes
+(`openid`, email and profile):
 
-Auth tests require the fresh isolated copy, refuse a pre-existing real administrator,
-and remove only their own fixture accounts. They check bootstrap, signup/demo denial,
-expiry/reissue/replay, concurrent redemption, recovery/session revocation, identity
-binding, blocked users, origin checks and durable rate limits. Google callback tests
-replace Google's token endpoint inside the test process; they **do not verify an
-actual Google login, Google Cloud setup or public Vercel deployment**.
+- Authorized JavaScript origin: the exact `https://YOUR-PROJECT.vercel.app` origin.
+- Authorized redirect URI: that origin plus `/api/auth/callback/google`.
+- For local OAuth, register the exact local `BETTER_AUTH_URL` and callback too.
+- If the Google app uses Testing audience restrictions, add intended testers.
 
-The owner has verified real Google and email/password sign-in for the administrator
-and student on the public site, including after the production database switch.
-See [Google on Vercel](google-vercel-check.md) for the retained acceptance checklist.
-Local tests alone do not establish that public OAuth works. Further stage 3 parts
-and production rollout require the owner's explicit approval.
+Set the web client ID/secret and exact `BETTER_AUTH_URL` in the matching Vercel
+environment. Retain the existing auth secret for an existing auth database.
+Deployment-variable changes require an approved deployment. Do not trust arbitrary
+Preview domains, add a `*.vercel.app` wildcard, or copy production credentials to
+Preview. Consult [Better Auth Google setup](https://better-auth.com/docs/authentication/google)
+and [Google brand verification](https://developers.google.com/identity/protocols/oauth2/production-readiness/brand-verification)
+for current provider requirements.
+
+For an approved deployment/callback change, use deliberately provisioned fixtures:
+
+1. Record a student's pending ID with no credential. Sign in through its matching
+   Google account; verify activation keeps that ID and creates no duplicate profile.
+2. Sign out and repeat Google sign-in. Issue a password grant privately, set a
+   password, and verify sign-out/sign-in with both methods and one profile.
+3. Where available, check an unapproved Google identity is denied without creating
+   a user. Test suspension only with an intended fixture, not real users' access.
+4. Separately test email/password without Google in isolation; do not remove
+   working production settings to simulate an outage.
+
+Record date, URL, deployed commit and outcomes privately without OAuth codes or
+tokens. Local/mocked callbacks do not establish public OAuth success.
+`redirect_uri_mismatch` requires comparing the actual origin, base URL, client ID
+and registered callback exactly, not relaxing origin validation.
 
 ## Portability and later domain transfer
 
-Keep user IDs, provider subject bindings, memberships and author links when moving
-to React + Hono + D1. Better Auth's default password implementation supports its
-target runtimes; there is no legacy Node-only password format to carry forward.
-The server services have no Next imports; only the session/UI layer is Next-specific.
-PostgreSQL Drizzle queries, bootstrap locks and transactions still need an explicit
-D1 implementation with equivalent atomicity. This is not a promise of copying SQL.
+A future React/Hono/D1 version would need to preserve user IDs, provider bindings,
+password compatibility, memberships and credits. PostgreSQL queries, locks and
+transactions require an explicit equivalent implementation; current operations
+also depend on Next's request APIs where relevant. This is not a copy-only SQL
+migration or a required change to the current application.
 
 Keep the auth secret stable across deployments sharing an auth database: it also
 protects cookies/OAuth material. Use the library's supported rotation process when

@@ -1,6 +1,6 @@
 # Account operations
 
-`/minha-conta` remains a server page that checks authentication and passes the
+`/minha-conta` is a server page that checks authentication and passes the
 public profile, email and credential availability to `AccountForm`.
 
 | Module | Responsibility |
@@ -19,17 +19,28 @@ email, roles and account status are not editable. `getPerson` can use the curren
 transaction to construct the same public projection as other pages. The API
 returns that result after commit, without a second session lookup that could
 misreport an already committed update as a failure. Projection failures happen
-before commit, so they roll back the update and remove the new uploaded avatar.
+before commit, so they roll back the update and trigger conservative upload cleanup.
 
 Single-profile lookups by ID or slug use one scoped query with turma memberships,
 including profiles with no turma. They share the public projection and primary
 turma selection rules with list queries, without loading the entire community.
 
-The avatar row lock and stale-photo check are preserved. A failed transaction
-callback checks references before retiring its new upload; an uncertain COMMIT
-retains that upload. An acknowledged replacement/removal schedules retirement
-of the old image after commit. Storage still checks existing references before deletion.
-No database migration, auth configuration or API shape change is needed.
+Profile saves require an `expected` snapshot of the original `name`, `bio`,
+`github`, `linkedin` and `avatar`. Missing or malformed snapshots return `400`.
+The operation compares these exact values under the user row lock before writing;
+a stale snapshot returns `409`. Snapshot validation checks the shape, without
+normalizing or applying new-input rules to existing legacy values. Role, status,
+membership and auth timestamps are deliberately excluded.
+
+The form retains its original snapshot and draft across server refreshes, advances
+the snapshot only after its own successful save, and keeps input/photo selection
+on a conflict. Administrative name changes invalidate an older self-profile form;
+an admin name/email edit can still proceed after an unrelated biography change.
+A rejected uploaded photo follows normal rollback cleanup; a stale removal cannot
+delete the currently saved photo. Shared
+[image lifecycle](image-storage.md#ownership-and-lifecycle) and
+[commit-failure rules](server-reliability.md#database-and-storage-failures) also
+apply to profile saves.
 
 Password hashing, credential checks, session replacement and revocation remain
 Better Auth's responsibility. The UI keeps its existing 401 redirect to sign-in,
@@ -37,14 +48,8 @@ clears password inputs only after success and does not retain returned auth toke
 
 ## Checks
 
-```sh
-npm run test:account
-```
-
-Use an ignored `.env.admin-test` on an isolated current-schema Neon `test/*`
-branch, or explicitly select an ignored env file with
-`GALLERY_ACCOUNT_TEST_ENV_FILE`. The suite verifies the actual database identity
-before writes and rejects development/production. See [Environments](environments.md).
+Use `test:account` with the isolated target described in
+[Testing](testing.md#database-integration-suites).
 
 Integration tests use real PostgreSQL, Better Auth, hashing and signed session
 cookies. Only Next's request context/post-response scheduling, custom rate-limit
@@ -53,11 +58,9 @@ The suite removes only its own fixtures and checks all original table rows after
 cleanup; its temporary SQL failure trigger/function are also removed.
 
 Coverage includes authorization, editable-field limits, response projection,
-avatar retention/replacement/removal, upload/SQL failures, concurrent replacement,
+avatar retention/replacement/removal, upload/SQL failures, concurrent replacements,
+required snapshots, cross-entry profile conflicts and unrelated-state changes,
 the post-commit session regression, password validation, incorrect current
 passwords, throttling, replacement cookies and other-session revocation. Client
 tests cover multipart/JSON formats, structured errors, 401, network failures and
 malformed success responses. Browser checks separately verify UI interactions.
-
-For commit uncertainty, connection limits and operational logging, see
-[Server reliability](server-reliability.md).

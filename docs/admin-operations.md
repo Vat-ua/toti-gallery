@@ -23,6 +23,23 @@ an update lock immediately to avoid concurrent shared-lock upgrades. Rejected
 operations avoid locking other protected staff rows unnecessarily. Administrator
 promotion/removal retains its existing session and grant revocation rules.
 
+Replacement forms also submit exact original values in `expected`:
+
+- Student `profile`: `name` and `email`. Compare under the existing target user
+  lock, including changes made through self-service. Bio/photo changes do not
+  conflict because this operation does not replace them.
+- Turma `save`: `number`, `courseName` and `startYear`. Compare under a turma
+  update lock. Legacy null course/year values remain valid snapshot values;
+  new submitted values still follow the current validation rules.
+
+Both operations require the snapshot even for direct server calls that edit an
+existing record. Missing/malformed snapshots return `400`; stale values return
+`409` before any write or grant revocation. Creation needs no snapshot. Archive,
+suspension and membership commands retain their independent semantics.
+Forms preserve drafts and original snapshots across background refreshes; a
+successful save advances the baseline or closes the form. Conflicts ask the
+administrator to copy their changes and reload instead of silently retrying.
+
 HTTP requests for the student `turmas` action require an `expected` snapshot
 containing `turmaIds` and `primaryTurmaId`, in addition to the existing fields.
 Missing or malformed snapshots return `400`. The operation compares a valid
@@ -73,11 +90,9 @@ administrative JSON requests are limited to 250,000 bytes during stream reading.
 
 ## Validation
 
-Run `npm run test:admin` against an isolated current-schema Neon test branch.
-Select an ignored env file with `GALLERY_ADMIN_TEST_ENV_FILE`; profile tests in the
-same command accept `GALLERY_PROFILE_TEST_ENV_FILE`. Both default to
-`.env.admin-test` when no override is given. Every database suite verifies its
-actual target before writing, removes its fixtures and checks original rows.
+Select `test:admin` and its isolated fixture target through
+[Testing](testing.md#database-integration-suites). Tests verify their actual
+target before writing, remove their fixtures and check original rows.
 
 The suite includes staff/owner permissions, conflicting memberships, concurrent
 self-management, grant lifecycle, moderation, import rollback/identity preservation,

@@ -1,5 +1,7 @@
 # Toti Gallery
 
+Website: [toti-gallery.vercel.app](https://toti-gallery.vercel.app/)
+
 An independent student initiative for sharing learning projects within the
 Toti community, discovering ideas, and learning from other people's work.
 
@@ -7,8 +9,6 @@ Students can publish individual and group projects, credit coauthors, explore
 the gallery through search and filters, and discover community profiles.
 Administrators manage course groups, participants, access, and project moderation.
 Sign-in supports Google and email/password.
-
-The interface is in Brazilian Portuguese (pt-BR).
 
 ## Stack
 
@@ -47,3 +47,6 @@ before `npm run test:admin`.
 
 See [regression checks and browser smoke tests](docs/testing.md) for CI and local
 smoke setup.
+
+See the [documentation index](docs/README.md) for architecture, feature contracts
+and operating guides.

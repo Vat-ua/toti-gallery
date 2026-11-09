@@ -34,6 +34,12 @@ and aggregates their project statistics concurrently once the selected IDs are k
 Publication forms load available turmas and their eligible coauthors independently;
 private edit reads still wait for verified identity and ownership.
 
+The gallery's turma filter matches the publication's stored turma. Its choices
+come only from published projects, including archived turmas. Changing an author's
+preferred turma or memberships does not reclassify their existing projects.
+Community turma filtering instead follows current memberships; profile project
+lists follow authorship regardless of membership changes.
+
 Project lists select card fields and hydrate only their authors in the same SQL
 round trip. Descriptions, editor versions, repository URLs and storage metadata
 are omitted. Community statistics aggregate published authorship for selected
@@ -66,24 +72,34 @@ accounts. These are live reads, not a persistent permission cache. Account editi
 reuses the request's verified session email rather than selecting the same user again.
 The ORM relations require no database migration.
 
-The root layout starts identity work without awaiting it. Header account state and
-the footer have independent Suspense boundaries, so public content does not wait
-for chrome. Demo intent remains gated by resolved identity, including on public
-pages visited during demo; authenticated users cannot enter the local demo.
+The root starts a request-scoped public identity result without awaiting it.
+Header account state and the footer have independent Suspense boundaries.
+`getPublicIdentity` distinguishes a confirmed guest/account from unavailable
+identity; its failure state is presentation data, never authorization. The header
+offers retry, public content remains visible and demo intent is inactive when
+identity is unavailable. Demo admission still requires confirmed guest identity.
+Private pages and mutations retain the strict `getCurrentUser` checks.
 
 Public publication links reuse that same identity through a small context. Once
 resolved, guests go directly to login with the editor as their return destination;
 signed-in users go to the editor and demo users to the local demo form. Their
 identity boundaries never wrap the page. While pending, links retain the guarded
-editor URL with prefetch disabled; no additional session API request or page-wide wait is needed.
+editor URL with prefetch disabled; unavailable identity also retains that protected
+destination. No additional session API request is needed.
 The editor and its API continue to authorize every request on the server.
 
 Public pages use the verified session identity to rule out ownership without waiting
 for the full account profile. Owners still pass the complete live account check before
-rendering edit controls, preserving the initial layout and empty-state copy. Related
+rendering edit controls. Only ownership-dependent actions/empty-state copy await
+that check under small boundaries; identity failure closes those controls without
+blocking public data. Related
 projects stream independently after the primary project. Profile project/statistics
 reads start as soon as the person is known, concurrently with the ownership check.
 These boundaries use no new loading designs or minimum display timers.
+
+About and presentation content likewise does not await account availability.
+An optional demo invitation is shown only for a confirmed guest; unavailable
+identity never advertises or activates demo as a substitute for authentication.
 
 Local pools retain idle connections for one minute to avoid reconnecting after short
 reading pauses. Vercel keeps its existing ten-second idle timeout and pool lifecycle

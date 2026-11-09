@@ -72,11 +72,10 @@ it does not stop a determined client from manufacturing new visitor identities.
 
 ## Checks
 
-`npm run test:likes` includes client/controller/HTTP tests without a database and
-real SQL concurrency/limiter tests. The SQL suite requires a verified isolated
-`test/*` branch, selected with `GALLERY_LIKES_TEST_ENV_FILE` (default
-`.env.admin-test`). It removes only its fixtures and verifies all original table
-rows after cleanup. It never uses development or production for write tests.
+`test:likes` includes non-cloud client/controller/HTTP tests and isolated SQL
+concurrency/limiter tests. Select its target through
+[Testing](testing.md#database-integration-suites). The SQL suite removes its
+fixtures and verifies original rows after cleanup.
 
 Browser checks exercise the actual React components and IndexedDB with controlled
 HTTP responses: rapid clicks, duplicated buttons, lost responses, offline recovery,

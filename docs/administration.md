@@ -1,6 +1,6 @@
 # Administration
 
-Stage 3 is delivered in separately reviewed parts. `/admin/turmas` provides group
+`/admin/turmas` provides group
 creation/editing, archive/restore, student membership and import preview.
 `/admin/estudantes` provides the global student list, multi-turma management,
 student access controls and activation/recovery links. `/admin/projetos` provides
@@ -13,8 +13,8 @@ project review and visibility moderation, also available within each turma.
 - Only `owner` may manage another staff account. Regular administrators cannot
   alter owner/admin memberships or issue access links for them.
 - Public profiles never acquire staff rights from a turma or an import.
-- One `owner` is enforced by a partial unique index. First-account bootstrap now
-  creates the owner; existing installations require explicit promotion by ID.
+- At most one `owner` is enforced by a partial unique index. Bootstrap creates
+  the first owner; existing staff are managed by that owner.
 - Role/status checks run on the server for page reads and inside every mutation
   service. Mutating HTTP endpoints also require the configured trusted origin.
 - Student suspension applies only to real accounts with the `user` role. Staff
@@ -23,61 +23,19 @@ project review and visibility moderation, also available within each turma.
   or remove administrator rights. The owner account is protected from these actions.
 - Ownership transfer and general account deletion are not exposed.
 
-## Existing-account migration
-
-`20261027_stage3_owner.sql` expands the role constraint and adds the single-owner
-index. It promotes an existing active, non-demo administrator only when the caller
-explicitly sets `gallery.owner_user_id`; an invalid ID rolls back the migration.
-No credentials, memberships, credits, sessions or profile values are rewritten.
-Fresh demo-only auth fixtures apply the DDL without selecting an owner.
-Production initially received the schema changes without selecting an owner.
-Its first administrator was subsequently promoted explicitly to `owner`,
-preserving the existing ID and all other account data. Administradores is
-restricted to that owner; regular administrators access Turmas, Estudantes
-and Projetos.
-
-The guarded runner supports **development and isolated test environments only**:
-
-```sh
-node scripts/migrate-admin-foundation.cjs --env-file=.env.admin-test \
-  --owner-id=EXISTING_FIRST_ADMIN_ID
-# After isolated validation and approval for the intended environment:
-node scripts/migrate-admin-foundation.cjs --env-file=.env.local \
-  --owner-id=EXISTING_FIRST_ADMIN_ID
-```
-
-It verifies the actual Neon target, uses a direct connection, saves a private
-before-snapshot under ignored `tmp/admin-review`, and compares every table after
-the migration, allowing only the selected user's role to differ. Apply once; do
-not overwrite a prior backup to rerun it. Production received this migration
-through a separately approved operation after isolated verification, with all
-existing roles preserved.
-Follow [Environments](environments.md) before any future production operation.
+This guide describes application behavior, not a particular deployment's state.
+For bootstrap see [Authentication](authentication.md#first-administrator); for
+existing-schema upgrades see [Migrations](../migrations/README.md).
 
 ## Groups and imports
 
 Each turma has a globally unique positive number, a course name and a start year.
 Its display label is `Turma <number>`; archiving does not release the number.
-The list provides separate `Gerenciar` and `Editar` actions with matching icons.
-Creation and editing, student addition/management and the complete import flow
-use right-side panels of the same width, fullscreen on mobile. Group-scoped panels
-show the turma above their title, including import results. Group editing relies
-on its number/course/year fields without a repeated turma label. Student management
-instead leads with the person's name/email and an inline access badge and turma
-list, wrapping on narrow screens. Archive/restore is
-also available in the edit panel, with an explicit confirmation. It does not save
-unfinished field edits; returning to editing preserves the draft. The direct
-archive action on the group page retains its compact confirmation dialog.
-
-`20261027_turma_details.sql` backfills only the number from existing turma labels.
-Existing course names and start years remain unknown until an administrator enters
-them; historical graduation years are preserved rather than relabeled as start
-years. New saves require all three fields. The guarded
-`scripts/migrate-turma-details.cjs --env-file=...` runner accepts development/test
-targets, snapshots original rows privately and verifies preservation after applying
-the migration once. It has been checked on an isolated copy and applied to
-development and production. The production operation preserved all existing
-records and derived turma numbers only from their existing names.
+The list separates `Gerenciar` from `Editar`. Forms and import use right-side
+modal panels, fullscreen on mobile. Archive/restore requires confirmation and
+does not save unfinished field edits. Legacy records may lack course/start-year
+values; new saves require all three fields. Historical graduation year is not
+relabeled as start year.
 
 Archiving is organizational: students keep access and can publish in archived
 turmas. Removing membership affects only that turma/user relationship; project
@@ -90,10 +48,9 @@ Imports accept pasted spreadsheet TSV and UTF-8 CSV (comma or semicolon), with
 500 students and 200 KB. Preview performs no writes. Invalid or duplicate rows
 must be corrected or explicitly excluded before confirmation.
 
-Input, preview and completion remain in the same panel without changing its width.
-Returning from preview preserves the pasted text. Completion shows the counts of
-new profiles, added memberships and existing memberships, with actions to import
-another list or finish. Long emails and errors wrap within the preview table.
+Input, preview and completion stay in the same panel. Returning from preview
+preserves input; completion distinguishes new profiles, added memberships and
+already-existing memberships.
 
 Confirmation reparses/revalidates the original input in a transaction. Existing
 normalized emails reuse their permanent ID without changing name, password,
@@ -127,7 +84,7 @@ No raw token is persisted in project documentation or delivery history.
 ## Global students
 
 The list includes ordinary user profiles, even without a turma, and staff who
-participate in at least one turma. Staff without memberships belong to the future
+participate in at least one turma. Staff without memberships belong to the
 Administradores section. Search matches names/emails without accent sensitivity;
 turma filters include archived groups and `Sem turma`. Demo profiles have their
 own access filter and do not count as pending activation candidates.
@@ -156,9 +113,9 @@ Membership changes are applied together, including adding archived turmas or
 removing the last membership. They never change publication turma, author links,
 likes, profile or credentials. An unassigned active user keeps sign-in access but
 cannot publish a new project until assigned a turma.
-Current memberships appear first in the selection panel; toggling a checkbox does
-not reorder the draft list. Registration/import selectors prioritize recent active
-turmas while keeping archived groups available.
+The panel lists current memberships with remove actions, a searchable add control
+and a primary-turma choice when applicable. Registration/import selectors
+prioritize recent active turmas while keeping archived groups available.
 
 Suspension/restoration has an explicit confirmation. Suspension blocks sign-in,
 removes sessions and revokes outstanding activation/recovery grants, retaining
@@ -189,9 +146,6 @@ service remains available as a foundation for future automated delivery. The
 application currently neither sends email nor records a fictional delivery status.
 Raw URLs exist only in the immediate result.
 
-No additional database migration is needed for Estudantes. It uses the reviewed
-owner/turma schema already present in development and the isolated test branch.
-
 ## Project moderation
 
 The global list and a turma's `Projetos` tab share gallery cards, project/author
@@ -199,21 +153,15 @@ search and publication filters. The global view also filters by turma, including
 archived groups. Filtering and stable creation-date/ID ordering run in SQL before
 incremental loading (using the shared batch size, then `Mostrar mais projetos`). Previously
 loaded cards remain visible, and filtering always searches the full database.
-Filters and the number of loaded batches remain in the URL, including when returning
-from project review. Author matching includes coauthors and
-never duplicates a group publication. Cards omit repeated titles, turma labels and
-publication badges; actions are `Visualizar` and neutral `Ocultar` or accent-colored
-`Restaurar`, styled like `Meus projetos`. Hide/restore panels retain the project name
-without the turma or repeated visibility explanations. Restoration shows the
-original hiding reason read-only before confirmation.
-
-Admin toolbar filters reuse the same dropdown component and search styling as the
-public gallery. Students retain their separate table pagination.
+Filters and the number of loaded batches remain in the URL when returning from
+review. Author matching includes coauthors without duplicate publications.
+Actions are `Visualizar`, `Ocultar` and `Restaurar`; restoration shows the hiding
+reason read-only before confirmation. Students retain separate table pagination.
 
 Active administrators and the owner can hide a project with a required reason
 (up to 1,000 characters), or restore it after confirmation. Both operations check
 staff access inside the transaction and lock the project row. Stale actions return
-409 rather than overwrite another moderator's decision. Moderation changes only
+409 when the expected visibility no longer matches. Moderation changes only
 visibility, reason and the latest moderator/time; it retains publication ownership,
 content, authors and likes. Restoration clears the reason but retains the latest
 moderator/time. This is latest-action metadata, not an audit history.
@@ -225,9 +173,6 @@ Coauthors retain their existing leave action. Owner edits do not restore visibil
 The administration has a private review page with reason and latest-action metadata.
 Private previews show a read-only like count. Public liking resumes after restoration.
 Staff receive no general content-edit or permanent-deletion rights.
-
-No additional migration is needed: moderation uses the existing visibility fields.
-The implementation is local/development only; production and Vercel are unchanged.
 
 ## Administrators
 
@@ -272,9 +217,6 @@ owner-created activation grant. The affected person must sign in again; a pendin
 account still needs activation. Concurrent role changes and link operations
 serialize on the target user row and reject stale actions.
 
-No schema migration is required. This section is implemented for development
-review; production and Vercel are unchanged.
-
 ## Public profiles and primary turma
 
 In Estudantes → Gerenciar → Turmas, people with several selected memberships
@@ -286,28 +228,14 @@ are retained. The community filter considers all memberships.
 
 Profiles show the primary turma's number, course and start year. Public addresses
 use a unique slug generated at creation; editing a name preserves the address.
-Existing internal-ID URLs are not supported. Apply
-`20261104_public_profiles.sql` before running the updated app; see the
-[migration notes](../migrations/README.md).
+Existing internal-ID URLs are not supported. Schema history and upgrade
+prerequisites are documented in [Migrations](../migrations/README.md).
 
 ## Checks
 
-```sh
-node --import tsx --test tests/student-import.test.ts tests/database-target.test.ts
-npm run test:admin
-```
-
-The integration suite requires an ignored `.env.admin-test` on an isolated
-`test/*` branch containing the current schema and an owner. It verifies the actual
-Neon target before writing and deletes only its own fixtures. It also compares
-all original rows after cleanup. It cannot run against production or development.
-The suite also covers unique/stable profile slugs, primary-turma permissions and
-fallback, all-membership community filtering, and credit/like preservation.
-Administrator tests additionally cover owner-only access, protected ownership,
-new-account activation, identity/content preservation on role changes, grant
-revocation, and concurrent promotion/demotion.
-
-Browser validation uses disposable development fixtures and covers access control,
-creation/editing/archive, individual addition, import preview/confirmation and
-activation-link creation at desktop/mobile widths. It does not verify real email
-delivery or new Google configuration.
+See [Testing](testing.md#database-integration-suites) for `test:admin`, fixture
+requirements and the distinction between CI and separately run suites.
+Administrative tests cover permissions, imports, grants, memberships, moderation
+and role changes. [Admin operations](admin-operations.md) describes transactional
+guarantees. Neither local tests nor public screenshots establish that a new
+deployment's authenticated admin routes work; check them after release.
