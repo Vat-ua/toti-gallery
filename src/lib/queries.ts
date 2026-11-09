@@ -120,23 +120,14 @@ function matchesText(column: SQLWrapper, query: string) {
   const text = query.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   return sql`strpos(regexp_replace(normalize(lower(${column}), NFD), ${"[\u0300-\u036f]"}, '', 'g'), ${text}) > 0`;
 }
-function primaryTurma(userId: SQLWrapper, preferred: SQLWrapper) {
-  return sql`coalesce(
-    (select m.turma_id from gallery_turma_members m where m.user_id = ${userId} and m.turma_id = ${preferred}),
-    (select m.turma_id from gallery_turma_members m join gallery_turmas t on t.id=m.turma_id where m.user_id=${userId} order by t.number desc limit 1))`;
-}
 function galleryWhere(filters: GalleryFilters) {
   const search = filters.query ? matchesText(sql`concat_ws(' ', ${projects.title}, ${projects.description},
     (select string_agg(u.name, ' ') from
       (select ${projects.authorId} as user_id union select a.user_id from gallery_project_authors a where a.project_id=${projects.id}) credits
       join gallery_users u on u.id=credits.user_id),
     (select string_agg(value, ' ') from jsonb_array_elements_text(${projects.technologies})))`, filters.query) : undefined;
-  const cohort = filters.cohort ? or(
-    inArray(projects.turmaId, db.select({ id: turmas.id }).from(turmas).where(eq(turmas.name, filters.cohort))),
-    sql`exists(select 1 from gallery_project_authors a join gallery_users u on u.id=a.user_id
-      join gallery_turmas t on t.id=${primaryTurma(sql`u.id`, sql`u.primary_turma_id`)}
-      where a.project_id=${projects.id} and a.user_id<>${projects.authorId} and t.name=${filters.cohort})`,
-  ) : undefined;
+  const cohort = filters.cohort ? inArray(projects.turmaId,
+    db.select({ id: turmas.id }).from(turmas).where(eq(turmas.name, filters.cohort))) : undefined;
   return and(eq(projects.visibility, "published"), search, cohort,
     filters.finalOnly ? eq(projects.isFinal, true) : undefined,
     ...filters.techs.map(tech => sql`${projects.technologies} @> ${JSON.stringify([tech])}::jsonb`));
@@ -226,9 +217,8 @@ export async function readInitialProjects(filters: GalleryFilters, scope: Projec
 
 export const getGalleryFilterOptions = cache(async (connection: ReadConnection = db): Promise<GalleryFilterOptions> => {
   const [groups, technologies] = await Promise.all([
-    connection.execute<{ name: string }>(sql`select t.name from gallery_projects p join gallery_turmas t on t.id=p.turma_id where p.visibility='published'
-      union select t.name from gallery_project_authors a join gallery_projects p on p.id=a.project_id join gallery_users u on u.id=a.user_id
-      join gallery_turmas t on t.id=${primaryTurma(sql`u.id`, sql`u.primary_turma_id`)} where p.visibility='published' and a.user_id<>p.author_id`),
+    connection.execute<{ name: string }>(sql`select distinct t.name from gallery_projects p
+      join gallery_turmas t on t.id=p.turma_id where p.visibility='published'`),
     connection.execute<{ name: string; total: number }>(sql`select tech.value as name, count(*)::int as total from gallery_projects p
       cross join lateral jsonb_array_elements_text(p.technologies) as tech(value) where p.visibility='published' group by tech.value`),
   ]);

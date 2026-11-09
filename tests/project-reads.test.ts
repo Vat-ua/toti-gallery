@@ -109,6 +109,61 @@ test("SQL search preserves accent-insensitive text, authors, literal input, AND 
   assert.deepEqual(az.items.map(project => project.id), ids.slice(1, SIZE + 1));
 });
 
+test("gallery turma filters and choices follow the publication, independent of authors' current memberships", async () => {
+  await client.query("SAVEPOINT publication_turma_filter");
+  try {
+    const projectTurma = randomUUID(), currentTurma = randomUUID(), hiddenTurma = randomUUID();
+    const author = randomUUID(), contributor = randomUUID(), publication = randomUUID(), hidden = randomUUID();
+    const number = randomInt(800000001, 900000000), query = `${prefix}-turma-filter`;
+    const originalName = `Turma ${number}`, currentName = `Turma ${number + 1}`, hiddenName = `Turma ${number + 2}`;
+    for (const [index, id] of [projectTurma, currentTurma, hiddenTurma].entries()) {
+      await client.query("INSERT INTO gallery_turmas(id,name,number,course_name,start_year,archived_at) VALUES($1,$2,$3,'Fixture',2026,$4)",
+        [id, `Turma ${number + index}`, number + index, index === 0 ? new Date() : null]);
+    }
+    for (const id of [author, contributor]) {
+      await client.query("INSERT INTO gallery_users(id,slug,name,email,status,email_verified,primary_turma_id) VALUES($1,$2,'Fixture',$3,'active',true,$4)",
+        [id, `${prefix}-${id}`, `${id}@example.invalid`, projectTurma]);
+      await client.query("INSERT INTO gallery_turma_members(user_id,turma_id) VALUES($1,$2),($1,$3)", [id, projectTurma, currentTurma]);
+    }
+    for (const [id, turma] of [[publication, projectTurma], [hidden, hiddenTurma]]) {
+      await client.query("INSERT INTO gallery_projects(id,slug,title,description,technologies,github_url,author_id,turma_id) VALUES($1,$2,$3,'Fixture','[\"React\"]','https://github.com',$4,$5)",
+        [id, `${query}-${id}`, query, author, turma]);
+      await client.query("INSERT INTO gallery_project_authors(project_id,user_id) VALUES($1,$2)", [id, author]);
+    }
+    await client.query("UPDATE gallery_projects SET visibility='hidden',moderation_reason='Fixture reason',moderated_by=$1,moderated_at=now() WHERE id=$2", [author, hidden]);
+    await client.query("INSERT INTO gallery_project_authors(project_id,user_id) VALUES($1,$2)", [publication, contributor]);
+    const check = async () => {
+      const selected = filters({ q: query, cohort: String(number) });
+      assert.equal(selected.cohort, originalName);
+      const batch = await queries.readProjectPage(selected, { kind: 'gallery' }, connection);
+      const initial = await queries.readInitialProjects(selected, { kind: 'gallery' }, connection);
+      assert.equal(batch.total, 1); assert.equal(batch.hasMore, false);
+      assert.deepEqual(batch.items.map(item => item.id), [publication]);
+      assert.deepEqual(initial.items.map(item => item.id), [publication]);
+      assert.equal((await queries.readProjectPage(filters({ q: query, cohort: String(number + 1) }), { kind: 'gallery' }, connection)).total, 0);
+      assert.equal((await queries.readProjectPage(filters({ q: query, cohort: String(number + 2) }), { kind: 'gallery' }, connection)).total, 0);
+      const choices = (await queries.getGalleryFilterOptions(connection)).cohorts;
+      assert(choices.includes(originalName), 'Archived publication turmas remain discoverable');
+      assert(!choices.includes(currentName), 'Membership-only turmas must not become gallery choices');
+      assert(!choices.includes(hiddenName), 'Hidden publications must not add gallery choices');
+    };
+    await check();
+    await client.query("UPDATE gallery_users SET primary_turma_id=$1 WHERE id=ANY($2::text[])", [currentTurma, [author, contributor]]);
+    await check();
+    await client.query("DELETE FROM gallery_turma_members WHERE turma_id=$1 AND user_id=ANY($2::text[])", [projectTurma, [author, contributor]]);
+    await client.query("UPDATE gallery_users SET primary_turma_id=null WHERE id=$1", [contributor]);
+    await check();
+    const detail = await queries.readProject({ id: publication }, connection);
+    assert.equal(detail?.turmaId, projectTurma);
+    assert.deepEqual(detail?.authors.map(person => person.id), [author, contributor]);
+    const profile = await queries.readProjectPage(filters(), { kind: 'profile', userId: contributor }, connection);
+    assert.deepEqual(profile.items.map(item => item.id), [publication], 'Authorship remains independent of membership');
+  } finally {
+    await client.query("ROLLBACK TO SAVEPOINT publication_turma_filter");
+    await client.query("RELEASE SAVEPOINT publication_turma_filter");
+  }
+});
+
 test("specific project and participant readers enforce visibility and ownership in SQL", async () => {
   statements.length = 0;
   assert.equal((await queries.readProject({ id: ids[1] }, connection))?.id, ids[1]);
