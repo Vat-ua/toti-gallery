@@ -28,9 +28,15 @@ Search, filters, sorting and counts run in PostgreSQL. One pure URL parser defin
 the same meaning for SSR and API requests. Syntactically valid unknown filters
 produce no matches; available choices never silently change a query's meaning.
 The gallery supports search, turma, technologies, finals and sorting. Community
-supports name/turma; profile and personal lists support the page only. Independent
-filter-choice and list queries start in parallel. Community hydrates selected people
-and aggregates their project statistics concurrently once the selected IDs are known.
+supports name/turma and sorting by name (default), published project count or
+received likes; profile and personal lists support the page only. Independent
+filter-choice and list queries start in parallel. Community selects IDs, totals
+and public authorship statistics in one SQL statement, then hydrates only selected
+profiles and retains that SQL order. Alphabetical browsing limits candidates before
+aggregating; rankings aggregate matching candidates before pagination. Duplicate
+owner credits and multiple memberships never multiply counts. Ties use pt-BR name
+order and ID. `sort=projects` and `sort=likes` persist in community URLs; default
+name order needs no URL parameter. Sort changes reset the displayed prefix.
 Publication forms load available turmas and their eligible coauthors independently;
 private edit reads still wait for verified identity and ownership.
 

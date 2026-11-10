@@ -223,6 +223,72 @@ test("initial snapshots bound huge URL pages before SQL execution", async () => 
   assert(people.items.length <= INITIAL_COLLECTION_PAGES * SIZE);
 });
 
+test("community rankings sort the full matching set before pagination and preserve public credit totals", async () => {
+  await client.query("SAVEPOINT community_rankings");
+  try {
+    const query = `${prefix}-ranking`, turma = randomUUID(), extraTurma = randomUUID();
+    const number = randomInt(800000001, 900000000);
+    for (const [index, id] of [turma, extraTurma].entries()) {
+      await client.query("INSERT INTO gallery_turmas(id,name,number) VALUES($1,$2,$3)", [id, `Turma ${number + index}`, number + index]);
+    }
+    const people = Array.from({ length: SIZE + 5 }, (_, index) => ({
+      id: randomUUID(), name: `${query} ${index < 2 ? 'Mesmo nome' : String(index).padStart(2, '0')}`, projectCount: 0, totalLikes: 0,
+    }));
+    for (const [index, person] of people.entries()) {
+      await client.query("INSERT INTO gallery_users(id,slug,name,email,status,email_verified) VALUES($1,$2,$3,$4,'active',true)",
+        [person.id, `${query}-${person.id}`, person.name, `${person.id}@example.invalid`]);
+      await client.query("INSERT INTO gallery_turma_members(user_id,turma_id) VALUES($1,$2)", [person.id, turma]);
+      if (index % 2 === 0) await client.query("INSERT INTO gallery_turma_members(user_id,turma_id) VALUES($1,$2)", [person.id, extraTurma]);
+      const count = index === people.length - 1 ? 4 : index === people.length - 2 ? 1 : index % 3;
+      for (let publication = 0; publication < count; publication++) {
+        const id = randomUUID(), base = index === people.length - 2 ? 5000 : index + 1;
+        await client.query("INSERT INTO gallery_projects(id,slug,title,description,technologies,github_url,author_id,turma_id,base_likes) VALUES($1,$2,'Ranking','Fixture','[]','https://github.com',$3,$4,$5)",
+          [id, `${query}-${id}`, person.id, turma, base]);
+        // The owner also has a credit row: this must never double the statistics.
+        await client.query("INSERT INTO gallery_project_authors(project_id,user_id) VALUES($1,$2)", [id, person.id]);
+        await client.query("INSERT INTO gallery_likes(project_id,visitor_key) VALUES($1,'fixture')", [id]);
+        person.projectCount++; person.totalLikes += base + 1;
+        if (index === people.length - 1 && publication === 0) {
+          await client.query("INSERT INTO gallery_project_authors(project_id,user_id) VALUES($1,$2)", [id, people[2].id]);
+          people[2].projectCount++; people[2].totalLikes += base + 1;
+        }
+      }
+    }
+    const hidden = randomUUID();
+    await client.query("INSERT INTO gallery_projects(id,slug,title,description,technologies,github_url,author_id,turma_id,base_likes,visibility,moderation_reason,moderated_by,moderated_at) VALUES($1,$2,'Hidden','Fixture','[]','https://github.com',$3,$4,999999,'hidden','Fixture',$3,now())",
+      [hidden, `${query}-${hidden}`, people[0].id, turma]);
+    const collator = new Intl.Collator('pt-BR');
+    const byName = (a: typeof people[number], b: typeof people[number]) => collator.compare(a.name, b.name) || a.id.localeCompare(b.id);
+    for (const sort of ['az', 'projects', 'likes'] as const) {
+      const expected = [...people].sort((a, b) => (sort === 'projects' ? b.projectCount - a.projectCount : sort === 'likes' ? b.totalLikes - a.totalLikes : 0) || byName(a, b));
+      const selected = (page = '1', cohort = String(number)) => readGalleryFilters(new URLSearchParams({ q: query, cohort, sort, page }), 'community');
+      statements.length = 0;
+      const first = await queries.readCommunityPage(selected(), connection);
+      assert.equal(statements.length, 2, 'One bounded SQL/statistics read and one selected-profile read');
+      const second = await queries.readCommunityPage(selected('2'), connection);
+      assert.equal(first.total, people.length); assert.equal(first.items.length, SIZE); assert.equal(first.hasMore, true);
+      assert.equal(second.previousId, first.items.at(-1)?.id); assert.equal(second.hasMore, false);
+      const combined = [...first.items, ...second.items];
+      assert.deepEqual(combined.map(person => person.id), expected.map(person => person.id));
+      for (const actual of combined) {
+        const person = people.find(person => person.id === actual.id)!;
+        assert.equal(actual.projectCount, person.projectCount); assert.equal(actual.totalLikes, person.totalLikes);
+      }
+      const restored = await queries.readInitialCommunity(selected('2'), connection);
+      assert.deepEqual(restored.items.map(person => person.id), expected.map(person => person.id));
+      const clamped = await queries.readCommunityPage(selected('999999999'), connection);
+      assert.equal(clamped.page, 2); assert.deepEqual(clamped.items.map(person => person.id), second.items.map(person => person.id));
+      const scoped = await queries.readCommunityPage(selected('1', String(number + 1)), connection);
+      const eligible = new Set(people.filter((_, index) => index % 2 === 0).map(person => person.id));
+      assert.equal(scoped.total, eligible.size);
+      assert.deepEqual(scoped.items.map(person => person.id), expected.filter(person => eligible.has(person.id)).map(person => person.id));
+    }
+  } finally {
+    await client.query("ROLLBACK TO SAVEPOINT community_rankings");
+    await client.query("RELEASE SAVEPOINT community_rankings");
+  }
+});
+
 test("batch boundary changes identify insertions, removals and reordered records", async () => {
   const first = await queries.readProjectPage(filters(), { kind: 'gallery' }, connection);
   const expected = first.items.at(-1)!.id;

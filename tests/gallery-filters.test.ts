@@ -48,3 +48,20 @@ test("unknown valid filters retain the same meaning independently of available c
   assert.deepEqual(readGalleryFilters(params, "community").techs, []);
   assert.equal(readGalleryFilters(params, "page").cohort, "");
 });
+
+test("community sorting defaults to names and round-trips rankings with search, turma and page", () => {
+  for (const sort of ["", "recent", "invalid", "az"]) {
+    const filters = readGalleryFilters(new URLSearchParams({ sort }), "community");
+    assert.equal(filters.sort, "az");
+    assert.equal(galleryFilterParams(filters, "community").toString(), "");
+  }
+  for (const sort of ["projects", "likes"]) {
+    const filters = readGalleryFilters(new URLSearchParams({ q: "Ana", cohort: "58", sort, page: "2" }), "community");
+    assert.equal(filters.sort, sort);
+    const params = galleryFilterParams(filters, "community");
+    assert.equal(params.get("sort"), sort); assert.equal(params.get("page"), "2");
+    assert.deepEqual(readGalleryFilters(params, "community"), filters);
+  }
+  assert.equal(readGalleryFilters(new URLSearchParams("sort=projects")).sort, "recent");
+  assert.equal(galleryFilterParams(readGalleryFilters(new URLSearchParams())).toString(), "");
+});

@@ -12,9 +12,10 @@ import { Avatar } from "./ui";
 import { Icon } from "./icon";
 import { useGalleryFilters } from "./use-gallery-filters";
 import { Popover } from "./popover";
+import { SortMenu } from "./sort-menu";
 
 export function Community({ initialPage, filterOptions }: { initialPage: CollectionSnapshot<CommunityPerson>; filterOptions: GalleryFilterOptions }) {
-  const { filters: { query, cohort }, updateFilters, changeQuery, flushQuery, changePage } = useGalleryFilters("community");
+  const { filters: { query, cohort, sort }, updateFilters, changeQuery, flushQuery, changePage } = useGalleryFilters("community");
   const collection = usePagedCollection(initialPage, "/api/people", "community");
   const { items, total, loadedPages: loadedPage } = collection.data;
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -60,6 +61,7 @@ export function Community({ initialPage, filterOptions }: { initialPage: Collect
               </div>
             </Popover>
           </div>
+          <SortMenu mode="community" value={sort} onChange={sort => updateFilters({ sort })}/>
         </div>
       </div>
       <p className="results-count" aria-live="polite" aria-atomic="true"><strong>{total}</strong> {total === 1 ? "pessoa" : "pessoas"}</p>

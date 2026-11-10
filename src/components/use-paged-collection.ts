@@ -14,7 +14,7 @@ export function usePagedCollection<T extends { id: string }>(initial: Collection
   const filters = useMemo(() => {
     if (typeof mode === "function") return mode(url);
     const filters = readGalleryFilters(url, mode);
-    const params = galleryFilterParams(filters); params.delete("page");
+    const params = galleryFilterParams(filters, mode); params.delete("page");
     return { page: filters.page, search: params.toString() };
   }, [url, mode]);
   const search = filters.search, key = `${endpoint}?${search}`;

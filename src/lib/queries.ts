@@ -241,8 +241,37 @@ async function communityCollection(filters: GalleryFilters, initial: boolean, co
     filters.query ? matchesText(users.name, filters.query) : undefined,
     filters.cohort ? inArray(users.id, db.select({ id: turmaMembers.userId }).from(turmaMembers).innerJoin(turmas, eq(turmas.id, turmaMembers.turmaId)).where(eq(turmas.name, filters.cohort))) : undefined);
   let page = initial ? initialCollectionPage(filters.page) : requestedPage(filters.page);
-  const read = () => connection.select({ id: users.id, total: sql<number>`count(*) over()`.mapWith(Number) }).from(users).where(where).orderBy(users.name, users.id)
-    .limit(initial ? page * COLLECTION_PAGE_SIZE : COLLECTION_PAGE_SIZE + Number(page > 1)).offset(initial ? 0 : Math.max(0, (page - 1) * COLLECTION_PAGE_SIZE - 1));
+  const ranked = filters.sort === "projects" || filters.sort === "likes";
+  const alphabetical = sql`name collate "pt-BR-x-icu", id`;
+  const order = filters.sort === "projects" ? sql`coalesce(s.project_count, 0) desc, c.name collate "pt-BR-x-icu", c.id`
+    : filters.sort === "likes" ? sql`coalesce(s.total_likes, 0) desc, c.name collate "pt-BR-x-icu", c.id`
+    : sql`c.name collate "pt-BR-x-icu", c.id`;
+  const read = async () => {
+    const batch = sql`limit ${initial ? page * COLLECTION_PAGE_SIZE : COLLECTION_PAGE_SIZE + Number(page > 1)}
+      offset ${initial ? 0 : Math.max(0, (page - 1) * COLLECTION_PAGE_SIZE - 1)}`;
+    // Alphabetical browsing aggregates only the selected people. Rankings need
+    // all matching candidates' statistics before applying the same bounded batch.
+    const result = await connection.execute<{ id: string; total: number; project_count: number; total_likes: number }>(sql`
+      with matching as (
+        select ${users.id} as id, ${users.name} as name, count(*) over()::int as total from ${users} where ${where}
+      ), candidates as (
+        select * from matching ${ranked ? sql`` : sql`order by ${alphabetical} ${batch}`}
+      ), credits as (
+        select p.id as project_id, p.author_id as user_id from gallery_projects p
+          join candidates c on c.id=p.author_id where p.visibility='published'
+        union select a.project_id, a.user_id from gallery_project_authors a
+          join gallery_projects p on p.id=a.project_id join candidates c on c.id=a.user_id where p.visibility='published'
+      ), project_likes as (
+        select p.id, p.base_likes + count(l.visitor_key) as total_likes from gallery_projects p
+          join (select distinct project_id from credits) credited on credited.project_id=p.id
+          left join gallery_likes l on l.project_id=p.id group by p.id
+      ), statistics as (
+        select c.user_id, count(*)::int as project_count, sum(p.total_likes)::int as total_likes
+          from credits c join project_likes p on p.id=c.project_id group by c.user_id
+      ) select c.id, c.total, coalesce(s.project_count, 0) as project_count, coalesce(s.total_likes, 0) as total_likes
+        from candidates c left join statistics s on s.user_id=c.id order by ${order} ${ranked ? batch : sql``}`);
+    return result.rows;
+  };
   let rows = await read(), total = rows[0]?.total || 0;
   if (!initial && (page > collectionPage(page, total) || (!rows.length && page > 1))) {
     if (!rows.length) [{ total }] = await connection.select({ total: count() }).from(users).where(where);
@@ -252,18 +281,9 @@ async function communityCollection(filters: GalleryFilters, initial: boolean, co
   page = collectionPage(page, total);
   const previousId = !initial && page > 1 ? rows.shift()?.id || null : null;
   const ids = rows.map(row => row.id);
-  const [people, stats] = await Promise.all([
-    peopleRows(false, connection, ids),
-    ids.length ? connection.execute<{ user_id: string; total: number; total_likes: number }>(sql`
-    with credits as (
-      select p.id as project_id, p.author_id as user_id from gallery_projects p where p.visibility='published' and p.author_id in (${sql.join(ids.map(id => sql`${id}`), sql`,`)})
-      union select a.project_id, a.user_id from gallery_project_authors a join gallery_projects p on p.id=a.project_id
-        where p.visibility='published' and a.user_id in (${sql.join(ids.map(id => sql`${id}`), sql`,`)})
-    ) select c.user_id, count(*)::int as total, sum(p.base_likes + (select count(*) from gallery_likes l where l.project_id=p.id))::int as total_likes
-      from credits c join gallery_projects p on p.id=c.project_id group by c.user_id`) : { rows: [] },
-  ]);
-  const byUser = new Map(stats.rows.map(row => [row.user_id, row]));
-  const items = people.map(person => ({ ...person, projectCount: byUser.get(person.id)?.total || 0, totalLikes: byUser.get(person.id)?.total_likes || 0 }));
+  const people = await peopleRows(false, connection, ids);
+  const byUser = new Map(people.map(person => [person.id, person]));
+  const items = rows.map(row => ({ ...byUser.get(row.id)!, projectCount: row.project_count, totalLikes: row.total_likes }));
   return { items, total, page, pageSize: COLLECTION_PAGE_SIZE, previousId, hasMore: page * COLLECTION_PAGE_SIZE < total };
 }
 
