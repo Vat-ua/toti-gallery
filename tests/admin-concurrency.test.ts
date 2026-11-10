@@ -9,6 +9,7 @@ let pool: typeof import("../src/db").pool;
 let students: typeof import("../src/lib/admin-students");
 let groups: typeof import("../src/lib/admin-turmas");
 let studentRoute: typeof import("../src/app/api/admin/estudantes/[id]/route");
+let turmaRoute: typeof import("../src/app/api/admin/turmas/[id]/route");
 let restoreAuthentication: (() => void) | undefined;
 const extraUsers: string[] = [];
 const admin = randomUUID(), student = randomUUID(), turmaIds = [randomUUID(), randomUUID()];
@@ -37,6 +38,7 @@ before(async () => {
   } } as NodeJS.Module;
   restoreAuthentication = () => { if (original) require.cache[authPath] = original; else delete require.cache[authPath]; };
   studentRoute = require("./src/app/api/admin/estudantes/[id]/route.ts");
+  turmaRoute = require("./src/app/api/admin/turmas/[id]/route.ts");
   owner = (await pool.query("SELECT id FROM gallery_users WHERE role='owner'")).rows[0].id;
   for (const [id, role] of [[admin, "admin"], [student, "user"]]) {
     await pool.query("INSERT INTO gallery_users(id,name,email,role,status,email_verified) VALUES($1,'Concurrency fixture',$2,$3,'active',true)", [id, `${id}@example.invalid`, role]);
@@ -67,13 +69,13 @@ async function updateViaHttp(body: Record<string, unknown>) {
 }
 // Queue both requests behind the same row before releasing them. No arbitrary
 // sleeps decide the race: PostgreSQL reports both waiters on the held lock.
-async function raceOnUser(id: string, operations: (() => Promise<unknown>)[]) {
+async function raceOnUser(id: string, operations: (() => Promise<unknown>)[], table: "gallery_users" | "gallery_turmas" = "gallery_users") {
   const gate = await pool.connect();
   let work: Promise<unknown>[] = [];
   try {
     await gate.query("BEGIN");
     const pid = (await gate.query("SELECT pg_backend_pid() AS pid")).rows[0].pid;
-    await gate.query("SELECT id FROM gallery_users WHERE id=$1 FOR UPDATE", [id]);
+    await gate.query(`SELECT id FROM ${table} WHERE id=$1 FOR UPDATE`, [id]);
     work = operations.map(operation => operation());
     // Attach rejection handlers immediately while arranging the race.
     const results = Promise.allSettled(work);
@@ -95,6 +97,62 @@ test("concurrent owner self-membership updates complete without a lock-upgrade d
   assert.deepEqual(results.map(result => result.status), ["fulfilled", "fulfilled"], JSON.stringify(results.map(result => result.status === "rejected" ? { code: result.reason.cause?.code || result.reason.code } : { ok: true })));
   const own = await memberships(owner);
   assert(turmaIds.every(id => own.includes(id)));
+});
+
+test("two administrative profile replacements from one snapshot preserve the first accepted edit", async () => {
+  const expected = (await pool.query("SELECT name,email FROM gallery_users WHERE id=$1", [student])).rows[0];
+  const results = await raceOnUser(student, [admin, owner].map((actor, index) => () => students.updateStudentProfile(actor, student, `Editor ${index}`, expected.email, expected)));
+  assert.equal(results.filter(result => result.status === "fulfilled").length, 1);
+  assert.equal((results.find(result => result.status === "rejected") as PromiseRejectedResult).reason.status, 409);
+  const winner = results.findIndex(result => result.status === "fulfilled");
+  assert.equal((await pool.query("SELECT name FROM gallery_users WHERE id=$1", [student])).rows[0].name, `Editor ${winner}`);
+});
+
+test("two turma replacements from one snapshot lock the group and reject the stale writer", async () => {
+  const id = turmaIds[0], expected = (await pool.query('SELECT number,course_name AS "courseName",start_year AS "startYear" FROM gallery_turmas WHERE id=$1', [id])).rows[0];
+  const results = await raceOnUser(id, [admin, owner].map((actor, index) => () => groups.saveTurma(actor, { ...expected, courseName: `Course ${index}` }, id, expected)), "gallery_turmas");
+  assert.equal(results.filter(result => result.status === "fulfilled").length, 1);
+  assert.equal((results.find(result => result.status === "rejected") as PromiseRejectedResult).reason.status, 409);
+  const winner = results.findIndex(result => result.status === "fulfilled");
+  assert.equal((await pool.query("SELECT course_name FROM gallery_turmas WHERE id=$1", [id])).rows[0].course_name, `Course ${winner}`);
+});
+
+test("profile and turma HTTP edits require valid snapshots and return 409 only for stale data", async () => {
+  const person = (await pool.query("SELECT name,email FROM gallery_users WHERE id=$1", [student])).rows[0];
+  const turmaId = turmaIds[0], group = (await pool.query('SELECT number,course_name AS "courseName",start_year AS "startYear" FROM gallery_turmas WHERE id=$1', [turmaId])).rows[0];
+  async function saveGroup(expected: unknown) {
+    return turmaRoute.PATCH(new Request(`http://localhost:3101/api/admin/turmas/${turmaId}`, {
+      method: "PATCH", headers: { origin: "http://localhost:3101", "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "save", ...group, courseName: "HTTP course", expected }),
+    }), { params: Promise.resolve({ id: turmaId }) });
+  }
+  const before = await snapshot();
+  for (const expected of [undefined, null, [], {}, { name: 42, email: person.email }, { ...person, role: "owner" }]) {
+    assert.equal((await updateViaHttp({ action: "profile", ...person, name: "Must not save", expected })).status, 400);
+  }
+  for (const expected of [undefined, null, [], {}, { ...group, number: "51" }, { ...group, archived: false }]) {
+    assert.equal((await saveGroup(expected)).status, 400);
+  }
+  assert.deepEqual(await snapshot(), before);
+  assert.equal((await updateViaHttp({ action: "profile", ...person, name: "Current HTTP name", expected: person })).status, 200);
+  assert.equal((await saveGroup(group)).status, 200);
+  const accepted = await snapshot();
+  const staleProfile = await updateViaHttp({ action: "profile", ...person, expected: person });
+  const staleGroup = await saveGroup(group);
+  for (const response of [staleProfile, staleGroup]) { assert.equal(response.status, 409); assert.equal(response.headers.get("cache-control"), "no-store"); }
+  assert.deepEqual(await snapshot(), accepted);
+});
+
+test("turma snapshots accept legacy null fields and ignore archiving and membership changes", async () => {
+  const id = turmaIds[1];
+  await pool.query("UPDATE gallery_turmas SET course_name=NULL,start_year=NULL WHERE id=$1", [id]);
+  const expected = (await pool.query('SELECT number,course_name AS "courseName",start_year AS "startYear" FROM gallery_turmas WHERE id=$1', [id])).rows[0];
+  await groups.archiveTurma(admin, id, true);
+  await groups.setMembership(admin, id, student, true);
+  await groups.saveTurma(admin, { number: expected.number, courseName: "Restored course", startYear: 2026 }, id, expected);
+  const stored = (await groups.turmaDetails(admin, id)).turma;
+  assert.equal(stored.courseName, "Restored course"); assert.equal(stored.archived, true);
+  assert((await memberships()).includes(id));
 });
 
 test("two membership replacements based on one snapshot cannot silently overwrite each other", async () => {

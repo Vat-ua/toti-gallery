@@ -8,10 +8,12 @@ export function Footer({
   user,
   demo = false,
   presentationEnabled,
+  unavailable = false,
 }: {
   user: Person | null;
   demo?: boolean;
   presentationEnabled: boolean;
+  unavailable?: boolean;
 }) {
   return (
     <footer className="site-footer">
@@ -48,7 +50,7 @@ export function Footer({
             ) : (
               <Link href="/entrar">Entrar</Link>
             )}
-            <PublishProjectLink authenticated={!!user} demo={demo}>
+            <PublishProjectLink authenticated={unavailable ? null : !!user} demo={demo}>
               Publicar projeto
             </PublishProjectLink>
           </div>

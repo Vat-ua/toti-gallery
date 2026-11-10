@@ -1,5 +1,5 @@
 import { requestJson } from "./http-client";
-import type { AdminStudent, AdministratorCandidate, ImportPreview, StudentAdded, StudentLookup } from "./admin-types";
+import type { AdminStudent, AdministratorCandidate, ImportPreview, StudentAdded, StudentLookup, StudentProfileSnapshot, TurmaSnapshot } from "./admin-types";
 
 export type Grant = { url: string; expiresAt: string };
 export type MembershipSnapshot = { turmaIds: string[]; primaryTurmaId: string | null };
@@ -52,8 +52,8 @@ const studentPath = (id: string) => `/api/admin/estudantes/${encodeURIComponent(
 const administratorPath = (id: string) => `/api/admin/administradores/${encodeURIComponent(id)}`;
 
 export const turmasApi = {
-  save(turmaId: string | undefined, values: { number: number; courseName: string; startYear: number }) {
-    return call(turmaId ? turmaPath(turmaId) : "/api/admin/turmas", turmaId ? { action: "save", ...values } : values, identifier, turmaId ? "PATCH" : "POST");
+  save(turmaId: string | undefined, values: { number: number; courseName: string; startYear: number }, expected?: TurmaSnapshot) {
+    return call(turmaId ? turmaPath(turmaId) : "/api/admin/turmas", turmaId ? { action: "save", ...values, expected } : values, identifier, turmaId ? "PATCH" : "POST");
   },
   archive(turmaId: string, archived: boolean) { return call(turmaPath(turmaId), { action: "archive", archived }, acknowledged, "PATCH"); },
   lookup(turmaId: string, email: string, signal?: AbortSignal) {
@@ -74,7 +74,7 @@ export const turmasApi = {
   import(turmaId: string, text: string, action: "preview" | "confirm", excluded: number[] = []) { return call(`${turmaPath(turmaId)}/import`, { action, text, excluded }, imported); },
 };
 export const studentsApi = {
-  profile(userId: string, name: string, email: string) { return call(studentPath(userId), { action: "profile", name, email }, data => ({ name: string(data.name), email: string(data.email), emailChanged: boolean(data.emailChanged) })); },
+  profile(userId: string, name: string, email: string, expected: StudentProfileSnapshot) { return call(studentPath(userId), { action: "profile", name, email, expected }, data => ({ name: string(data.name), email: string(data.email), emailChanged: boolean(data.emailChanged) })); },
   memberships(userId: string, value: MembershipSnapshot, expected: MembershipSnapshot) { return call(studentPath(userId), { action: "turmas", ...value, expected }, memberships); },
   suspend(userId: string, suspended: boolean) { return call(studentPath(userId), { action: "suspend", suspended }, data => ({ status: status(data.status) })); },
   access(userId: string, purpose: "activation" | "password_reset") { return call(studentPath(userId), { action: "access", purpose }, grant); },

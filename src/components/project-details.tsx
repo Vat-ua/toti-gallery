@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { Suspense, use, type ReactNode } from "react";
 import type { Project, ProjectSummary } from "@/lib/types";
 import type { LikeAction } from "@/lib/likes-client";
 import { ProjectCover } from "./project-cover";
@@ -21,7 +21,7 @@ export function RelatedProjects({ projects, backHref = "/", links = studentProje
 }
 
 export function ProjectDetails({ project, related = [], canEdit = false, relatedContent, readOnly = false, embedded = false, backHref = "/", backLabel = "Projetos", notice, likeAction, links = studentProjectLinks }: {
-  project: Project; related?: ProjectSummary[]; canEdit?: boolean; readOnly?: boolean; embedded?: boolean;
+  project: Project; related?: ProjectSummary[]; canEdit?: boolean | Promise<boolean>; readOnly?: boolean; embedded?: boolean;
   backHref?: string; backLabel?: string; notice?: ReactNode; likeAction?: LikeAction; links?: ProjectLinks;
   relatedContent?: ReactNode;
 }) {
@@ -43,7 +43,7 @@ export function ProjectDetails({ project, related = [], canEdit = false, related
         </div>
       </div>
       <div className="detail-actions">
-        {canEdit && <Link className="button button-dark" href={links.edit(project.id)}><Icon name="edit" size={16}/>Editar projeto</Link>}
+        <Suspense fallback={null}><EditProjectAction canEdit={canEdit} href={links.edit(project.id)}/></Suspense>
         {readOnly ? <ProjectLikeCount likes={project.likes}/> : <LikeButton id={project.id} initialLiked={project.liked} initialLikes={project.likes} observedAt={project.likesObservedAt} full action={likeAction}/>}
       </div>
     </div>
@@ -79,4 +79,9 @@ export function ProjectDetails({ project, related = [], canEdit = false, related
     </div>
     {relatedContent ?? <RelatedProjects projects={related} backHref={backHref} links={links} likeAction={likeAction} readOnly={readOnly}/>}
   </Wrapper>;
+}
+
+function EditProjectAction({ canEdit, href }: { canEdit: boolean | Promise<boolean>; href: string }) {
+  const allowed = typeof canEdit === "boolean" ? canEdit : use(canEdit);
+  return allowed ? <Link className="button button-dark" href={href}><Icon name="edit" size={16}/>Editar projeto</Link> : null;
 }

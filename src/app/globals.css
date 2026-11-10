@@ -1412,10 +1412,15 @@ html[data-theme="dark"] .theme-icon-moon {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-10) var(--space-6);
+}
+
+.project-grid,
+.people-grid {
   transition: opacity .2s;
 }
 
-.project-grid.is-searching {
+.project-grid.is-searching,
+.people-grid[aria-busy="true"] {
   opacity: .55;
 }
 
@@ -3547,9 +3552,9 @@ html[data-theme="dark"] .theme-icon-moon {
 }
 
 .people-controls {
-  flex-basis: 32rem;
-  max-width: 41.5rem;
-  grid-template-columns: minmax(0, 1fr) 11.5rem;
+  flex-basis: 48rem;
+  max-width: 52rem;
+  grid-template-columns: minmax(0, 1fr) 11.5rem 10rem;
 }
 
 .people-filter-panel {
@@ -3653,15 +3658,7 @@ html[data-theme="dark"] .theme-icon-moon {
   }
 
   .people-controls {
-    display: contents;
-  }
-
-  .people-controls .search-field {
-    flex: 1 0 100%;
-  }
-
-  .people-controls .filter-dropdown {
-    flex: 0 0 11.5rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .people-toolbar .results-count {

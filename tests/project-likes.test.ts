@@ -1,4 +1,4 @@
-import { after, before, test } from "node:test";
+import { after, afterEach, before, beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomInt, randomUUID } from "node:crypto";
 import { config } from "dotenv";
@@ -7,7 +7,8 @@ let pool: typeof import("../src/db").pool;
 let operations: typeof import("../src/lib/project-likes");
 let allowAttempt: typeof import("../src/lib/auth-rate-limit").allowAttempt;
 let baseline: Record<string, string>;
-const project = randomUUID(), owner = randomUUID(), group = randomUUID(), visitor = randomUUID(), other = randomUUID(), quotaVisitor = randomUUID();
+const owner = randomUUID(), group = randomUUID();
+let project: string, visitor: string, other: string, quotaVisitor: string;
 async function snapshot() {
   const result: Record<string, string> = {};
   for (const { tablename } of (await pool.query("SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename LIKE 'gallery_%' ORDER BY tablename")).rows) result[tablename] = createHash("sha256").update(JSON.stringify((await pool.query(`SELECT * FROM "${tablename}"`)).rows.map(row => JSON.stringify(row)).sort())).digest("hex");
@@ -22,15 +23,21 @@ before(async () => {
   const number = randomInt(1000000, 800000000);
   await pool.query("INSERT INTO gallery_turmas(id,name,number) VALUES($1,$2,$3)", [group, `Turma ${number}`, number]);
   await pool.query("INSERT INTO gallery_users(id,name,email) VALUES($1,'Like fixture',$2)", [owner, `${owner}@example.invalid`]);
+});
+beforeEach(async () => {
+  project = randomUUID(); visitor = randomUUID(); other = randomUUID(); quotaVisitor = randomUUID();
   await pool.query("INSERT INTO gallery_projects(id,slug,title,description,technologies,github_url,author_id,turma_id,base_likes) VALUES($1,$1,'Like fixture','A fixture description','[\"React\"]','https://github.com',$2,$3,3)", [project, owner, group]);
+});
+afterEach(async () => {
+  if (!baseline) return;
+  await pool.query("DELETE FROM gallery_projects WHERE id=$1", [project]);
+  const key = `project-like:${createHash("sha256").update(quotaVisitor).digest("hex")}`;
+  await pool.query("DELETE FROM gallery_auth_rate_limits WHERE key=$1", [key]);
 });
 after(async () => {
   if (!pool) return;
   try { if (baseline) {
-    await pool.query("DELETE FROM gallery_projects WHERE id=$1", [project]);
     await pool.query("DELETE FROM gallery_users WHERE id=$1", [owner]); await pool.query("DELETE FROM gallery_turmas WHERE id=$1", [group]);
-    const key = `project-like:${createHash("sha256").update(quotaVisitor).digest("hex")}`;
-    await pool.query("DELETE FROM gallery_auth_rate_limits WHERE key=$1", [key]);
     assert.deepEqual(await snapshot(), baseline, "Original isolated rows changed");
   } } finally { await pool.end(); }
 });
@@ -50,29 +57,42 @@ test("concurrent duplicates create one like; different browsers remain independe
   await operations.setProjectLike(project, visitor, false); assert.deepEqual(businessState(await operations.readProjectLike(project, other)), { liked: true, likes: 4 });
 });
 test("opposite parallel actions serialize and the final explicit action determines the stored state", async () => {
+  await operations.setProjectLike(project, other, true);
   await Promise.all([true, false, true, false].map(liked => operations.setProjectLike(project, visitor, liked)));
   assert.deepEqual(businessState(await operations.setProjectLike(project, visitor, false)), { liked: false, likes: 4 });
   assert.deepEqual(businessState(await operations.readProjectLike(project, visitor)), { liked: false, likes: 4 });
 });
 test("reconciliation waits for an in-progress write before reading the committed snapshot", async () => {
+  await operations.setProjectLike(project, other, true);
   const client = await pool.connect();
   let reading: Promise<Awaited<ReturnType<typeof operations.readProjectLike>>> | undefined;
   try {
-    await client.query("BEGIN"); await client.query("SELECT id FROM gallery_projects WHERE id=$1 FOR UPDATE", [project]);
+    await client.query("BEGIN");
+    const pid = (await client.query("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+    await client.query("SELECT id FROM gallery_projects WHERE id=$1 FOR UPDATE", [project]);
     await client.query("INSERT INTO gallery_likes(project_id,visitor_key) VALUES($1,$2) ON CONFLICT DO NOTHING", [project, visitor]);
     let resolved = false; reading = operations.readProjectLike(project, visitor).then(result => { resolved = true; return result; });
-    await new Promise(resolve => setTimeout(resolve, 100)); assert.equal(resolved, false);
+    const deadline = Date.now() + 8000;
+    let blocked = false;
+    while (Date.now() < deadline) {
+      blocked = (await pool.query("SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid)) AND datname=current_database()", [pid])).rowCount! > 0;
+      if (blocked) break;
+      await new Promise(resolve => setTimeout(resolve, 30));
+    }
+    assert(blocked, "The reconciliation read must reach the held project lock");
+    assert.equal(resolved, false);
     await client.query("COMMIT"); assert.deepEqual(businessState(await reading), { liked: true, likes: 5 });
   } finally { await client.query("ROLLBACK"); client.release(); await reading; }
 });
 test("missing and hidden projects reject writes without changing their likes", async () => {
+  await operations.setProjectLike(project, visitor, true);
   await assert.rejects(operations.setProjectLike(randomUUID(), visitor, true), error => (error as { status: number }).status === 404);
   await pool.query("UPDATE gallery_projects SET visibility='hidden',moderation_reason='Fixture',moderated_by=$1,moderated_at=now() WHERE id=$2", [owner, project]);
   try {
     await assert.rejects(operations.setProjectLike(project, visitor, false), error => (error as { status: number }).status === 404);
     await assert.rejects(operations.readProjectLike(project, visitor), error => (error as { status: number }).status === 404);
   } finally { await pool.query("UPDATE gallery_projects SET visibility='published' WHERE id=$1", [project]); }
-  assert.deepEqual(businessState(await operations.readProjectLike(project, visitor)), { liked: true, likes: 5 });
+  assert.deepEqual(businessState(await operations.readProjectLike(project, visitor)), { liked: true, likes: 4 });
 });
 test("the existing durable limiter allows exactly 60 parallel actions per browser per minute", async () => {
   const allowed = await Promise.all(Array.from({ length: 64 }, () => allowAttempt("project-like", quotaVisitor, 60, 60)));

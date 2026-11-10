@@ -5,20 +5,33 @@ an overview of Toti Gallery's features, grouped by activity.
 
 **Implemented** means the feature exists in the current code, including changes
 still being reviewed locally. It does not necessarily mean it is live on Vercel.
-**Planned** means it is intended for a later step.
+**Deferred** means an agreed possible addition without a committed schedule.
 
 ## Exploring the gallery
 
 | Who | Wants to | So they can | Status |
 | --- | --- | --- | --- |
 | Visitor | Browse projects and load more | Discover what other people are building | Implemented |
-| Visitor | Search and filter by turma, technology, final projects, or highlights | Find relevant examples | Implemented |
+| Visitor | Search and filter by turma, technology, or final projects | Find relevant examples | Implemented |
 | Visitor | Sort projects and share a filtered URL | Return to or share the same selection | Implemented |
 | Visitor | Open a project and its code or live site | Understand the work and try it | Implemented |
 | Visitor | Like a project without signing in | Show appreciation | Implemented |
 | Visitor | Search community members and filter by turma | Find people from a course group | Implemented |
 | Visitor | Open someone's profile | Explore their individual and group projects | Implemented |
 | Visitor | Use the site on mobile or desktop and choose a theme | Browse comfortably | Implemented |
+
+## Demonstration mode
+
+The local `/demo` workspace uses a fictional student and two starting projects.
+It requires no account and is unavailable to signed-in users. Records and uploaded
+image Blobs stay in IndexedDB, separate from PostgreSQL and Object Storage.
+Leaving demo keeps local work; restoring its initial data discards all local edits
+and newly created demo projects after confirmation.
+
+| Who | Wants to | So they can | Status |
+| --- | --- | --- | --- |
+| Visitor | Create, view, edit and delete local example projects with the real editor | Try student workflows without registering | Implemented |
+| Visitor | Adjust covers, reload saved demo work, or restore the examples | Explore the experience without affecting real users | Implemented |
 
 ## Signing in and maintaining a profile
 
@@ -30,7 +43,7 @@ Google and email/password can access the same profile.
 | Invited student | Activate their account through a link and create a password | Start using the platform | Implemented |
 | Approved student | Sign in or activate with Google | Enter without creating a separate password | Implemented |
 | User | Sign in with email and password, and sign out | Access their account without relying on Google | Implemented |
-| User | Edit their name, bio, GitHub link, and photo | Keep their profile up to date | Implemented |
+| User | Edit their name, bio, GitHub/LinkedIn links, and photo | Keep their profile up to date | Implemented |
 | User with a password | Change their password using the current one | Maintain account security | Implemented |
 | Active user | Set or reset a password through a link provided by an administrator | Recover access or add password sign-in | Implemented |
 
@@ -90,14 +103,14 @@ from role removal and ownership transfer is not part of this workflow.
 | Owner | Register an administrator without assigning a turma | Add staff who do not participate in a course | Implemented |
 | Owner | Create, reissue, or revoke staff access links | Help administrators activate or recover access | Implemented |
 
-## Planned improvements
+## Deferred improvements
 
 These are agreed directions, not a fixed implementation schedule.
 
 | Who | Wants to | So they can | Status |
 | --- | --- | --- | --- |
-| Administrator | Automatically email invitations to selected students | Avoid copying and sending each link manually | Planned |
-| User who forgot their password | Request a recovery email directly | Recover access without asking an administrator for a link | Planned |
+| Administrator | Automatically email invitations to selected students | Avoid copying and sending each link manually | Deferred |
+| User who forgot their password | Request a recovery email directly | Recover access without asking an administrator for a link | Deferred |
 
 ## Where to find the details
 

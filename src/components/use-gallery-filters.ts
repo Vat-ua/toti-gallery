@@ -49,13 +49,13 @@ export function useGalleryFilters(mode: CollectionFilterMode = "gallery") {
     timerRef.current = null;
   }
 
-  function writeUrl(next: GalleryFilters, mode: "push" | "replace") {
-    const search = galleryFilterParams(next).toString();
+  function writeUrl(next: GalleryFilters, method: "push" | "replace") {
+    const search = galleryFilterParams(next, mode).toString();
     const url = `${window.location.pathname}${search ? `?${search}` : ""}${window.location.hash}`;
     const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (url === current) return;
     setDraft((value) => ({ ...value, pending: next.query }));
-    if (mode === "push") window.history.pushState(null, "", url);
+    if (method === "push") window.history.pushState(null, "", url);
     else window.history.replaceState(null, "", url);
   }
 
@@ -64,8 +64,8 @@ export function useGalleryFilters(mode: CollectionFilterMode = "gallery") {
     const persisted = readGalleryFilters(new URLSearchParams(window.location.search), mode);
     const current = { ...persisted, query };
     const next = typeof update === "function" ? update(current) : { ...current, ...update };
-    const changed = galleryFilterParams({ ...next, page: 1 }).toString()
-      !== galleryFilterParams({ ...persisted, page: 1 }).toString();
+    const changed = galleryFilterParams({ ...next, page: 1 }, mode).toString()
+      !== galleryFilterParams({ ...persisted, page: 1 }, mode).toString();
     next.page = changed ? 1 : persisted.page;
     setDraft((value) => ({ ...value, value: next.query }));
     startTransition(() => {

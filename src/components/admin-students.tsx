@@ -73,6 +73,7 @@ function StudentPanel({ student, turmas, refreshing, close, saved }: { student: 
   const turmaSearch = useRef<HTMLInputElement>(null), addTurmaButton = useRef<HTMLButtonElement>(null);
   useEffect(() => { if (addingTurma) turmaSearch.current?.focus(); }, [addingTurma]);
   const [identity, setIdentity] = useState({ name: student.name, email: student.email });
+  const [profileSnapshot, setProfileSnapshot] = useState({ name: student.name, email: student.email });
   const [profileError, setProfileError] = useState(""), [deleteError, setDeleteError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{ name?: string; email?: string }>({});
   const [pending, setPending] = useState(false), [error, setError] = useState("");
@@ -80,8 +81,8 @@ function StudentPanel({ student, turmas, refreshing, close, saved }: { student: 
   const busy = pending || refreshing;
   const canEditEmail = student.status === "pending" && !student.emailVerified && !student.isDemo;
   const canDelete = canEditEmail && student.role === "user";
-  const emailChanged = identity.email.trim().toLowerCase() !== student.email;
-  const identityChanged = identity.name.trim() !== student.name || emailChanged;
+  const emailChanged = identity.email.trim().toLowerCase() !== profileSnapshot.email;
+  const identityChanged = identity.name.trim() !== profileSnapshot.name || emailChanged;
   const membershipsChanged = selectedTurmas.length !== membershipSnapshot.turmaIds.length || selectedTurmas.some(id => !membershipSnapshot.turmaIds.includes(id));
   const primaryChanged = primaryTurmaId !== membershipSnapshot.primaryTurmaId;
   const primaryOptions = turmas.filter(turma => selectedTurmas.includes(turma.id)).toSorted((a, b) => b.number - a.number);
@@ -124,8 +125,9 @@ function StudentPanel({ student, turmas, refreshing, close, saved }: { student: 
     if (errors.name || errors.email) { (event.currentTarget.elements.namedItem(errors.name ? "name" : "email") as HTMLInputElement).focus(); return; }
     setPending(true);
     try {
-      const result = await studentsApi.profile(student.id, name, email);
+      const result = await studentsApi.profile(student.id, name, email, profileSnapshot);
       setIdentity({ name: result.name, email: result.email }); setGrant(null);
+      setProfileSnapshot({ name: result.name, email: result.email });
       saved(result.emailChanged ? "Email atualizado. Os links anteriores foram revogados; gere um novo link de ativação." : "Dados do estudante atualizados.");
     } catch (error) {
       if (error instanceof FormValidationError) { setFieldErrors(error.fieldErrors); focusFirstError(form, error.fieldErrors); }

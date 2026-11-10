@@ -3,18 +3,24 @@
 A manual recovery procedure for the prototype. Any production restore still
 requires explicit approval under [Environments](environments.md).
 
-## Verified on 2026-11-05
+## Recovery guarantees and recorded checks
 
-- Read-only project inspection: PostgreSQL **18**, N. Virginia,
-  `history_retention_seconds = 21600` (**6 hours**). The available historical
-  range can be shorter; this is not an indefinite backup.
-- Development `gallery-images`: authenticated Head/List works, three objects,
-  no enabled versioning. Production storage credentials were unavailable;
-  its configuration was not changed or independently verified.
+These are dated observations, not a fresh inspection of cloud settings:
+
+- **2026-11-05:** the project reported PostgreSQL 18 in N. Virginia and
+  `history_retention_seconds = 21600` (six hours). Recheck the current setting
+  before relying on it; the actually available historical range may be shorter.
+- **2026-11-06:** a matching production PostgreSQL/image backup was recorded.
+  An isolated PostgreSQL restore was verified to match the saved rows and schema,
+  without production changes. Managed image downloads were checksummed and
+  decoded; actual image re-upload/restoration was not rehearsed.
+- That evidence is in private local recovery records. It does not establish an
+  off-device backup, recurring backup cadence or today's complete recovery point.
 - A PostgreSQL point-in-time restore **does not restore Object Storage**.
   Forking inherits current objects, but is not historical image recovery.
   Neon does not enforce S3 versioning/lifecycle rules; do not rely on them.
-- No scheduled independent backups exist. Migration JSON snapshots are not
+- No scheduled independent backup mechanism is configured in this repository.
+  Migration JSON snapshots are not
   self-contained PostgreSQL backups. The São Paulo project is a historical
   migration fallback, not a current backup.
 
@@ -78,8 +84,14 @@ Sources: [History window](https://neon.com/docs/postgres/backup-restore/history-
    the live connection. Retain the previous target. A Vercel code rollback does
    not reverse database/storage writes.
 
-No production restore/migration, image restore or full archive restore drill was
-performed here. PostgreSQL/AWS CLI tools were absent from this machine's PATH;
-these commands document the procedure, not a completed dump/restore rehearsal.
+## Remaining verification
+
+Before relying on this procedure for ongoing real data, agree a tolerable recovery
+point and backup cadence, retain a second secure copy, and rehearse image upload
+restoration in an isolated bucket. Verify the app against the matching restored
+database and images. Confirm PostgreSQL 18 tools and the configured storage client
+are available on the recovery machine. A successful historical database restore
+does not establish these remaining guarantees.
+
 References: [pg_dump](https://www.postgresql.org/docs/18/app-pgdump.html),
 [pg_restore](https://www.postgresql.org/docs/18/app-pgrestore.html).

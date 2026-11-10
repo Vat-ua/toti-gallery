@@ -109,6 +109,61 @@ test("SQL search preserves accent-insensitive text, authors, literal input, AND 
   assert.deepEqual(az.items.map(project => project.id), ids.slice(1, SIZE + 1));
 });
 
+test("gallery turma filters and choices follow the publication, independent of authors' current memberships", async () => {
+  await client.query("SAVEPOINT publication_turma_filter");
+  try {
+    const projectTurma = randomUUID(), currentTurma = randomUUID(), hiddenTurma = randomUUID();
+    const author = randomUUID(), contributor = randomUUID(), publication = randomUUID(), hidden = randomUUID();
+    const number = randomInt(800000001, 900000000), query = `${prefix}-turma-filter`;
+    const originalName = `Turma ${number}`, currentName = `Turma ${number + 1}`, hiddenName = `Turma ${number + 2}`;
+    for (const [index, id] of [projectTurma, currentTurma, hiddenTurma].entries()) {
+      await client.query("INSERT INTO gallery_turmas(id,name,number,course_name,start_year,archived_at) VALUES($1,$2,$3,'Fixture',2026,$4)",
+        [id, `Turma ${number + index}`, number + index, index === 0 ? new Date() : null]);
+    }
+    for (const id of [author, contributor]) {
+      await client.query("INSERT INTO gallery_users(id,slug,name,email,status,email_verified,primary_turma_id) VALUES($1,$2,'Fixture',$3,'active',true,$4)",
+        [id, `${prefix}-${id}`, `${id}@example.invalid`, projectTurma]);
+      await client.query("INSERT INTO gallery_turma_members(user_id,turma_id) VALUES($1,$2),($1,$3)", [id, projectTurma, currentTurma]);
+    }
+    for (const [id, turma] of [[publication, projectTurma], [hidden, hiddenTurma]]) {
+      await client.query("INSERT INTO gallery_projects(id,slug,title,description,technologies,github_url,author_id,turma_id) VALUES($1,$2,$3,'Fixture','[\"React\"]','https://github.com',$4,$5)",
+        [id, `${query}-${id}`, query, author, turma]);
+      await client.query("INSERT INTO gallery_project_authors(project_id,user_id) VALUES($1,$2)", [id, author]);
+    }
+    await client.query("UPDATE gallery_projects SET visibility='hidden',moderation_reason='Fixture reason',moderated_by=$1,moderated_at=now() WHERE id=$2", [author, hidden]);
+    await client.query("INSERT INTO gallery_project_authors(project_id,user_id) VALUES($1,$2)", [publication, contributor]);
+    const check = async () => {
+      const selected = filters({ q: query, cohort: String(number) });
+      assert.equal(selected.cohort, originalName);
+      const batch = await queries.readProjectPage(selected, { kind: 'gallery' }, connection);
+      const initial = await queries.readInitialProjects(selected, { kind: 'gallery' }, connection);
+      assert.equal(batch.total, 1); assert.equal(batch.hasMore, false);
+      assert.deepEqual(batch.items.map(item => item.id), [publication]);
+      assert.deepEqual(initial.items.map(item => item.id), [publication]);
+      assert.equal((await queries.readProjectPage(filters({ q: query, cohort: String(number + 1) }), { kind: 'gallery' }, connection)).total, 0);
+      assert.equal((await queries.readProjectPage(filters({ q: query, cohort: String(number + 2) }), { kind: 'gallery' }, connection)).total, 0);
+      const choices = (await queries.getGalleryFilterOptions(connection)).cohorts;
+      assert(choices.includes(originalName), 'Archived publication turmas remain discoverable');
+      assert(!choices.includes(currentName), 'Membership-only turmas must not become gallery choices');
+      assert(!choices.includes(hiddenName), 'Hidden publications must not add gallery choices');
+    };
+    await check();
+    await client.query("UPDATE gallery_users SET primary_turma_id=$1 WHERE id=ANY($2::text[])", [currentTurma, [author, contributor]]);
+    await check();
+    await client.query("DELETE FROM gallery_turma_members WHERE turma_id=$1 AND user_id=ANY($2::text[])", [projectTurma, [author, contributor]]);
+    await client.query("UPDATE gallery_users SET primary_turma_id=null WHERE id=$1", [contributor]);
+    await check();
+    const detail = await queries.readProject({ id: publication }, connection);
+    assert.equal(detail?.turmaId, projectTurma);
+    assert.deepEqual(detail?.authors.map(person => person.id), [author, contributor]);
+    const profile = await queries.readProjectPage(filters(), { kind: 'profile', userId: contributor }, connection);
+    assert.deepEqual(profile.items.map(item => item.id), [publication], 'Authorship remains independent of membership');
+  } finally {
+    await client.query("ROLLBACK TO SAVEPOINT publication_turma_filter");
+    await client.query("RELEASE SAVEPOINT publication_turma_filter");
+  }
+});
+
 test("specific project and participant readers enforce visibility and ownership in SQL", async () => {
   statements.length = 0;
   assert.equal((await queries.readProject({ id: ids[1] }, connection))?.id, ids[1]);
@@ -166,6 +221,72 @@ test("initial snapshots bound huge URL pages before SQL execution", async () => 
   assert.equal(statements.length, 1);
   const people = await queries.readInitialCommunity(filters({ page: '999999999' }), connection);
   assert(people.items.length <= INITIAL_COLLECTION_PAGES * SIZE);
+});
+
+test("community rankings sort the full matching set before pagination and preserve public credit totals", async () => {
+  await client.query("SAVEPOINT community_rankings");
+  try {
+    const query = `${prefix}-ranking`, turma = randomUUID(), extraTurma = randomUUID();
+    const number = randomInt(800000001, 900000000);
+    for (const [index, id] of [turma, extraTurma].entries()) {
+      await client.query("INSERT INTO gallery_turmas(id,name,number) VALUES($1,$2,$3)", [id, `Turma ${number + index}`, number + index]);
+    }
+    const people = Array.from({ length: SIZE + 5 }, (_, index) => ({
+      id: randomUUID(), name: `${query} ${index < 2 ? 'Mesmo nome' : String(index).padStart(2, '0')}`, projectCount: 0, totalLikes: 0,
+    }));
+    for (const [index, person] of people.entries()) {
+      await client.query("INSERT INTO gallery_users(id,slug,name,email,status,email_verified) VALUES($1,$2,$3,$4,'active',true)",
+        [person.id, `${query}-${person.id}`, person.name, `${person.id}@example.invalid`]);
+      await client.query("INSERT INTO gallery_turma_members(user_id,turma_id) VALUES($1,$2)", [person.id, turma]);
+      if (index % 2 === 0) await client.query("INSERT INTO gallery_turma_members(user_id,turma_id) VALUES($1,$2)", [person.id, extraTurma]);
+      const count = index === people.length - 1 ? 4 : index === people.length - 2 ? 1 : index % 3;
+      for (let publication = 0; publication < count; publication++) {
+        const id = randomUUID(), base = index === people.length - 2 ? 5000 : index + 1;
+        await client.query("INSERT INTO gallery_projects(id,slug,title,description,technologies,github_url,author_id,turma_id,base_likes) VALUES($1,$2,'Ranking','Fixture','[]','https://github.com',$3,$4,$5)",
+          [id, `${query}-${id}`, person.id, turma, base]);
+        // The owner also has a credit row: this must never double the statistics.
+        await client.query("INSERT INTO gallery_project_authors(project_id,user_id) VALUES($1,$2)", [id, person.id]);
+        await client.query("INSERT INTO gallery_likes(project_id,visitor_key) VALUES($1,'fixture')", [id]);
+        person.projectCount++; person.totalLikes += base + 1;
+        if (index === people.length - 1 && publication === 0) {
+          await client.query("INSERT INTO gallery_project_authors(project_id,user_id) VALUES($1,$2)", [id, people[2].id]);
+          people[2].projectCount++; people[2].totalLikes += base + 1;
+        }
+      }
+    }
+    const hidden = randomUUID();
+    await client.query("INSERT INTO gallery_projects(id,slug,title,description,technologies,github_url,author_id,turma_id,base_likes,visibility,moderation_reason,moderated_by,moderated_at) VALUES($1,$2,'Hidden','Fixture','[]','https://github.com',$3,$4,999999,'hidden','Fixture',$3,now())",
+      [hidden, `${query}-${hidden}`, people[0].id, turma]);
+    const collator = new Intl.Collator('pt-BR');
+    const byName = (a: typeof people[number], b: typeof people[number]) => collator.compare(a.name, b.name) || a.id.localeCompare(b.id);
+    for (const sort of ['az', 'projects', 'likes'] as const) {
+      const expected = [...people].sort((a, b) => (sort === 'projects' ? b.projectCount - a.projectCount : sort === 'likes' ? b.totalLikes - a.totalLikes : 0) || byName(a, b));
+      const selected = (page = '1', cohort = String(number)) => readGalleryFilters(new URLSearchParams({ q: query, cohort, sort, page }), 'community');
+      statements.length = 0;
+      const first = await queries.readCommunityPage(selected(), connection);
+      assert.equal(statements.length, 2, 'One bounded SQL/statistics read and one selected-profile read');
+      const second = await queries.readCommunityPage(selected('2'), connection);
+      assert.equal(first.total, people.length); assert.equal(first.items.length, SIZE); assert.equal(first.hasMore, true);
+      assert.equal(second.previousId, first.items.at(-1)?.id); assert.equal(second.hasMore, false);
+      const combined = [...first.items, ...second.items];
+      assert.deepEqual(combined.map(person => person.id), expected.map(person => person.id));
+      for (const actual of combined) {
+        const person = people.find(person => person.id === actual.id)!;
+        assert.equal(actual.projectCount, person.projectCount); assert.equal(actual.totalLikes, person.totalLikes);
+      }
+      const restored = await queries.readInitialCommunity(selected('2'), connection);
+      assert.deepEqual(restored.items.map(person => person.id), expected.map(person => person.id));
+      const clamped = await queries.readCommunityPage(selected('999999999'), connection);
+      assert.equal(clamped.page, 2); assert.deepEqual(clamped.items.map(person => person.id), second.items.map(person => person.id));
+      const scoped = await queries.readCommunityPage(selected('1', String(number + 1)), connection);
+      const eligible = new Set(people.filter((_, index) => index % 2 === 0).map(person => person.id));
+      assert.equal(scoped.total, eligible.size);
+      assert.deepEqual(scoped.items.map(person => person.id), expected.filter(person => eligible.has(person.id)).map(person => person.id));
+    }
+  } finally {
+    await client.query("ROLLBACK TO SAVEPOINT community_rankings");
+    await client.query("RELEASE SAVEPOINT community_rankings");
+  }
 });
 
 test("batch boundary changes identify insertions, removals and reordered records", async () => {

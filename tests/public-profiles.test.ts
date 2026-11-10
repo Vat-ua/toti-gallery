@@ -59,7 +59,7 @@ test("name-based slugs remain unique for concurrent provisioning and stable afte
   assert.match(rows[0].slug, /^joao-/);
   assert.equal(rows[1].slug, `${rows[0].slug}-2`);
   const target = created[0], original = rows.find(row => row.id === target.id).slug;
-  await students.updateStudentProfile(actor, target.id, "A completely different name", `${prefix}-same-1@example.invalid`);
+  await students.updateStudentProfile(actor, target.id, "A completely different name", `${prefix}-same-1@example.invalid`, { name: target.name, email: target.email });
   assert.equal((await pool.query("SELECT slug FROM gallery_users WHERE id=$1", [target.id])).rows[0].slug, original);
 });
 

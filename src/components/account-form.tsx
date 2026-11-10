@@ -7,7 +7,7 @@ import type { Person } from "@/lib/types";
 import { Avatar, useToast } from "./ui";
 import { Icon } from "./icon";
 import { FieldError, useFormFeedback } from "./form-feedback";
-import { validateProfile, validatePasswordChange } from "@/lib/account";
+import { profileSnapshot, validateProfile, validatePasswordChange } from "@/lib/account";
 import { HttpError } from "@/lib/http-client";
 import { changeAccountPassword, updateAccountProfile, type PasswordInput } from "@/lib/account-client";
 import { validateImageFile } from "@/lib/image-policy";
@@ -34,6 +34,7 @@ export function AccountForm({ user, email, canChangePassword }: { user: Person; 
   const [github, setGithub] = useState(user.github || "");
   const [linkedin, setLinkedin] = useState(user.linkedin || "");
   const [avatar, setAvatar] = useState(user.avatar);
+  const [expected, setExpected] = useState(() => profileSnapshot(user));
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -68,9 +69,10 @@ export function AccountForm({ user, email, canChangePassword }: { user: Person; 
     if (!profileFeedback.validate(() => validateProfile({ name, bio, github, linkedin, avatar: photoFile ? null : avatar }, avatar), formElement)) return;
     setSavingProfile(true);
     try {
-      const profile = await updateAccountProfile({ name, bio, avatar: photoFile ? null : avatar, github, linkedin }, photoFile);
+      const profile = await updateAccountProfile({ name, bio, avatar: photoFile ? null : avatar, github, linkedin }, expected, photoFile);
       setName(profile.name); setBio(profile.bio); setGithub(profile.github || ""); setLinkedin(profile.linkedin || ""); setAvatar(profile.avatar);
       setPhotoFile(null);
+      setExpected(profile);
       notify("Perfil atualizado.");
       router.refresh();
     } catch (error) {

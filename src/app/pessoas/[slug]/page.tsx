@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getPersonBySlug, readInitialProjects, getProfileProjectStats } from "@/lib/queries";
-import { getCurrentSession, isCurrentUser } from "@/lib/auth";
+import { getPublicOwnership } from "@/lib/public-identity";
 import { ProfileSummary } from "@/components/profile-summary";
 import { Icon } from "@/components/icon";
 import { BrandSymbol } from "@/components/brand-symbol";
@@ -19,12 +19,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 export default async function ProfilePage({ params, searchParams }: Props) {
   const { slug } = await params;
-  const [person, query] = await Promise.all([getPersonBySlug(slug), searchParams, getCurrentSession()]);
+  const [person, query] = await Promise.all([getPersonBySlug(slug), searchParams]);
   if (!person) notFound();
-  const [initialPage, stats, isOwner] = await Promise.all([
+  const isOwner = getPublicOwnership(person.id);
+  const [initialPage, stats] = await Promise.all([
     readInitialProjects(readGalleryFilters(toSearchParams(query), "page"), { kind: "profile", userId: person.id }),
     getProfileProjectStats(person.id),
-    isCurrentUser(person.id),
   ]);
   return <main id="conteudo" className="container inner-page"><Link href="/comunidade" className="back-link"><Icon name="arrow-left" size={16}/>Comunidade</Link><div className="profile-banner" aria-hidden="true"><span><BrandSymbol/></span><i/></div><ProfileSummary person={person} isOwner={isOwner} projectCount={stats.total} totalLikes={stats.totalLikes}/><ProfileProjects initialPage={initialPage} slug={slug} isOwner={isOwner}/></main>;
 }

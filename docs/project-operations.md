@@ -15,8 +15,7 @@ authorization check.
 
 The mutation module is server-side. Its `actorId` is supplied only from the API's
 verified session, never from submitted form values. Ownership and coauthorship
-are checked against PostgreSQL. No public API or database schema changes are
-required by this separation.
+are checked against PostgreSQL.
 
 Updates accept an input-reading callback so ownership is checked **before**
 parsing an oversized or malformed body, preserving existing HTTP behavior. The
@@ -25,29 +24,16 @@ on Request, Response, cookies, routing or React. The row is checked again under 
 transaction lock before mutation. Missing coauthors/framing retain their existing
 semantics; explicit empty coauthors remove credits except the owner's.
 
-Object storage cannot participate in a SQL transaction. `commitImageChange`
-retires a new upload only when the transaction callback fails before COMMIT. Once COMMIT can have started, it retains the upload because
-a rejected client promise cannot prove rollback. Successful updates and
-deletions return the previous image metadata to the route; retirement is scheduled
-only after commit. The storage module still checks whether another record refers
-to the image before removing it. Existing cover conflict checks, moderation
-visibility, author credits, likes and response shapes are preserved.
+Successful updates/deletions return retired image metadata to the route for
+post-commit cleanup. [Image storage](image-storage.md#ownership-and-lifecycle)
+defines file ownership; [Server reliability](server-reliability.md#database-and-storage-failures)
+defines rollback and uncertain-COMMIT handling.
 
 ## Checks
 
-```sh
-npm run test:projects
-```
-
-The server suite requires `.env.admin-test` on an isolated current-schema Neon
-`test/*` branch. Alternatively select an ignored env file explicitly with
-`GALLERY_PROJECT_TEST_ENV_FILE`. It verifies the actual database identity before
-writes, rejects development/production, creates only its own fixtures and compares
-all original rows after cleanup. See [Environments](environments.md).
-
-These characterization tests were run against the original Route Handlers before
-extraction and are retained against the same public handlers after refactoring.
-They use real PostgreSQL transactions, constraints and row locks. Session lookup,
+`test:projects` exercises the real Route Handlers, PostgreSQL transactions,
+constraints and row locks. Select the isolated target through
+[Testing](testing.md#database-integration-suites). Session lookup,
 upload throttling, object storage and Next's post-response scheduling are mocked
 at the external boundary: no real cloud objects are uploaded or deleted. Better
 Auth and image decoding have separate existing tests.
@@ -55,9 +41,6 @@ Auth and image decoding have separate existing tests.
 The client tests cover request formats, field errors, authentication errors,
 network failures and invalid/non-JSON responses. They do not replace browser
 checks of notifications, dialog behavior and navigation.
-
-For commit uncertainty, connection limits and operational logging, see
-[Server reliability](server-reliability.md).
 
 ## Safe saves
 
@@ -102,8 +85,7 @@ It never rewrites Next.js history. Browser unload prompts are browser-controlled
 and cannot guarantee protection on mobile termination or older browsers'
 same-document history navigation. This is not persistent draft storage.
 
-Apply `20261105_project_save_guards.sql` before this code. The development/test
-runner refuses production and verifies existing rows inside its transaction.
-`npm run test:projects` covers HTTP guard validation, parallel creates and edits,
-coauthor departure, lost COMMIT acknowledgements, cover retirement and preserved
-original fixture-independent data, on an explicitly isolated test branch.
+Save guards depend on the version/creation-receipt schema; see
+[Migrations](../migrations/README.md) before an upgrade. The suite covers HTTP guard
+validation, parallel creates/edits, coauthor departure, lost acknowledgements and
+cover retirement, and verifies that unrelated fixture data remains unchanged.

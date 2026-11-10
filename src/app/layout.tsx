@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { ToastProvider } from "@/components/ui";
 import { cookies } from "next/headers";
-import { getCurrentUser } from "@/lib/auth";
+import { getPublicIdentity } from "@/lib/public-identity";
 import { DEMO_MODE_COOKIE } from "@/lib/demo-mode";
 import { SiteChrome } from "@/components/site-chrome";
 import { sharingMetadata, siteTitle } from "@/lib/metadata";
@@ -21,8 +21,9 @@ const themeScript = `(function(){try{var d=document.documentElement;var stored=n
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   // Start identity work, but do not make public page rendering wait for chrome.
-  const user = getCurrentUser();
+  const identity = getPublicIdentity();
   const initialDemo = (await cookies()).get(DEMO_MODE_COOKIE)?.value === "1";
   const presentationEnabled = process.env.GALLERY_PRESENTATION_ENABLED !== "false";
-  return <html lang="pt-BR" data-theme="light" data-scroll-behavior="smooth" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{ __html: themeScript }}/></head><body><ToastProvider><a href="#conteudo" className="skip-link">Pular para o conteúdo</a><SiteChrome user={user} authenticated={user.then(Boolean)} initialDemo={initialDemo} presentationEnabled={presentationEnabled}>{children}</SiteChrome></ToastProvider></body></html>;
+  const authenticated = identity.then(value => value.status === "unavailable" ? null : !!value.user);
+  return <html lang="pt-BR" data-theme="light" data-scroll-behavior="smooth" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{ __html: themeScript }}/></head><body><ToastProvider><a href="#conteudo" className="skip-link">Pular para o conteúdo</a><SiteChrome identity={identity} authenticated={authenticated} initialDemo={initialDemo} presentationEnabled={presentationEnabled}>{children}</SiteChrome></ToastProvider></body></html>;
 }

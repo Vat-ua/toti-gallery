@@ -41,6 +41,13 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test:unit
+      - name: Create disposable integration database
+        run: docker exec '${{ job.services.postgres.id }}' createdb -U gallery_test gallery_test_ci_integration
+      - name: Run transactional integration suites
+        run: npm run test:integration
+        env:
+          DATABASE_NAME: gallery_test_ci_integration
+          DATABASE_URL: postgresql://gallery_test:local-fixture-only@127.0.0.1:5432/gallery_test_ci_integration
       - run: npx playwright install --with-deps chromium
       - run: npm run build:smoke
       - run: npm run test:smoke

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
 import { Presentation } from "@/components/presentation";
 import { sharingMetadata } from "@/lib/metadata";
 
@@ -9,7 +8,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function PresentationPage() {
+export default function PresentationPage() {
   if (process.env.GALLERY_PRESENTATION_ENABLED === "false") notFound();
-  return <Presentation authenticated={!!await getCurrentUser()}/>;
+  return <Presentation/>;
 }

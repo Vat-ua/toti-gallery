@@ -22,6 +22,10 @@ async function fixture(status = "active", role = "user", isDemo = false, verifie
   await pool.query("INSERT INTO gallery_users(id,name,email,status,role,is_demo,email_verified) VALUES ($1,'Fixture Student',$2,$3,$4,$5,$6)", [id, `${prefix}-${id}@example.invalid`, status, role, isDemo, verified]);
   return id;
 }
+async function updateProfile(actor: string, id: string, name: unknown, email: unknown) {
+  const expected = (await pool.query("SELECT name,email FROM gallery_users WHERE id=$1", [id])).rows[0];
+  return service.updateStudentProfile(actor, id, name, email, expected);
+}
 before(async () => {
   config({ path: process.env.GALLERY_ADMIN_TEST_ENV_FILE || ".env.admin-test", override: true, quiet: true });
   delete process.env.VERCEL_ENV; delete process.env.GALLERY_ALLOW_PRODUCTION_DATABASE;
@@ -70,14 +74,14 @@ test("each student operation enforces staff access and protects administrator ac
     await assert.rejects(() => service.studentAccessLink(actor, pending, "activation"), /restrito/);
     await assert.rejects(() => service.revokeStudentLink(actor, pending, randomUUID()), /restrito/);
     await assert.rejects(() => service.createStudentInvitations(actor, [pending]), /restrito/);
-    await assert.rejects(() => service.updateStudentProfile(actor, pending, "Valid Name", `${prefix}@example.invalid`), /restrito/);
+    await assert.rejects(() => updateProfile(actor, pending, "Valid Name", `${prefix}@example.invalid`), /restrito/);
     await assert.rejects(() => service.deletePendingStudent(actor, pending), /restrito/);
   }
   await assert.rejects(() => service.updateStudentTurmas(admin, admin, []), /não pode/);
   await assert.rejects(() => service.studentAccessLink(admin, admin, "password_reset"), /não pode/);
   await assert.rejects(() => service.setStudentSuspended(owner, admin, true), /estudantes reais/);
   await assert.rejects(() => service.setStudentSuspended(owner, demo, true), /estudantes reais/);
-  await assert.rejects(() => service.updateStudentProfile(admin, admin, "Valid Name", `${prefix}@example.invalid`), /não pode/);
+  await assert.rejects(() => updateProfile(admin, admin, "Valid Name", `${prefix}@example.invalid`), /não pode/);
   await assert.rejects(() => service.deletePendingStudent(admin, owner), /não pode/);
 });
 
@@ -145,26 +149,26 @@ test("profile corrections retain identity; only pending email changes revoke old
   const id = await fixture("pending"), email = `${prefix}-corrected@example.invalid`;
   const grant = await service.studentAccessLink(admin, id, "activation");
   const before = (await pool.query("SELECT email FROM gallery_users WHERE id=$1", [id])).rows[0];
-  await service.updateStudentProfile(admin, id, "Corrected Name", before.email);
+  await updateProfile(admin, id, "Corrected Name", before.email);
   const { inspectAccessLink } = await import("../src/lib/access-links");
   const token = new URL(grant.url).hash.slice(7);
   assert.equal((await inspectAccessLink(token)).userId, id);
-  const result = await service.updateStudentProfile(admin, id, "  Corrected Name  ", ` ${email.toUpperCase()} `);
+  const result = await updateProfile(admin, id, "  Corrected Name  ", ` ${email.toUpperCase()} `);
   assert.deepEqual(result, { name: "Corrected Name", email, emailChanged: true });
   await assert.rejects(() => inspectAccessLink(token));
   assert.equal((await pool.query("SELECT id FROM gallery_users WHERE email=$1", [email])).rows[0].id, id);
   const fresh = await service.studentAccessLink(admin, id, "activation");
   assert.equal((await inspectAccessLink(new URL(fresh.url).hash.slice(7))).email, email);
   const duplicate = (await pool.query("SELECT email FROM gallery_users WHERE id=$1", [regular])).rows[0].email;
-  await assert.rejects(() => service.updateStudentProfile(admin, id, "Must not save", duplicate), /já está cadastrado/);
+  await assert.rejects(() => updateProfile(admin, id, "Must not save", duplicate), /já está cadastrado/);
   assert.equal((await pool.query("SELECT name FROM gallery_users WHERE id=$1", [id])).rows[0].name, "Corrected Name");
   assert.equal((await inspectAccessLink(new URL(fresh.url).hash.slice(7))).email, email);
-  await assert.rejects(() => service.updateStudentProfile(admin, id, " ", email), /nome/);
-  await assert.rejects(() => service.updateStudentProfile(admin, id, "Valid Name", "invalid"), /email/);
+  await assert.rejects(() => updateProfile(admin, id, " ", email), /nome/);
+  await assert.rejects(() => updateProfile(admin, id, "Valid Name", "invalid"), /email/);
   const active = (await pool.query("SELECT * FROM gallery_users WHERE id=$1", [regular])).rows[0];
-  await service.updateStudentProfile(admin, regular, "Updated Active Name", active.email);
+  await updateProfile(admin, regular, "Updated Active Name", active.email);
   assert.equal((await pool.query("SELECT name FROM gallery_users WHERE id=$1", [regular])).rows[0].name, "Updated Active Name");
-  await assert.rejects(() => service.updateStudentProfile(admin, regular, "Must not save", email), /antes da ativação/);
+  await assert.rejects(() => updateProfile(admin, regular, "Must not save", email), /antes da ativação/);
 });
 
 test("deletion removes only unactivated registrations with their memberships and invitations", async () => {
@@ -217,7 +221,7 @@ test("activation racing an email correction cannot verify a new email using an o
   const { consumeAccessLink } = await import("../src/lib/access-links");
   const results = await Promise.allSettled([
     consumeAccessLink(new URL(grant.url).hash.slice(7), "a sufficiently long password", "a sufficiently long password"),
-    service.updateStudentProfile(admin, id, "Corrected Race", email),
+    updateProfile(admin, id, "Corrected Race", email),
   ]);
   assert.equal(results.filter(result => result.status === "fulfilled").length, 1);
   const person = (await pool.query("SELECT email,status,email_verified FROM gallery_users WHERE id=$1", [id])).rows[0];

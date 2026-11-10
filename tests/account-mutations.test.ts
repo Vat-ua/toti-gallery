@@ -25,7 +25,11 @@ async function snapshot() {
   }
   return result;
 }
-function request(path: string, body: Record<string, unknown>, options: { file?: boolean; cookie?: string; origin?: string } = {}) {
+function profileSnapshot(value: Record<string, unknown>) {
+  return { name: value.name, bio: value.bio, github: value.github, linkedin: value.linkedin, avatar: value.avatar };
+}
+async function request(path: string, body: Record<string, unknown>, options: { file?: boolean; cookie?: string; origin?: string } = {}) {
+  if (path === "/api/account" && !("expected" in body)) body = { ...body, expected: profileSnapshot(await row()) };
   const headers: Record<string, string> = { origin: options.origin ?? origin, cookie: options.cookie ?? ownerCookie };
   let data: string | FormData;
   if (options.file) { data = new FormData(); data.set("data", JSON.stringify(body)); data.set("image", new File(["fixture"], "avatar.png", { type: "image/png" })); }
@@ -78,16 +82,16 @@ after(async () => {
 test("profile and password require a real active session and matching origin", async () => {
   for (const path of ["/api/account", "/api/account/password"]) {
     const handler = path.endsWith("password") ? harness.password.POST : harness.profile.PATCH;
-    assert.equal((await handler(request(path, {}, { cookie: "" }))).status, 401);
-    assert.equal((await handler(request(path, {}, { origin: "https://foreign.invalid" }))).status, 403);
+    assert.equal((await handler(await request(path, {}, { cookie: "" }))).status, 401);
+    assert.equal((await handler(await request(path, {}, { origin: "https://foreign.invalid" }))).status, 403);
   }
   await pool.query("UPDATE gallery_users SET status='suspended' WHERE id=$1", [other]);
-  try { assert.equal((await harness.profile.PATCH(request("/api/account", input(), { cookie: otherCookie }))).status, 401); }
+  try { assert.equal((await harness.profile.PATCH(await request("/api/account", input(), { cookie: otherCookie }))).status, 401); }
   finally { await pool.query("UPDATE gallery_users SET status='active' WHERE id=$1", [other]); }
 });
 test("profile saves only editable fields, returns the complete public user and preserves identity", async () => {
   const original = await row(), untouched = await row(other);
-  const response = await harness.profile.PATCH(request("/api/account", input()));
+  const response = await harness.profile.PATCH(await request("/api/account", input()));
   assert.equal(response.status, 200); assert.equal(response.headers.get("cache-control"), "no-store");
   const result = await response.json();
   assert.equal(result.user.id, owner); assert.equal(result.user.slug, original.slug); assert.equal(result.user.name, "Perfil de teste");
@@ -95,29 +99,29 @@ test("profile saves only editable fields, returns the complete public user and p
   const stored = await row();
   for (const field of ["id", "slug", "email", "email_verified", "role", "status", "is_demo", "created_at", "primary_turma_id"]) assert.deepEqual(stored[field], original[field], field);
   assert.deepEqual(await row(other), untouched);
-  for (const patch of [{ id: other }, { role: "owner" }, { email: "new@example.invalid" }, { status: "active" }]) assert.equal((await harness.profile.PATCH(request("/api/account", input(patch)))).status, 400);
-  const invalid = await harness.profile.PATCH(request("/api/account", input({ name: "x", github: "http://github.com/example" })));
+  for (const patch of [{ id: other }, { role: "owner" }, { email: "new@example.invalid" }, { status: "active" }]) assert.equal((await harness.profile.PATCH(await request("/api/account", input(patch)))).status, 400);
+  const invalid = await harness.profile.PATCH(await request("/api/account", input({ name: "x", github: "http://github.com/example" })));
   assert.equal(invalid.status, 400); const body = await invalid.json(); assert.ok(body.fieldErrors.name); assert.ok(body.fieldErrors.github);
 });
 test("avatar keep/replace/remove uses transaction-safe metadata and deferred retirement", async () => {
   const old = await attachImage();
-  const kept = await harness.profile.PATCH(request("/api/account", input({ avatar: `/media/${old.key}` })));
+  const kept = await harness.profile.PATCH(await request("/api/account", input({ avatar: `/media/${old.key}` })));
   assert.equal(kept.status, 200); assert.deepEqual((await row()).avatar_metadata, old); assert.equal(harness.state.deferred.length, 0);
-  const replaced = await harness.profile.PATCH(request("/api/account", input(), { file: true }));
+  const replaced = await harness.profile.PATCH(await request("/api/account", input(), { file: true }));
   assert.equal(replaced.status, 200); assert.deepEqual((await row()).avatar_metadata, harness.state.uploaded[0]);
   assert.deepEqual(harness.state.retired, []); await harness.flush(); assert.deepEqual(harness.state.retired, [old]);
   const next = (await row()).avatar_metadata;
-  assert.equal((await harness.profile.PATCH(request("/api/account", input()))).status, 200);
+  assert.equal((await harness.profile.PATCH(await request("/api/account", input()))).status, 200);
   assert.equal((await row()).avatar, null); assert.equal((await row()).avatar_metadata, null);
   await harness.flush(); assert.deepEqual(harness.state.retired, [old, next]); assert.deepEqual(harness.state.deleted, []);
 });
 test("upload failures and throttling keep the original profile and image", async () => {
   await attachImage(); const original = await row();
   harness.state.allowUpload = false;
-  assert.equal((await harness.profile.PATCH(request("/api/account", input(), { file: true }))).status, 429);
+  assert.equal((await harness.profile.PATCH(await request("/api/account", input(), { file: true }))).status, 429);
   assert.equal(harness.state.uploaded.length, 0); assert.deepEqual(await row(), original);
   harness.state.allowUpload = true; harness.state.uploadError = new Error("Fixture upload failed");
-  assert.equal((await harness.profile.PATCH(request("/api/account", input(), { file: true }))).status, 500);
+  assert.equal((await harness.profile.PATCH(await request("/api/account", input(), { file: true }))).status, 500);
   assert.deepEqual(await row(), original); assert.equal(harness.state.deferred.length, 0);
 });
 test("SQL failure rolls back profile changes and removes only the newly uploaded avatar", async () => {
@@ -127,7 +131,7 @@ test("SQL failure rolls back profile changes and removes only the newly uploaded
   await pool.query(`CREATE FUNCTION ${name}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.id='${owner}' THEN RAISE EXCEPTION 'fixture profile update rejected'; END IF; RETURN NEW; END $$`);
   await pool.query(`CREATE TRIGGER ${name} BEFORE UPDATE ON gallery_users FOR EACH ROW EXECUTE FUNCTION ${name}()`);
   try {
-    const response = await harness.profile.PATCH(request("/api/account", input(), { file: true }));
+    const response = await harness.profile.PATCH(await request("/api/account", input(), { file: true }));
     assert.equal(response.status, 500); assert.equal((await response.json()).error, "Não foi possível salvar seu perfil. Tente novamente.");
     assert.deepEqual(await row(), original); assert.deepEqual(harness.state.deleted, harness.state.uploaded);
     assert.equal(harness.state.deleted.length, 1); assert.notEqual(harness.state.deleted[0].key, old.key); assert.equal(harness.state.deferred.length, 0);
@@ -136,15 +140,15 @@ test("SQL failure rolls back profile changes and removes only the newly uploaded
 test("password validates fields, rejects wrong current password and preserves cookies/session semantics", async () => {
   const current = () => ({ currentPassword: password, newPassword, confirmPassword: newPassword });
   const originalUser = await row();
-  const bad = await harness.password.POST(request("/api/account/password", { ...current(), confirmPassword: "different" }));
+  const bad = await harness.password.POST(await request("/api/account/password", { ...current(), confirmPassword: "different" }));
   assert.equal(bad.status, 400); assert.ok((await bad.json()).fieldErrors.confirmPassword);
-  const wrong = await harness.password.POST(request("/api/account/password", { ...current(), currentPassword: "wrong password" }));
+  const wrong = await harness.password.POST(await request("/api/account/password", { ...current(), currentPassword: "wrong password" }));
   assert.equal(wrong.status, 400); assert.ok((await wrong.json()).fieldErrors.currentPassword);
   harness.state.allowPassword = false;
-  const limited = await harness.password.POST(request("/api/account/password", current()));
+  const limited = await harness.password.POST(await request("/api/account/password", current()));
   assert.equal(limited.status, 429); assert.equal(limited.headers.get("retry-after"), "900"); harness.state.allowPassword = true;
   const second = await login(owner); assert.equal(second.status, 200); const secondCookie = cookie(second);
-  const success = await harness.password.POST(request("/api/account/password", current()));
+  const success = await harness.password.POST(await request("/api/account/password", current()));
   assert.equal(success.status, 200); assert.equal(success.headers.get("cache-control"), "no-store");
   const updatedCookie = cookie(success); assert.match(updatedCookie, /toti_gallery\.session_token=/);
   assert.equal(await harness.auth.api.getSession({ headers: new Headers({ cookie: secondCookie }) }), null);
@@ -162,7 +166,7 @@ test("a concurrent avatar replacement cannot be overwritten by a stale photo ref
   try {
     await writer.query("BEGIN"); const pid = (await writer.query("SELECT pg_backend_pid() AS pid")).rows[0].pid;
     await writer.query("UPDATE gallery_users SET avatar=$1,avatar_metadata=$2 WHERE id=$3", [`/media/${replacement.key}`, replacement, owner]);
-    pending = harness.profile.PATCH(request("/api/account", input({ avatar: `/media/${old.key}` })));
+    pending = harness.profile.PATCH(await request("/api/account", input({ avatar: `/media/${old.key}` })));
     const deadline = Date.now() + 15000; let blocked = false;
     while (Date.now() < deadline) {
       blocked = (await pool.query("SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid)) AND datname=current_database()", [pid])).rowCount! > 0;
@@ -179,7 +183,7 @@ test("a concurrent avatar replacement cannot be overwritten by a stale photo ref
 test("committed profile returns its saved user without a second session lookup", async () => {
   harness.state.failSecondSessionCheck = true;
   const name = "Saved profile response";
-  const response = await harness.profile.PATCH(request("/api/account", input({ name })));
+  const response = await harness.profile.PATCH(await request("/api/account", input({ name })));
   assert.equal((await row()).name, name, "The update already reached PostgreSQL");
   assert.equal(response.status, 200, "A post-commit session failure must not report a failed save");
   const result = await response.json(); assert.equal(result.user.id, owner); assert.equal(result.user.name, name);
@@ -196,10 +200,94 @@ test("a real profile commit whose acknowledgement is lost keeps its newly refere
     await originalTransaction.apply(db, args); throw failure;
   }) as typeof db.transaction;
   try {
-    await assert.rejects(updateAccountProfile({ id: owner, avatar: previous.avatar }, { body: input(), file: new File(["fixture"], "avatar.png", { type: "image/png" }) }), error => error instanceof Error && error.cause === failure);
+    await assert.rejects(updateAccountProfile({ id: owner, avatar: previous.avatar }, { body: { ...input(), expected: profileSnapshot(previous) }, file: new File(["fixture"], "avatar.png", { type: "image/png" }) }), error => error instanceof Error && error.cause === failure);
     const stored = await row();
     assert.equal(stored.avatar, `/media/${harness.state.uploaded[0].key}`);
     assert.deepEqual(stored.avatar_metadata, harness.state.uploaded[0]);
     assert.deepEqual(harness.state.deleted, []); assert.deepEqual(harness.state.retired, []);
   } finally { db.transaction = originalTransaction; }
+});
+
+test("profile HTTP requires a complete original snapshot, including for an uploaded avatar", async () => {
+  const original = await row();
+  for (const expected of [undefined, null, [], {}, { name: original.name }, { ...profileSnapshot(original), bio: 3 }, { ...profileSnapshot(original), role: "user" }]) {
+    const response = await harness.profile.PATCH(await request("/api/account", input({ expected }), { file: true }));
+    assert.equal(response.status, 400);
+  }
+  assert.deepEqual(await row(), original);
+  assert.deepEqual(harness.state.uploaded, []);
+});
+
+test("two profile saves from one snapshot serialize and reject the stale writer", async () => {
+  const previous = await row(), expected = profileSnapshot(previous);
+  const first = { ...expected, bio: "Concurrent biography", expected };
+  const second = { ...expected, github: "https://github.com/concurrent", expected };
+  const requests = await Promise.all([first, second].map(values => request("/api/account", values)));
+  const gate = await pool.connect();
+  let work: Promise<Response>[] = [];
+  try {
+    await gate.query("BEGIN");
+    await gate.query("SELECT id FROM gallery_users WHERE id=$1 FOR UPDATE", [owner]);
+    work = requests.map(request => harness.profile.PATCH(request));
+    const results = Promise.all(work);
+    const deadline = Date.now() + 8000;
+    let waiters = 0;
+    while (Date.now() < deadline) {
+      waiters = (await pool.query("SELECT count(*)::int AS n FROM pg_stat_activity WHERE application_name='toti-gallery' AND cardinality(pg_blocking_pids(pid))>0 AND datname=current_database()")).rows[0].n;
+      if (waiters === 2) break;
+      await new Promise(resolve => setTimeout(resolve, 30));
+    }
+    assert.equal(waiters, 2, "Both profile transactions must reach the held row lock");
+    await gate.query("COMMIT");
+    const responses = await results;
+    assert.deepEqual(responses.map(response => response.status).sort(), [200, 409]);
+    const winner = responses.findIndex(response => response.status === 200), saved = await row();
+    const values = [first, second][winner];
+    assert.equal(saved.bio, values.bio); assert.equal(saved.github, values.github);
+  } finally { await gate.query("ROLLBACK"); gate.release(); await Promise.allSettled(work); }
+});
+
+test("stale avatar removal and upload preserve the saved photo and compensate only the rejected upload", async () => {
+  const old = await attachImage(), expected = profileSnapshot(await row());
+  const replacement = { ...old, key: `avatars/${randomUUID()}.webp` };
+  await pool.query("UPDATE gallery_users SET avatar=$1,avatar_metadata=$2 WHERE id=$3", [`/media/${replacement.key}`, replacement, owner]);
+  const current = await row();
+  assert.equal((await harness.profile.PATCH(await request("/api/account", input({ expected })))).status, 409);
+  assert.equal((await harness.profile.PATCH(await request("/api/account", input({ expected }), { file: true }))).status, 409);
+  assert.deepEqual(await row(), current);
+  assert.equal(harness.state.uploaded.length, 1);
+  assert.deepEqual(harness.state.deleted, harness.state.uploaded);
+  assert.deepEqual(harness.state.retired, []); assert.deepEqual(harness.state.deferred, []);
+});
+
+test("profile snapshots ignore unrelated account and membership timestamps", async () => {
+  const previous = await row(), expected = profileSnapshot(previous);
+  await pool.query("UPDATE gallery_users SET updated_at=now(),primary_turma_id=$1,role='admin' WHERE id=$2", [group, owner]);
+  try {
+    const response = await harness.profile.PATCH(await request("/api/account", { ...expected, bio: "Still editable", expected }));
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).user.role, "admin");
+    assert.equal((await row()).primary_turma_id, group);
+  } finally { await pool.query("UPDATE gallery_users SET role=$1 WHERE id=$2", [previous.role, owner]); }
+});
+
+test("self-service and administrative name edits reject each other's stale forms", async () => {
+  const { updateStudentProfile } = await import("../src/lib/admin-students");
+  const adminBefore = await row(other);
+  await pool.query("UPDATE gallery_users SET role='admin' WHERE id=$1", [other]);
+  try {
+    const previous = await row(), expected = profileSnapshot(previous);
+    await updateStudentProfile(other, owner, "Administratively renamed", previous.email, { name: previous.name, email: previous.email });
+    const stale = await harness.profile.PATCH(await request("/api/account", { ...expected, bio: "Unsaved biography", expected }));
+    assert.equal(stale.status, 409); assert.equal((await row()).name, "Administratively renamed");
+    const current = await row();
+    assert.equal((await harness.profile.PATCH(await request("/api/account", { ...profileSnapshot(current), name: "Self-service rename", expected: profileSnapshot(current) }))).status, 200);
+    await assert.rejects(() => updateStudentProfile(other, owner, "Stale admin rename", current.email, { name: current.name, email: current.email }), error => (error as { status?: number }).status === 409);
+    assert.equal((await row()).name, "Self-service rename");
+    // An administrator replaces name/email only, so a biography edit is independent.
+    const beforeBio = await row();
+    assert.equal((await harness.profile.PATCH(await request("/api/account", { ...profileSnapshot(beforeBio), bio: "New independent biography", expected: profileSnapshot(beforeBio) }))).status, 200);
+    await updateStudentProfile(other, owner, "Current admin rename", beforeBio.email, { name: beforeBio.name, email: beforeBio.email });
+    assert.equal((await row()).bio, "New independent biography");
+  } finally { await pool.query("UPDATE gallery_users SET role=$1 WHERE id=$2", [adminBefore.role, other]); }
 });

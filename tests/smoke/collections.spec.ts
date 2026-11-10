@@ -273,7 +273,10 @@ test('administrative lists append bounded private batches, recover errors and ke
   let fail = true;
   const batches: number[] = [], navigations: string[] = [];
   page.on('request', req => {
-    if (req.headers().rsc === '1' && new URL(req.url()).pathname === '/admin/projetos') navigations.push(req.url());
+    // Normal Link prefetch is independent of pagination; only track navigations.
+    const headers = req.headers();
+    if (headers.rsc === '1' && headers['next-router-prefetch'] !== '1'
+      && new URL(req.url()).pathname === '/admin/projetos') navigations.push(req.url());
   });
   await page.route('**/api/admin/projetos?**', route => {
     const params = new URL(route.request().url()).searchParams;

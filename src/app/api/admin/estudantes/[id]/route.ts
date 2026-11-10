@@ -5,7 +5,7 @@ import { deletePendingStudent, revokeStudentLink, setStudentSuspended, studentAc
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   return adminMutation(request, async (actorId, body) => {
-    if (body.action === "profile") return updateStudentProfile(actorId, id, body.name, body.email);
+    if (body.action === "profile") return updateStudentProfile(actorId, id, body.name, body.email, body.expected);
     if (body.action === "delete") return deletePendingStudent(actorId, id);
     if (body.action === "turmas") {
       if (body.expected === undefined) throw new AdminError("Informe o estado inicial das turmas. Atualize a página e tente novamente.");

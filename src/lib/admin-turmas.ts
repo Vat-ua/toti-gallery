@@ -9,13 +9,14 @@ export { AdminError } from "./admin-server";
 import { parseStudents } from "./student-import";
 import { provisionIdentity } from "./admin-provision";
 import { studentSearch } from "./student-search";
-import type { StudentAdded, StudentLookup, AdminStudent, AdminTurma, AdminTurmaChoice, ImportPreview } from "./admin-types";
+import type { StudentAdded, StudentLookup, AdminStudent, AdminTurma, AdminTurmaChoice, ImportPreview, TurmaSnapshot } from "./admin-types";
 import { allocateProfileSlug, allocateProfileSlugs } from "./profile-slug-server";
 import { issueGrant } from "./access-links";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
-async function group(tx: Transaction, id: string) {
-  const [turma] = await tx.select().from(turmas).where(eq(turmas.id, id)).limit(1);
+async function group(tx: Transaction, id: string, lock = false) {
+  const query = tx.select().from(turmas).where(eq(turmas.id, id)).limit(1);
+  const [turma] = await (lock ? query.for("update") : query);
   if (!turma) throw new AdminError("Turma não encontrada.", 404);
   return turma;
 }
@@ -59,12 +60,26 @@ export async function listTurmaChoices(actorId: string): Promise<AdminTurmaChoic
   });
 }
 
-export async function saveTurma(actorId: string, value: unknown, id?: string) {
+export async function saveTurma(actorId: string, value: unknown, id?: string, expected?: unknown) {
   const data = validateTurma(value);
+  let previous: TurmaSnapshot | undefined;
+  if (id) {
+    if (!expected || typeof expected !== "object" || Array.isArray(expected)) throw new AdminError("Informe os dados iniciais da turma. Atualize a página e tente novamente.");
+    const original = expected as Record<string, unknown>;
+    if (Object.keys(original).some(key => !["number", "courseName", "startYear"].includes(key))
+      || typeof original.number !== "number" || !Number.isSafeInteger(original.number)
+      || (original.courseName !== null && typeof original.courseName !== "string")
+      || (original.startYear !== null && (typeof original.startYear !== "number" || !Number.isSafeInteger(original.startYear)))) throw new AdminError("Confira os dados iniciais da turma.");
+    previous = original as TurmaSnapshot;
+  }
   return db.transaction(async tx => {
     await staff(tx, actorId);
-    // The normalized unique index is the final concurrency guard.
-    if (id) { await group(tx, id); await tx.update(turmas).set(data).where(eq(turmas.id, id)); return { id }; }
+    if (id && previous) {
+      const current = await group(tx, id, true);
+      if (current.number !== previous.number || current.courseName !== previous.courseName || current.startYear !== previous.startYear) throw new AdminError("Os dados da turma mudaram. Copie suas alterações e atualize a página antes de salvar novamente.", 409);
+      await tx.update(turmas).set(data).where(eq(turmas.id, id)); return { id };
+    }
+    // The normalized unique index guards concurrent creation/number changes.
     const newId = randomUUID();
     await tx.insert(turmas).values({ id: newId, ...data });
     return { id: newId };

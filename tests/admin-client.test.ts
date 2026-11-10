@@ -7,12 +7,14 @@ const originalFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = originalFetch; });
 const person = { id: "fixture-user", name: "Pessoa", email: "pessoa@example.invalid", status: "pending", isDemo: false };
 const grant = { url: "https://example.invalid/acesso#token=fixture", expiresAt: "2030-01-01T12:00:00.000Z" };
+const identity = { name: person.name, email: person.email };
+const turma = { number: 58, courseName: "Full Stack", startYear: 2026 };
 const snapshot = { turmaIds: ["group"], primaryTurmaId: null };
 const imported = { preview: [{ line: 1, name: person.name, email: person.email, kind: "new" }], created: 0, linked: 0, unchanged: 0 };
 test("typed operations preserve endpoint, method and request fields for every admin scenario", async () => {
   const cases: { run: () => Promise<unknown>; path: string; method?: string; body?: unknown; response: unknown }[] = [
     { run: () => turmasApi.save(undefined, { number: 58, courseName: "Full Stack", startYear: 2026 }), path: "/api/admin/turmas", body: { number: 58, courseName: "Full Stack", startYear: 2026 }, response: { id: "group" } },
-    { run: () => turmasApi.save("group", { number: 58, courseName: "Full Stack", startYear: 2026 }), path: "/api/admin/turmas/group", method: "PATCH", body: { action: "save", number: 58, courseName: "Full Stack", startYear: 2026 }, response: { id: "group" } },
+    { run: () => turmasApi.save("group", turma, turma), path: "/api/admin/turmas/group", method: "PATCH", body: { action: "save", ...turma, expected: turma }, response: { id: "group" } },
     { run: () => turmasApi.archive("group", true), path: "/api/admin/turmas/group", method: "PATCH", body: { action: "archive", archived: true }, response: { ok: true } },
     { run: () => turmasApi.lookup("group", person.email), path: "/api/admin/turmas/group/members", body: { action: "lookup", email: person.email }, response: { student: { ...person, member: false, blocked: false, reason: null } } },
     { run: () => turmasApi.candidates("group", "Pessoa"), path: "/api/admin/turmas/group/members", body: { action: "candidates", query: "Pessoa" }, response: { candidates: [person] } },
@@ -20,7 +22,7 @@ test("typed operations preserve endpoint, method and request fields for every ad
     { run: () => turmasApi.membership("group", person.id, false), path: "/api/admin/turmas/group/members", method: "DELETE", body: { userId: person.id }, response: { ok: true } },
     { run: () => turmasApi.access("group", person.id, "activation"), path: "/api/admin/turmas/group/access", body: { userId: person.id, purpose: "activation" }, response: grant },
     { run: () => turmasApi.import("group", "CSV", "confirm", [2]), path: "/api/admin/turmas/group/import", body: { action: "confirm", text: "CSV", excluded: [2] }, response: imported },
-    { run: () => studentsApi.profile(person.id, person.name, person.email), path: `/api/admin/estudantes/${person.id}`, body: { action: "profile", name: person.name, email: person.email }, response: { name: person.name, email: person.email, emailChanged: false } },
+    { run: () => studentsApi.profile(person.id, person.name, person.email, identity), path: `/api/admin/estudantes/${person.id}`, body: { action: "profile", name: person.name, email: person.email, expected: identity }, response: { name: person.name, email: person.email, emailChanged: false } },
     { run: () => studentsApi.memberships(person.id, snapshot, snapshot), path: `/api/admin/estudantes/${person.id}`, body: { action: "turmas", ...snapshot, expected: snapshot }, response: snapshot },
     { run: () => studentsApi.suspend(person.id, true), path: `/api/admin/estudantes/${person.id}`, body: { action: "suspend", suspended: true }, response: { status: "suspended" } },
     { run: () => studentsApi.access(person.id, "password_reset"), path: `/api/admin/estudantes/${person.id}`, body: { action: "access", purpose: "password_reset" }, response: grant },
@@ -61,7 +63,7 @@ test("lookup null is valid; malformed success shapes are rejected before reachin
 });
 test("HTTP statuses, field errors, network failures and non-JSON errors remain usable", async () => {
   globalThis.fetch = async () => Response.json({ fieldErrors: { email: "Confira o email" } }, { status: 400 });
-  await assert.rejects(() => studentsApi.profile(person.id, person.name, person.email), error => error instanceof FormValidationError && error.fieldErrors.email === "Confira o email");
+  await assert.rejects(() => studentsApi.profile(person.id, person.name, person.email, identity), error => error instanceof FormValidationError && error.fieldErrors.email === "Confira o email");
   for (const status of [401, 403, 409]) {
     globalThis.fetch = async () => Response.json({ error: "Atualize a página." }, { status });
     await assert.rejects(() => studentsApi.memberships(person.id, snapshot, snapshot), error => error instanceof HttpError && error.status === status);
