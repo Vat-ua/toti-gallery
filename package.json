@@ -12,6 +12,7 @@
     "start:auth-test": "node scripts/run-auth-test.cjs start",
     "account:admin": "tsx scripts/account-admin.ts",
     "test:auth": "node --import tsx --test tests/auth.test.ts",
+    "test:auth:migration": "node --import tsx --test tests/auth-migration.test.ts",
     "test:database-target": "node --import tsx --test tests/database-target.test.ts",
     "test:images": "node --import tsx --test tests/images.test.ts",
     "test:projects": "node --import tsx --test --test-concurrency=1 tests/projects-client.test.ts tests/project-save-input.test.ts tests/project-mutations.test.ts",

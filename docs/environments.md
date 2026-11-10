@@ -151,8 +151,8 @@ CI uses a disposable PostgreSQL service on loopback, with an explicit local-test
 guard and an empty `gallery_test_*` database. It has no Neon/Vercel credentials.
 See [Regression checks](testing.md). The Neon workflows below remain separate.
 
-Never point `.env.auth-test` at production or the development database. The auth
-suite creates fixtures and cleans its test data, including rate-limit records.
+Never point `.env.auth-test` at production or the development database. This is
+the historical migration fixture, not the current auth workflow environment.
 
 1. Explicitly create a temporary `test/auth-*` Neon branch from development.
    Assign an expiration when creating the branch. It contains a separate copy
@@ -164,7 +164,7 @@ suite creates fixtures and cleans its test data, including rate-limit records.
    the historical demo rows into a fresh `gallery_auth_test_*` PostgreSQL DB on
    the **test branch**, applies the reviewed auth, owner and turma-details migrations there, and writes
    `.env.auth-test`. It never replays the demo cutover on current real accounts.
-4. Run `npm run test:auth`. Optional `dev:auth-test`, `build:auth-test` and
+4. Run `npm run test:auth:migration`. Optional `dev:auth-test`, `build:auth-test` and
    `start:auth-test` serve only that explicitly prepared test target on port 3101;
    normal development uses `npm run dev` on port 3000.
 

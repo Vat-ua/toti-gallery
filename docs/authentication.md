@@ -32,10 +32,12 @@ development. Production maintenance uses `.env.operations` with `--production`.
 See [Environments](environments.md) for exact resource guards and configuration.
 
 For suite selection and coverage, see [Testing](testing.md#database-integration-suites).
-`test:auth` has a historical fixture-preparation workflow on a temporary Neon
-branch. Follow [Temporary tests](environments.md#temporary-tests); never point
-it at development, production or real staff accounts. The optional isolated
-auth-test server uses port 3101; normal development uses port 3000.
+`test:integration` includes current auth workflows on disposable local PostgreSQL,
+with mocked Google responses; `test:auth` selects those workflows directly.
+Historical cutover verification is separate as `test:auth:migration`; follow
+[Temporary tests](environments.md#temporary-tests) for its prepared Neon fixture.
+Never point tests at development, production or real staff accounts. The optional
+historical auth-test server uses port 3101; normal development uses port 3000.
 
 ## First administrator
 

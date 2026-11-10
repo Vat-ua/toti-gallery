@@ -45,7 +45,8 @@ development server or running a full build. Generated files remain ignored.
 
 `test:unit` explicitly selects the existing non-cloud tests. `test:integration`
 runs the database suites listed below without repeating their unit companions.
-The historical `test:auth` fixture workflow remains separate. `test:sitemap` and
+Current authentication workflows run in the integration job; historical cutover
+checks remain separate as `test:auth:migration`. `test:sitemap` and
 `test:reads` run after smoke setup creates the schema in its disposable database;
 their fixtures are rolled back. Add new non-cloud tests to the explicit unit list
 rather than globbing every test into CI.
@@ -60,11 +61,11 @@ drawer retaining its original snapshot across a server refresh.
 
 ### Disposable local/CI runner
 
-`npm run test:integration` runs the existing project/account mutations, SQL likes,
+`npm run test:integration` runs current authentication workflows, project/account mutations, SQL likes,
 admin concurrency, turma/student/moderation/staff operations and public-profile
 suites, serially against one fresh database. Transactions, constraints and locks
 are real; object storage and selected HTTP/request-context boundaries are controlled.
-It does not invoke the legacy OAuth fixture suite or real Google/Neon services.
+It does not invoke historical migration checks or real Google/Neon services.
 
 CI creates `gallery_test_ci_integration` in the existing PostgreSQL service,
 separate from the browser smoke database. Local runs require an explicitly
@@ -79,11 +80,23 @@ DATABASE_URL=postgresql://gallery_test:local-fixture-only@127.0.0.1:5432/gallery
 ```
 
 The runner verifies the connected target, refuses populated databases, creates
-the current schema and a synthetic owner, and passes a private temporary env file
-to the suites. It generates an auth secret, strips cloud credentials,
+the current schema, and passes a private temporary env file to the suites.
+Authentication runs first, with no pre-existing accounts, so first-owner bootstrap
+and closed registration exercise their real preconditions. It verifies one-time
+activation, concurrent redemption, password recovery/session revocation, Google
+activation/linking to the imported ID, identity restrictions, origin/state checks
+and durable throttling. Better Auth and PostgreSQL are real; only Google's external
+responses are mocked. These checks do not establish real Google OAuth acceptance.
+After auth fixtures are removed, the runner inserts a synthetic owner and runs
+the other suites. It generates an auth secret, strips cloud credentials,
 and overrides suite env selectors so `.env.local`/`.env.admin-test` cannot supply
 their targets. Each suite retains its original-data preservation checks. The
 temporary env file is removed after the child exits, including failure.
+
+Turma and like cases own their mutable fixtures per test, so filtered runs do not
+depend on earlier cases. The reconciliation concurrency check waits until
+PostgreSQL reports an actual lock wait, rather than assuming a fixed delay proves
+that the read reached the lock.
 
 The database is not reset or dropped by the runner. CI discards its service;
 locally discard only the disposable target you created, with explicit approval.
@@ -104,13 +117,24 @@ Do not substitute development, production or a real-user database.
 | `test:likes` | Current-schema isolated test DB; `GALLERY_LIKES_TEST_ENV_FILE`, default `.env.admin-test`. |
 | `test:reads` | Current-schema isolated DB; `GALLERY_IDENTITY_TEST_ENV_FILE` and `GALLERY_READ_TEST_ENV_FILE`, default `.env.admin-test`. CI uses its loopback service. |
 | `test:sitemap` | Current-schema isolated DB; `GALLERY_SITEMAP_TEST_ENV_FILE`, default `.env.admin-test`. CI uses its loopback service. |
-| `test:auth` | Separately prepared historical demo fixture; `AUTH_TEST_ENV_FILE`, default `.env.auth-test`. Follow [Temporary tests](environments.md#temporary-tests) before preparation. |
+| `test:auth` | Empty current-schema disposable loopback DB; `GALLERY_AUTH_TEST_ENV_FILE`, default `.env.auth-workflows`. Use the integration runner for automatic schema setup. Direct runs require the same target guards, auth origin `http://localhost:3101` and a synthetic `BETTER_AUTH_SECRET`. |
+| `test:auth:migration` | Separately prepared historical demo fixture and source snapshot; `AUTH_TEST_ENV_FILE`, default `.env.auth-test`. Follow [Temporary tests](environments.md#temporary-tests) before preparation. Not a current-auth or routine CI command. |
 
 These suites have different fixture assumptions; a generic empty DB is not enough
 for all of them. Do not glob them together or assume passing browser smoke means
 every concurrent transaction test ran. `test:resilience`, `test:images` and
 `test:forms` are focused non-cloud checks already included in the unit suite.
 Actual provider acceptance and image restore remain separate checks.
+
+The auth workflow suite requires every application table to be empty before it
+starts and after each case; it refuses populated targets. Each case creates its
+own owner/students/turma and removes its fixtures, including ephemeral OAuth state
+and rate-limit rows owned by this exclusive run. Individual auth cases can also
+run with Node's `--test-name-pattern` against that empty current-schema target.
+The historical command checks schema/demo preservation and the read-only source
+fingerprints; it requires the original preparation artifacts. It neither prepares
+that fixture nor replays migrations, and is not evidence that pending production
+migrations have been verified.
 
 ## Browser smoke tests
 
