@@ -1,4 +1,4 @@
-import { before, after, test } from "node:test";
+import { before, beforeEach, after, afterEach, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomInt, createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -32,22 +32,35 @@ before(async () => {
   baseline = await snapshot();
   service = await import("../src/lib/admin-turmas");
   ownerId = (await pool.query("SELECT id FROM gallery_users WHERE role='owner'")).rows[0].id;
+});
+beforeEach(async () => {
   adminId = await fixture("admin"); studentId = await fixture(); suspendedId = await fixture("admin", "suspended");
   groupId = (await service.saveTurma(ownerId, { number: turmaNumber, courseName: "Fixture Course", startYear: 2026 })).id; groupIds.add(groupId);
   secondId = (await service.saveTurma(adminId, { number: turmaNumber + 1, courseName: "Fixture Course", startYear: 2026 })).id; groupIds.add(secondId);
 });
+afterEach(async () => {
+  if (!baseline) return;
+  const ids = [...userIds];
+  await pool.query("DELETE FROM gallery_invitations WHERE user_id=ANY($1::text[]) OR created_by=ANY($1::text[])", [ids]);
+  await pool.query("DELETE FROM gallery_projects WHERE slug LIKE $1", [prefix + "%"]);
+  await pool.query("DELETE FROM gallery_turma_members WHERE user_id=ANY($1::text[]) OR turma_id=ANY($2::text[])", [ids, [...groupIds]]);
+  await pool.query("DELETE FROM gallery_users WHERE id=ANY($1::text[])", [ids]);
+  await pool.query("DELETE FROM gallery_turmas WHERE id=ANY($1::text[])", [[...groupIds]]);
+  userIds.clear(); groupIds.clear();
+});
 after(async () => {
   if (!pool) return;
-  try {
-    const ids = [...userIds];
-    await pool.query("DELETE FROM gallery_invitations WHERE user_id=ANY($1::text[]) OR created_by=ANY($1::text[])", [ids]);
-    await pool.query("DELETE FROM gallery_projects WHERE slug LIKE $1", [prefix + "%"]);
-    await pool.query("DELETE FROM gallery_turma_members WHERE user_id=ANY($1::text[]) OR turma_id=ANY($2::text[])", [ids, [...groupIds]]);
-    await pool.query("DELETE FROM gallery_users WHERE id=ANY($1::text[])", [ids]);
-    await pool.query("DELETE FROM gallery_turmas WHERE id=ANY($1::text[])", [[...groupIds]]);
-    if (baseline) assert.deepEqual(await snapshot(), baseline, "Original test-clone rows changed");
-  } finally { await pool.end(); }
+  try { if (baseline) assert.deepEqual(await snapshot(), baseline, "Original test-clone rows changed"); }
+  finally { await pool.end(); }
 });
+
+async function publication() {
+  const id = randomUUID();
+  await pool.query("INSERT INTO gallery_projects(id,slug,title,description,technologies,github_url,author_id,turma_id,is_final) VALUES($1,$2,'Fixture','Fixture description','[]','https://github.com',$3,$4,true)",
+    [id, `${prefix}-${id}`, studentId, groupId]);
+  await pool.query("INSERT INTO gallery_project_authors(project_id,user_id) VALUES($1,$2)", [id, studentId]);
+  return id;
+}
 
 test("staff checks apply to every operation, including suspended administrators", async () => {
   for (const id of [studentId, suspendedId, randomUUID()]) {
@@ -61,9 +74,7 @@ test("staff checks apply to every operation, including suspended administrators"
 });
 test("turma editing and archive preserve membership, publications, credits and likes", async () => {
   await service.setMembership(adminId, groupId, studentId, true);
-  const projectId = randomUUID();
-  await pool.query("INSERT INTO gallery_projects(id,slug,title,description,technologies,github_url,author_id,turma_id,is_final) VALUES ($1,$2,'Fixture','Fixture description','[]','https://github.com',$3,$4,true)", [projectId, prefix, studentId, groupId]);
-  await pool.query("INSERT INTO gallery_project_authors(project_id,user_id) VALUES ($1,$2)", [projectId, studentId]);
+  const projectId = await publication();
   await pool.query("INSERT INTO gallery_likes(project_id,visitor_key) VALUES ($1,'fixture-like')", [projectId]);
   await service.saveTurma(adminId, { number: turmaNumber, courseName: "Updated Course", startYear: 2027 }, groupId, { number: turmaNumber, courseName: "Fixture Course", startYear: 2026 });
   await service.archiveTurma(adminId, groupId, true);
@@ -80,6 +91,7 @@ test("turma editing and archive preserve membership, publications, credits and l
   await assert.rejects(() => service.saveTurma(adminId, { number: -1, courseName: "a", startYear: 1900 }));
 });
 test("import preview is read-only; confirmation is atomic and preserves existing identities", async () => {
+  await service.setMembership(adminId, groupId, studentId, true);
   const existing = (await pool.query("SELECT * FROM gallery_users WHERE id=$1", [studentId])).rows[0];
   const newEmail = `${prefix}-new@example.invalid`;
   const csv = `Nome,Email\nChanged name,${existing.email}\nNew Student,${newEmail}\nBad,bad`;
@@ -101,7 +113,8 @@ test("import preview is read-only; confirmation is atomic and preserves existing
 });
 test("owner can issue student links; admin cannot reset owner or another administrator", async () => {
   const { createAccessLink } = await import("../src/lib/access-links");
-  const id = (await pool.query("SELECT id FROM gallery_users WHERE email=$1", [`${prefix}-new@example.invalid`])).rows[0].id;
+  const { id } = await service.addStudent(adminId, secondId, "Invitation fixture", `${prefix}-invited@example.invalid`);
+  userIds.add(id);
   const grant = await createAccessLink(ownerId, id, "activation");
   const url = new URL(grant.url);
   assert.equal(url.origin, new URL(process.env.BETTER_AUTH_URL!).origin);
@@ -163,6 +176,7 @@ test("an invalid selected owner rolls back the complete schema migration", async
 
 
 test("email lookup detects existing membership and manual addition preserves identity", async () => {
+  await service.setMembership(adminId, groupId, studentId, true);
   const existing = (await pool.query("SELECT * FROM gallery_users WHERE id=$1", [studentId])).rows[0];
   const found = await service.lookupStudent(adminId, groupId, ` ${existing.email.toUpperCase()} `);
   assert.equal(found?.id, studentId); assert.equal(found?.member, true);
@@ -176,6 +190,8 @@ test("email lookup detects existing membership and manual addition preserves ide
 });
 
 test("filter choices omit counters; project-tab summaries preserve counts without member profiles", async () => {
+  await service.setMembership(adminId, groupId, studentId, true);
+  await publication();
   const choices = await service.listTurmaChoices(adminId);
   const choice = choices.find(turma => turma.id === groupId)!;
   assert(choice); assert(!("students" in choice)); assert(!("projects" in choice));
