@@ -1,5 +1,9 @@
 # User stories
 
+> Archived on 2026-11-14 as a historical feature overview, not a maintained
+> specification or roadmap. Use the [README](../../README.md) and
+> [current documentation](../README.md) for current capabilities and rules.
+
 A user story explains **who wants to do something and why**. These tables are
 an overview of Toti Gallery's features, grouped by activity.
 
@@ -114,6 +118,6 @@ These are agreed directions, not a fixed implementation schedule.
 
 ## Where to find the details
 
-For permissions and administrative rules, see [Administration](administration.md).
-For sign-in, activation, and password recovery, see [Authentication](authentication.md).
-For tables, fields, and relationships, see [Database](database.md).
+For permissions and administrative rules, see [Administration](../administration.md).
+For sign-in, activation, and password recovery, see [Authentication](../authentication.md).
+For tables, fields, and relationships, see [Database](../database.md).

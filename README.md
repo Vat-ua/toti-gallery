@@ -1,14 +1,24 @@
 # Toti Gallery
 
-Website: [toti-gallery.vercel.app](https://toti-gallery.vercel.app/)
+A gallery for the Toti community to share learning projects, discover classmates'
+work, and credit everyone who contributed. An independent student initiative.
 
-An independent student initiative for sharing learning projects within the
-Toti community, discovering ideas, and learning from other people's work.
+[Explore the gallery](https://toti-gallery.vercel.app/) ·
+[Try the demo](https://toti-gallery.vercel.app/demo) ·
+[Project presentation](https://toti-gallery.vercel.app/apresentacao)
 
-Students can publish individual and group projects, credit coauthors, explore
-the gallery through search and filters, and discover community profiles.
-Administrators manage course groups, participants, access, and project moderation.
-Sign-in supports Google and email/password.
+- **Discover projects:** search and filter by course group, technology or final projects, and explore community profiles.
+- **Share work:** publish individual or group projects with descriptions, covers and coauthor credits.
+- **Manage the community:** organize course groups and students, import lists, manage access links and moderate projects.
+
+## Try the demo
+
+Create, edit and delete example projects without registering. The demo uses a
+fictional student profile; your changes and uploaded images stay only in your
+browser and do not appear in the public gallery.
+
+Publishing to the shared gallery requires an account provisioned by the
+administration. Google and email/password sign-in use the same profile.
 
 ## Stack
 
@@ -16,7 +26,7 @@ Next.js, React, TypeScript, Tailwind CSS, PostgreSQL, Drizzle ORM, and Better Au
 
 ## Local development
 
-Requires Node.js 20.9+ and npm.
+Use Node.js 22 and npm, matching CI.
 
 ```sh
 npm ci
@@ -28,8 +38,8 @@ secret, following the [environment setup](docs/environments.md#local-development
 Keep credentials out of Git. Then run `npm run dev` and open
 [localhost:3000](http://localhost:3000).
 
-Public sign-up is disabled. See [first administrator setup](docs/authentication.md#first-administrator)
-for initial access.
+For initial access in your own installation, see
+[first administrator setup](docs/authentication.md#first-administrator).
 
 ## Checks
 
@@ -39,14 +49,8 @@ npm run lint
 npm run test:unit
 ```
 
-These checks do not require a database connection. Authentication and admin
-tests write fixtures and require an isolated `test/*` database. Follow the
-[auth test setup](docs/authentication.md#development-and-isolated-tests) before
-`npm run test:auth`, and the [admin test setup](docs/administration.md#checks)
-before `npm run test:admin`.
+These checks do not require a database connection. GitHub Actions also runs
+database integration and browser smoke suites against disposable PostgreSQL.
+For individual suites and their isolated targets, see [Testing](docs/testing.md).
 
-See [regression checks and browser smoke tests](docs/testing.md) for CI and local
-smoke setup.
-
-See the [documentation index](docs/README.md) for architecture, feature contracts
-and operating guides.
+See the [documentation index](docs/README.md) for data contracts and operating guides.

@@ -52,9 +52,11 @@
 - When requested, evolve the design concept rather than limiting changes to
   cosmetic adjustments. Avoid generic templates and purposeless decoration.
 - Reuse existing shared variables and components.
-- Keep custom CSS in `src/app/globals.css`, grouped by component with responsive
-  rules nearby. Do not introduce CSS Modules. Preserve the existing Tailwind
-  usage without mixing styling approaches unnecessarily.
+- Keep shared custom CSS in `src/app/globals.css` and administration-specific CSS
+  in `src/app/admin/admin.css`, imported by the admin layout. Group component rules
+  with their responsive rules nearby. Keep shared title roles centralized and the
+  admin title scale scoped to its workspace. Do not introduce CSS Modules. Preserve
+  the existing Tailwind usage without mixing styling approaches unnecessarily.
 - Define font families and recurring typography and spacing values as shared
   CSS variables. Use rem for UI font sizes, unitless multipliers for line-height,
   and clamp() where fluid text sizes are useful.
@@ -76,7 +78,9 @@
 - Tests must own mutable fixtures and remain independent of execution order.
 - For small UI changes, inspect the page at one desktop and one mobile width,
   including affected interactions. Broaden coverage when the change warrants it.
-- Repeat only checks affected by subsequent edits, failures, or unresolved issues.
+- Repeat checks only for relevant code or environment changes, failures, or
+  unresolved issues. Committing, pushing, or deploying alone does not justify
+  repeating local checks. Let configured CI run normally.
 - A full build is not required for minor CSS-only changes.
   Run it when changes affect build behavior, routing, dependencies,
   configuration, or server/client boundaries.

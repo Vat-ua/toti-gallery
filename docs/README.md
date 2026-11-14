@@ -29,17 +29,22 @@ for development. The root [README](../README.md) covers getting started, and
 | Upload processing, storage configuration and file lifecycle | [Image storage](image-storage.md) |
 | Sharing metadata, canonical URLs, robots and sitemap | [SEO and sharing](seo.md) |
 
-## Product and presentation
+## Demonstration and presentation
 
-- [User stories](user-stories.md): implemented scenarios, local demonstration mode
-  and deferred email features.
+- [Try the demo](../README.md#try-the-demo): experience student workflows without an account.
+- [Demo isolation](authentication.md#browser-only-demonstration): guest eligibility,
+  browser storage and separation from real accounts.
 - [Presentation](presentation.md): presentation visibility and safe screenshot maintenance.
 
-## Dated assessments
+## Archive
 
-[Architecture audit — 2026-11-08](architecture-audit.md) evaluates a named commit.
-It is a review record, not a live specification or approval to implement its
-recommendations. Check current code before acting on a historical finding.
+Historical records are not current specifications, roadmaps or release approvals.
+Read them only when their historical context is relevant.
+
+- [Architecture audit — 2026-11-08](archive/architecture-audit-2026-11-08.md):
+  assessment of commit `b3a75f7`; code references point to that snapshot.
+- [User stories — archived 2026-11-14](archive/user-stories-2026-11-14.md):
+  an earlier feature overview, including implemented and deferred scenarios.
 
 ## Maintaining the guides
 
