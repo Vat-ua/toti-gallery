@@ -4,6 +4,8 @@ import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { isStaff } from "@/lib/permissions";
 import { AdminNav } from "@/components/admin-nav";
+import "./admin.css";
+
 export const metadata: Metadata = { title: "Administração", robots: { index: false, follow: false } };
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const actor = await getCurrentUser();
