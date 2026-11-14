@@ -20,10 +20,23 @@ coauthors; existing credits survive membership changes.
 
 Database profiles marked `is_demo` are display content, not sign-in identities.
 They cannot activate, link Google or receive password grants. They are distinct
-from the browser-only [demonstration workspace](user-stories.md#demonstration-mode).
+from the [browser-only demonstration workspace](#browser-only-demonstration).
 The application does not seed sample data during requests. The historical demo-only
 auth cutover must never be replayed on current accounts; see
 [Migrations](../migrations/README.md).
+
+## Browser-only demonstration
+
+The public `/demo` workspace lets confirmed guests try student workflows with a
+fictional profile and two initial projects. Signed-in users are directed to their
+real workspace instead. It does not create a Better Auth account or session and
+cannot authorize requests to real account APIs.
+
+Project changes and uploaded image Blobs stay in this browser's IndexedDB, separate
+from PostgreSQL and Object Storage. Leaving demo preserves that local work.
+`Restaurar dados` requires confirmation and replaces all demo changes, including
+new projects, with the initial examples. Clearing browser storage also removes
+local demo work. See [Try the demo](../README.md#try-the-demo) for the public entry.
 
 ## Development and isolated tests
 

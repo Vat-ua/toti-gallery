@@ -12,5 +12,5 @@ export default async function PrivateProjectPage({ params }: { params: Promise<{
   const project = await readProject({ id, participantId: user.id });
   if (!project) notFound();
   if (project.visibility === "published") redirect(`/projetos/${project.slug}`);
-  return <ProjectDetails project={project} canEdit={project.author.id === user.id} readOnly backHref="/meus-projetos" backLabel="Meus projetos" notice={<div className="admin-notice project-moderation-note"><strong>Oculto pela administração</strong><p>Este projeto está disponível apenas para seus autores e para a administração.</p>{project.moderationReason && <p><strong>Motivo: </strong>{project.moderationReason}</p>}</div>}/>;
+  return <ProjectDetails project={project} canEdit={project.author.id === user.id} readOnly backHref="/meus-projetos" backLabel="Meus projetos" notice={<div className="project-moderation-note project-moderation-notice"><strong>Oculto pela administração</strong><p>Este projeto está disponível apenas para seus autores e para a administração.</p>{project.moderationReason && <p><strong>Motivo: </strong>{project.moderationReason}</p>}</div>}/>;
 }

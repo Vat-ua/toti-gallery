@@ -18,16 +18,23 @@ The original empty `neondb` remains unused; the application connects to
 3. Run checks appropriate to the change and let the project maintainer review it in
    the browser. Commit and push the task branch only when explicitly requested;
    pushing it does not deploy Production while Preview is disabled.
-4. Before release, review all pending migrations against the actual Production
-   columns, constraints and indexes. Test required migrations on an isolated
-   Production copy, verify data preservation and prepare a recovery path. Apply
-   approved migrations before publishing code that depends on them.
+4. Check whether the release changes or depends on the database schema. If it
+   does, review the required migrations against actual Production columns,
+   constraints and indexes; test them on an isolated Production copy, verify data
+   preservation and prepare a recovery path. Apply approved migrations before
+   publishing code that depends on them. A visual-only release does not require
+   database operations merely to publish styles.
 5. After explicit publication approval, merge the reviewed branch into `main`
    and push it to GitHub. Vercel then builds and deploys that commit automatically.
-6. Verify the deployed behavior, including affected authenticated pages with the
-   appropriate role. A successful build, public-page checks or anonymous redirects
-   alone do not verify the administration area. Report any checks that still need
-   manual login and review.
+6. Confirm the deployed commit and deployment status, then inspect the affected
+   behavior. Include authenticated pages with the appropriate role when affected;
+   public-page checks or anonymous redirects do not verify changed administrative
+   behavior. Report any checks that still need manual login and review.
+
+Reuse relevant successful local checks unless subsequent changes, environment
+differences or failures warrant repeating them. Let configured GitHub Actions run
+normally; committing, pushing or releasing is not itself a reason to repeat all
+local suites.
 
 Git branches version code; Neon branches isolate database state. Merging code
 does not synchronize users, roles or other records between databases. Keep normal

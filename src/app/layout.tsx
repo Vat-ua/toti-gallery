@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   title: { default: siteTitle, template: "%s · Toti Gallery" },
   icons: { icon: "/favicon.svg" },
 };
-export const viewport: Viewport = { themeColor: [{ media: "(prefers-color-scheme: light)", color: "#f4f0e6" }, { media: "(prefers-color-scheme: dark)", color: "#12110f" }] };
+export const viewport: Viewport = { themeColor: [{ media: "(prefers-color-scheme: light)", color: "#f3efeb" }, { media: "(prefers-color-scheme: dark)", color: "#12110f" }] };
 
 const themeScript = `(function(){try{var d=document.documentElement;var stored=null;try{stored=localStorage.getItem('toti-theme');}catch(e){}var prefers=window.matchMedia('(prefers-color-scheme: dark)').matches;var theme=(stored==='light'||stored==='dark')?stored:(prefers?'dark':'light');d.dataset.theme=theme;d.style.colorScheme=theme;}catch(e){}})();`;
 

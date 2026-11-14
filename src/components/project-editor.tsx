@@ -123,7 +123,7 @@ export function ProjectEditor({ user, project, people, turmas = [], actions = ap
   return <main id="conteudo" className="container inner-page">
     <Link href={links.list} className="back-link"><Icon name="arrow-left" size={16}/>Meus projetos</Link>
     <div className="editor-heading"><h1>{project ? "Editar projeto" : "Publicar projeto"}</h1></div>
-    {project?.visibility === "hidden" && <div className="admin-notice project-moderation-note"><strong>Oculto pela administração</strong><p>{project.moderationReason}</p><p>Você pode editar o projeto. A publicação só poderá ser restaurada pela administração.</p></div>}
+    {project?.visibility === "hidden" && <div className="project-moderation-note project-moderation-notice"><strong>Oculto pela administração</strong><p>{project.moderationReason}</p><p>Você pode editar o projeto. A publicação só poderá ser restaurada pela administração.</p></div>}
     <div className="editor-layout">
       <form className="editor-form" onSubmit={submit} noValidate aria-busy={pending}>
         <fieldset disabled={pending} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
