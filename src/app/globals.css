@@ -4119,7 +4119,7 @@ html[data-theme="dark"] .theme-icon-moon {
 }
 
 .field-error {
-  color: var(--accent);
+  color: var(--accent-strong);
   font-size: var(--text-secondary);
   line-height: var(--leading-copy);
 }
