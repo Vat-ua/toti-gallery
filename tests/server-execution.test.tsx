@@ -24,6 +24,7 @@ replace("./src/components/header.tsx", { Header: ({ pending, unavailable, user }
 replace("./src/components/footer.tsx", { Footer: () => <footer>FOOTER_READY</footer> });
 replace("./src/components/ui.tsx", { ToastProvider: ({ children }: { children: ReactNode }) => children, useToast: () => () => {}, Avatar: () => <span>AVATAR</span>, LikeButton: () => <button>Curtir</button> });
 replace("./src/app/globals.css", {});
+replace("./src/app/admin/admin.css", {});
 const RootLayout = (require("./src/app/layout.tsx") as typeof import("../src/app/layout")).default;
 const { PublishProjectLink } = require("./src/components/publish-project-link.tsx") as typeof import("../src/components/publish-project-link");
 after(() => { console.error = originalConsole; for (const [id, value] of originals) { if (value) require.cache[id] = value; else delete require.cache[id]; } });
